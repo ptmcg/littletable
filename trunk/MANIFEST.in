@@ -1,0 +1,6 @@
+include littletable.py
+include littletable_demo.py
+include setup.py
+include CHANGES
+include LICENSE
+include htmldoc\*.*
