@@ -99,7 +99,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.3"
-__versionTime__ = "24 Oct 2010 10:49"
+__versionTime__ = "24 Oct 2010 17:08"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -858,6 +858,33 @@ class PivotTable(Table):
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
 
+    def summary_counts(self):
+        """Dump out the summary counts of this pivot table as a Table.
+        """
+        ret = Table()
+        topattr = self._pivot_attrs[0]
+        for attr in self._pivot_attrs:
+            ret.create_index(attr)
+        if len(self._pivot_attrs) == 1:
+            for sub in self.subtables:
+                subattr,subval = sub._attr_path[-1]
+                ret.insert(DataObject(**{subattr:subval, 'Count':len(sub)}))
+        elif len(self._pivot_attrs) == 2:
+            for sub in self.subtables:
+                for ssub in sub.subtables:
+                    attrdict = dict(ssub._attr_path)
+                    attrdict['Count'] = len(ssub)
+                    ret.insert(DataObject(**attrdict))
+        elif len(self._pivot_attrs) == 3:
+            for sub in self.subtables:
+                for ssub in sub.subtables:
+                    for sssub in ssub.subtables:
+                        attrdict = dict(sssub._attr_path)
+                        attrdict['Count'] = len(sssub)
+                        ret.insert(DataObject(**attrdict))
+        else:
+            raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
+        return ret
 
 class JoinTerm(object):
     """Temporary object created while composing a join across tables using 
