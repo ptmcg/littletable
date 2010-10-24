@@ -260,6 +260,8 @@ class Table(object):
         - accessed directly for keyed values, using C{table.indexattribute[key]} - see L{__getattr__}
         - joined, using L{join_on} to identify attribute to be used for joining with another table, and
           L{join} or operator '+' to perform the actual join
+        - pivoted, using L{pivot} to create a nested structure of sub-tables grouping objects
+          by attribute values
         - imported/exported to CSV-format files
        Queries and joins return their results as new Table objects, so that queries and joins can
        be easily performed as a succession of operations.

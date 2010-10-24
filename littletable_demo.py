@@ -60,3 +60,10 @@ print
 # list all wishlist items by customer, then in descending order by unit price
 for item in wishlists().query(_orderby="custid, unitprice desc"):
     print item
+print
+
+# create simple pivot table, grouping wishlist data by customer name
+wishlistsdata = wishlists()
+wishlistsdata.create_index("name")
+pivot = wishlistsdata.pivot("name")
+pivot.dump(row_fn=lambda o:"%s %s" % (o.sku,o.descr))
