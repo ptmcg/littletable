@@ -99,7 +99,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.3"
-__versionTime__ = "24 Oct 2010 04:28"
+__versionTime__ = "24 Oct 2010 10:49"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -748,12 +748,12 @@ class PivotTable(Table):
            L{Table.pivot}.
         """
         super(PivotTable,self).__init__()
-        for k,v in parent._indexes.items():
-            self._indexes[k] = v.copy_template()
         self._attr_path = attr_val_path[:]
         self._pivot_attrs = attrlist[:]
         self._subtable_dict = {}
         
+        for k,v in parent._indexes.items():
+            self._indexes[k] = v.copy_template()
         if not attr_val_path:
             self.insert_many(parent.obs)
         else:
@@ -802,11 +802,11 @@ class PivotTable(Table):
         """
         return bool(self.subtables)
     
-    def dump(self, out=sys.stdout, row_fn=repr, maxrecs=0, indent=0):
+    def dump(self, out=sys.stdout, row_fn=repr, maxrecs=-1, indent=0):
         """Dump out the contents of this table in a nested listing.
            @param out: output stream to write to
            @param row_fn: function to call to display individual rows
-           @param maxrecs: number of records to show at deepest level of pivot (0=show all)
+           @param maxrecs: number of records to show at deepest level of pivot (-1=show all)
            @param indent: current nesting level
         """
         NL = '\n'
@@ -820,13 +820,44 @@ class PivotTable(Table):
                 if sub:
                     sub.dump(out, row_fn, maxrecs, indent+1)
         else:
-            if maxrecs:
+            if maxrecs >= 0:
                 showslice = slice(0,maxrecs)
             else:
                 showslice = slice(None,None)
             for r in self.obs[showslice]:
                 out.write("  "*(indent+1) + row_fn(r) + NL)
         out.flush()
+        
+    def dump_counts(self, out=sys.stdout):
+        """Dump out the summary counts of entries in this pivot table as a tabular listing.
+           @param out: output stream to write to
+        """
+        if len(self._pivot_attrs) == 1:
+            out.write("Pivot Summary: %s\n" % ','.join(self._pivot_attrs))
+            maxkeylen = max(len(str(k)) for k in self.keys())
+            for sub in self.subtables:
+                out.write("%-*.*s " % (maxkeylen,maxkeylen,sub._attr_path[-1][1]))
+                out.write("%7d\n" % len(sub))
+        elif len(self._pivot_attrs) == 2:
+            out.write("Pivot Summary: %s\n" % ','.join(self._pivot_attrs))
+            maxkeylen = max(max(len(str(k)) for k in self.keys()),5)
+            maxvallen = max(max(len(str(k)) for k in self.subtables[0].keys()),7)
+            keytally = dict((k,0) for k in self.subtables[0].keys())
+            out.write("%*s " % (maxkeylen,''))
+            out.write(' '.join("%*.*s" % (maxvallen,maxvallen,k) for k in self.subtables[0].keys()))
+            out.write('   Total\n')
+            for sub in self.subtables:
+                out.write("%-*.*s " % (maxkeylen,maxkeylen,sub._attr_path[-1][1]))
+                for ssub in sub.subtables:
+                    out.write("%*d " % (maxvallen,len(ssub)))
+                    keytally[ssub._attr_path[-1][1]] += len(ssub)
+                out.write("%7d\n" % len(sub))
+            out.write('%-*.*s ' % (maxkeylen,maxkeylen,"Total"))
+            out.write(' '.join("%*d" % (maxvallen,tally) for k,tally in sorted(keytally.items())))
+            out.write(" %7d\n" % sum(tally for k,tally in keytally.items()))
+        else:
+            raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
+
 
 class JoinTerm(object):
     """Temporary object created while composing a join across tables using 
