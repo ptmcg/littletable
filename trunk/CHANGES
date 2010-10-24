@@ -9,7 +9,10 @@ Version 0.3 -
   
 - Support for namedtuples and __slots__-defining objects supplied
   by Colin McPhail, thanks!
-  
+
+- Added Table.pivot() method, to return a pivot table on two or
+  more attributes.
+
 - Added more details to the docstring for Table.join, to more
   completely describe the sequence of steps to join 2 or more
   Tables, using join(), or join_to and '+'. Also, removed table_name
