@@ -99,9 +99,10 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.3"
-__versionTime__ = "22 Oct 2010 05:04"
+__versionTime__ = "24 Oct 2010 04:28"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
+import sys
 from collections import defaultdict
 from itertools import groupby,ifilter,islice,starmap,repeat
 import csv
@@ -114,8 +115,12 @@ except ImportError:
             for b in bseq:
                 yield a,b
 
+try:
+    t = basestring
+except NameError:
+    basestring = str
 
-__all__ = ["DataObject", "Table", "JoinTerm"]
+__all__ = ["DataObject", "Table", "JoinTerm", "PivotTable"]
 
 def _object_attrnames(obj):
     if hasattr(obj, "__dict__"):
@@ -153,7 +158,7 @@ class _ObjIndex(object):
     def __init__(self, attr):
         self.attr = attr
         self.obs = defaultdict(list)
-        self.isUnique = False
+        self.is_unique = False
     def __setitem__(self, k, v):
         self.obs[k].append(v)
     def __getitem__(self, k):
@@ -181,7 +186,7 @@ class _UniqueObjIndex(_ObjIndex):
     def __init__(self, attr, accept_none=False):
         self.attr = attr
         self.obs = {}
-        self.isUnique = True
+        self.is_unique = True
         self.accept_none = accept_none
         self.none_values = set()
     def __setitem__(self, k, v):
@@ -307,6 +312,11 @@ class Table(object):
         raise AttributeError("Table '%s' has no index '%s'" % 
                                                 (self.table_name, attr))
 
+    def __bool__(self):
+        return bool(self.obs)
+    
+    __nonzero__ = __bool__
+    
     def __call__(self, table_name):
         """A simple way to assign a name to a table, such as those
            dynamically created by joins and queries.
@@ -399,7 +409,7 @@ class Table(object):
            """
            
         # verify new object doesn't duplicate any existing unique index values
-        uniqueIndexes = [ind for ind in self._indexes.values() if ind.isUnique]
+        uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
         if any((getattr(obj, ind.attr, None) is None and not ind.accept_none) 
                 or (
                 hasattr(obj, ind.attr) and getattr(obj, ind.attr) in ind
@@ -436,6 +446,17 @@ class Table(object):
         """Removes a collection of objects from the table."""
         for ob in it:
             self.remove(ob)
+
+    def _query_attr_sort_fn(self, attr_val):
+        attr,val = attr_val
+        if attr in self._indexes:
+            idx = self._indexes[attr]
+            if v in idx:
+                return len(idx[v])
+            else:
+                return 0
+        else:
+            return 1e9
         
     def query(self, **kwargs):
         """Retrieves matching objects from the table, based on given
@@ -459,7 +480,15 @@ class Table(object):
         if kwargs:
             ret = self.copy_template()
             first = True
-            for k,v in kwargs.items():
+            
+            # order query criteria in ascending order of number of matching items
+            # for each individual given attribute; this will minimize the number 
+            # of filtering records that each subsequent attribute will have to
+            # handle
+            kwargs = kwargs.items()
+            if len(kwargs) > 1 and len(self.obs) > 100:
+                kwargs = sorted(kwargs, key=self._query_attr_sort_fn)
+            for k,v in kwargs:
                 if k in flags:
                     continue
                 if first:
@@ -469,7 +498,7 @@ class Table(object):
                         ret.insert_many( r for r in self.obs 
                                         if hasattr(r,k) and getattr(r,k) == v )
                 else:
-                    if k in self._indexes:
+                    if k in ret._indexes:
                         newret = ret.copy_template()
                         newret.insert_many(ret._indexes[k][v])
                         ret = newret
@@ -645,6 +674,18 @@ class Table(object):
             raise ValueError("can only join on indexed attributes")
         return JoinTerm(self, attr)
         
+    def pivot(self, attrlist):
+        """Pivots the data using the given attributes, returning a L{PivotTable}.
+            @param attrlist: list of attributes to be used to construct the pivot table
+            @type attrlist: list of strings, or string of space-delimited attribute names
+        """
+        if isinstance(attrlist, basestring):
+            attrlist = attrlist.split()
+        if all(a in self._indexes for a in attrlist):
+            return PivotTable(self,[],attrlist)
+        else:
+            raise ValueError("pivot can only be called using indexed attributes")
+
     def csv_import(self, csv_source):
         """Imports the contents of a CSV-formatted file into this table.
            @param csv_source: CSV file - if a string is given, the file with that name will be 
@@ -653,7 +694,7 @@ class Table(object):
            @type csv_source: string or file
         """
         close_on_exit = False
-        if isinstance(csv_source, type('')):
+        if isinstance(csv_source, basestring):
             csv_source = open(csv_source)
             close_on_exit = True
         try:
@@ -673,13 +714,13 @@ class Table(object):
                string with space-delimited names, or as a list of attribute names
         """
         close_on_exit = False
-        if isinstance(csv_dest, type('')):
+        if isinstance(csv_dest, basestring):
             csv_dest = open(csv_dest,'wb')
             close_on_exit = True
         try:
             if fieldnames is None:
                 fieldnames = list(_object_attrnames(self.obs[0]))
-            if isinstance(fieldnames, type('')):
+            if isinstance(fieldnames, basestring):
                 fieldnames = fieldnames.split()
                 
             csv_dest.write(','.join(fieldnames) + '\n')
@@ -696,6 +737,94 @@ class Table(object):
             if close_on_exit:
                 csv_dest.close()
 
+
+class PivotTable(Table):
+    """Enhanced Table containing pivot results from calling table.pivot().
+    """
+    def __init__(self, parent, attr_val_path, attrlist):
+        """PivotTable initializer - do not create these directly, use
+           L{Table.pivot}.
+        """
+        super(PivotTable,self).__init__()
+        for k,v in parent._indexes.items():
+            self._indexes[k] = v.copy_template()
+        self._attr_path = attr_val_path[:]
+        self._pivot_attrs = attrlist[:]
+        self._subtable_dict = {}
+        
+        if not attr_val_path:
+            self.insert_many(parent.obs)
+        else:
+            attr,val = attr_val_path[-1]
+            self.insert_many(parent.query(**{attr:val}))
+            parent._subtable_dict[val] = self
+
+        if len(attrlist) > 0:
+            this_attr = attrlist[0]
+            sub_attrlist = attrlist[1:]
+            ind = parent._indexes[this_attr]
+            self.subtables =  [ PivotTable(self, 
+                                            attr_val_path + [(this_attr,k)], 
+                                            sub_attrlist) for k in sorted(ind.keys()) ]
+        else:
+            self.subtables = []
+
+    def __getitem__(self,val):
+        if self._subtable_dict:
+            return self._subtable_dict[val]
+        else:
+            return super(PivotTable,self).__getitem__(val)
+
+    def keys(self):
+        return sorted(self._subtable_dict.keys())
+
+    def items(self):
+        return sorted(self._subtable_dict.items())
+
+    def values(self):
+        return self._subtable_dict.values()
+
+    def pivot_key(self):
+        """Return the set of attribute-value pairs that define the contents of this 
+           table within the original source table.
+        """
+        return self._attr_path
+        
+    def pivot_key_str(self):
+        """Return the pivot_key as a displayable string.
+        """
+        return '/'.join("%s:%s" % (attr,key) for attr,key in self._attr_path)
+
+    def has_subtables(self):
+        """Return whether this table has further subtables.
+        """
+        return bool(self.subtables)
+    
+    def dump(self, out=sys.stdout, row_fn=repr, maxrecs=0, indent=0):
+        """Dump out the contents of this table in a nested listing.
+           @param out: output stream to write to
+           @param row_fn: function to call to display individual rows
+           @param maxrecs: number of records to show at deepest level of pivot (0=show all)
+           @param indent: current nesting level
+        """
+        NL = '\n'
+        if indent:
+            out.write("  "*indent + self.pivot_key_str())
+        else:
+            out.write("Pivot: %s" % ','.join(self._pivot_attrs))
+        out.write(NL)
+        if self.has_subtables():
+            for sub in self.subtables:
+                if sub:
+                    sub.dump(out, row_fn, maxrecs, indent+1)
+        else:
+            if maxrecs:
+                showslice = slice(0,maxrecs)
+            else:
+                showslice = slice(None,None)
+            for r in self.obs[showslice]:
+                out.write("  "*(indent+1) + row_fn(r) + NL)
+        out.flush()
 
 class JoinTerm(object):
     """Temporary object created while composing a join across tables using 
