@@ -99,7 +99,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.3"
-__versionTime__ = "24 Oct 2010 17:08"
+__versionTime__ = "24 Oct 2010 21:00"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -1011,6 +1011,7 @@ if __name__ == "__main__":
     amfm.insert(DataObject(stn="KPHY", band="AM"))
     amfm.insert(DataObject(stn="KPHX", band="FM"))
     amfm.insert(DataObject(stn="KPHA", band="FM"))
+    amfm.insert(DataObject(stn="KDFW", band="FM"))
     
     try:
         amfm.insert(DataObject(stn="KPHA", band="AM"))
@@ -1031,3 +1032,13 @@ if __name__ == "__main__":
     print
     for rec in (stations.join_on("stn") + amfm.join_on("stn"))():
         print json_dumps(rec.__dict__)
+
+    print
+    stations.create_index("state")
+    pivot = stations.pivot("state")
+    pivot.dump_counts()
+    
+    print
+    amfm.create_index("band")
+    pivot = (stations.join_on("stn") + amfm)().pivot("state band")
+    pivot.dump_counts()
