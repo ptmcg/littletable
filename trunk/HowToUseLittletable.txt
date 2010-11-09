@@ -1,0 +1,177 @@
+littletable - Usage Notes
+=========================
+
+littletable is a simple Python module to make it easy to work with collections of objects as if they were records in a database table.  littletable augments normal Python list access with:
+- indexing by key attributes
+- joining multiple tables by common attribute values
+- querying for matching objects by one or more attributes
+- data pivoting on 1 or more attributes
+
+It is not necessary to define a table schema  for tables in littletable; the schema of the data emerges from the attributes of the stored objects, and those used to define indexes and queries.
+
+Indexes can be created and dropped at any time. An index can be defined to have unique or non-unique key values, and whether or not to allow null values.
+
+Tables can be persisted to and from CSV files using csv_export() and csv_import().
+
+Instead of returning DataSets or rows of structured values, littletable queries return new tables. This makes it easy to arrive at a complex query by a sequence of smaller steps.  The resulting values are also easily saved to a CSV file, like any other littletable table.
+
+Creating a table
+----------------
+Creating a table is simple, just create an instance of Table:
+
+    t = Table()
+    
+If you want, you can name the table at creation time, or any time later. 
+
+    t = Table("customers")
+    
+    or
+    
+    t = Table()
+    t("customers")
+
+Table names are not necessary for queries or updates, as they would be in SQL.  Table names can be useful in diagnosing problems, as they will be included in exception messages. Table joins also use the names of the source tables to create a helpful name for the resulting data table.
+
+
+Inserting objects
+-----------------
+Any object can be inserted into a table, using:
+
+    t.insert(obj)
+
+    t.insert_many(objlist)
+
+
+DataObjects
+-----------
+
+    t.insert(DataObject(**kwargs))
+
+
+Removing objects
+----------------
+
+    t.remove(obj)
+
+    t.remove_many(objlist)
+    
+
+Indexing attributes
+-------------------
+
+    employees.create_index('ssn', unique=True)
+    employees.create_index('zipcode')
+
+    # unique indexes return a single object
+    print employees.ssn["001-02-0003"].name
+    
+    # non unique indexes return a list
+    for emp in employees.zipcode["12345"]:
+        print e.name
+
+
+Querying for exact matching attribute values
+--------------------------------------------
+
+    employees.query(zipcode="12345", title="Manager")
+    
+    student.query(**{"class":"Algebra"})
+        
+
+Querying with indexed attributes
+--------------------------------
+
+    employees.empid['00086']
+
+
+Querying for attribute value ranges
+-----------------------------------
+
+    employees.where(lambda emp : emp.salary > 50000)
+
+
+Joining tables
+--------------
+Joining tables is one of the basic functions of relational databases. To join two tables, you must specify:
+- the left source table and join attribute
+- the right source table and join attribute
+- optionally, a list of the attributes to include in the resulting join data (returned in littletable as a new table)
+
+littletable provides two different coding styles for joining tables.  The first uses conventional object notation, with the table.join() method:
+
+    customers.join(orders, custid="custid")
+
+creates an inner join between the table of customers and the table of their respective orders, joining on both tables' custid attributes.
+
+More than 2 tables can be joined in succession, since the result of a join is itself a table:
+
+    customers.join(orders, custid="custid").join(orderitems, orderid="orderid")
+    
+In this case a third table has been added, to include the actual items that comprise each customer's order. The orderitems are associated with each order by orderid, and so the additional join uses that field to associate the joined customer-orders table with the orderitems table.
+
+The second coding style takes advantage of Python's support for customizing the behavior of arithmetic operators. A natural operator for joining two tables would be the '+' operator.  To complete the join specification, we need not only the tables to be joined (the left and right terms of the '+' operation), but also the attributes to use to know which objects of each table to join together.  To support this, tables have the join_on() method, which return a JoinTerm object:
+
+    customers.join_on("custid") + orders.join_on("custid")
+
+This returns a join expression, which when called, performs the join and returns the data as a new Table:
+
+    customerorders = (customers.join_on("custid") + orders.join_on("custid"))()
+
+JoinTerms can be added to tables directly when the join table and the added table are to join using the same attribute name.  The 3-table join above can be written as:
+
+    customerorderitems = (customers.join_on("custid") + orders + orderitems.join_on("orderid"))()
+
+
+
+Pivoting a table
+----------------
+Pivoting is a useful function for extracting overall distributions of values within a table.  Tables can be pivoted on 1, 2, or 3 attributes. The pivot tallies up the number of objects in a given table with each of the different key values.  A single attribute pivot gives the same results as a histogram - each key for the attribute is given, along with the count of objects having that key value.  (Of course, pivots are most interesting for attributes with non-unique indexes.)
+
+Pivoting on 2 attributes extends the concept, getting the range of key values for each attribute, and then tallying the number of objects containing each possible pair of key values. The results can be reported as a two-dimensional table, with the primary attribute keys down the leftmost column, and the secondary attribute keys as headers across the columns.  Subtotals will also be reported at the far right column and at the bottom of each column.
+
+
+
+Some simple littletable recipes:
+--------------------------------
+
+- Find objects with NULL attribute values (an object's attribute is considered NULL if the object does not have that attribute, or if its value is None):
+
+    table.where(lambda o : getattr(o, keyattr, None) is None)
+    
+
+- Histogram of values of a particular attribute:
+
+    (returns a table)
+    table.pivot(attribute).summary_counts()
+
+  or
+  
+    (prints the values to stdout in tabular form)
+    table.pivot(attribute).dump_counts()
+
+
+- Get a list of all key values for an indexed attribute:
+
+    customers.zipcode.keys()
+
+
+- Get a count of entries for each key value:
+
+    customers.pivot("zipcode").dump_counts()
+    
+
+- Sorted table by attribute x
+
+    employees.query(_orderby="salary")
+    
+
+- Sorted table by primary attribute x, secondary attribute y
+
+    salesmen.query(_orderby="salary, commission")
+
+
+- Get top 5 objects in table by value of attribute x
+
+    salesmen.query(_orderby="sales desc")[:5]
+
+
