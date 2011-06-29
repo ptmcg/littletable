@@ -1,5 +1,24 @@
 Change History
 ==============
+Version 0.4 -
+-------------
+- Added compute() method to Table to support global update of all 
+  objects in the table, to add or modify a given attribute on each
+  object.  compute() takes a function that computes the new or
+  modified attribute value, taking the entire object as its single
+  input argument.  Can override DataObject's write-only functionality
+  (for example, when converting attributes entered as a string to
+  an int or float).  Also accepts a default value to use, in case
+  the computing function raises an exception.  Useful when creating
+  a new attribute that would be computed based on other values in
+  the object.
+  
+- Added transforms argument to csv_import, to simplify the conversion
+  of string data values to int, float, or other non-string type.
+  The transforms argument is a dict mapping attribute names to 
+  conversion functions, each function taking the as-imported string
+  value and return a new transformed value.
+  
 
 Version 0.3 -
 (renamed project from dulce to littletable)

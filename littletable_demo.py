@@ -67,3 +67,8 @@ wishlistsdata = wishlists()
 wishlistsdata.create_index("name")
 pivot = wishlistsdata.pivot("name")
 pivot.dump(row_fn=lambda o:"%s %s" % (o.sku,o.descr))
+print
+
+# pivot on both sku number and customer name, giving tabular output
+piv2 = wishlistsdata.pivot("sku name")
+print piv2.dump_counts()

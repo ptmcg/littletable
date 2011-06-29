@@ -3,5 +3,6 @@ include littletable_demo.py
 include setup.py
 include CHANGES
 include LICENSE
+include README
 include htmldoc\*.*
 include HowToUseLittletable.txt
