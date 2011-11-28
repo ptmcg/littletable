@@ -98,8 +98,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print item
 """
 
-__version__ = "0.4"
-__versionTime__ = "29 Jun 2011 16:36"
+__version__ = "0.5"
+__versionTime__ = "28 Nov 2011 00:04"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -262,6 +262,8 @@ class Table(object):
           L{join} or operator '+' to perform the actual join
         - pivoted, using L{pivot} to create a nested structure of sub-tables grouping objects
           by attribute values
+        - grouped, using L{groupby} to create a summary table of computed values, grouped by a key 
+          attribute
         - L{imported<csv_import>}/L{exported<csv_export>} to CSV-format files
        Queries and joins return their results as new Table objects, so that queries and joins can
        be easily performed as a succession of operations.
@@ -297,7 +299,8 @@ class Table(object):
               
            The behavior differs slightly for unique and non-unique indexes:
              - if the index is unique, then retrieving a matching object, will return just the object;
-               if there is no matching object, C{KeyError} is raised
+               if there is no matching object, C{KeyError} is raised (making a table with a unique
+               index behave very much like a Python dict)
              - if the index is non-unique, then all matching objects will be returned in a new Table,
                just as if a regular query had been performed; if no objects match the key value, an empty
                Table is returned and no exception is raised.
@@ -311,8 +314,7 @@ class Table(object):
             if isinstance(ret, _ObjIndex):
                 ret = _ObjIndexWrapper(ret)
             return ret
-        raise AttributeError("Table '%s' has no index '%s'" % 
-                                                (self.table_name, attr))
+        raise AttributeError("Table '%s' has no index '%s'" % (self.table_name, attr))
 
     def __bool__(self):
         return bool(self.obs)
@@ -328,21 +330,25 @@ class Table(object):
         self.table_name = table_name
         return self
 
-    def copy_template(self):
+    def copy_template(self, name=None):
         """Create empty copy of the current table, with copies of all
            index definitions.
         """
         ret = Table(self.table_name)
         for k,v in self._indexes.items():
             ret._indexes[k] = v.copy_template()
+        if name is not None:
+            ret.table_name = name
         return ret
 
-    def clone(self):
+    def clone(self, name=None):
         """Create full copy of the current table, including table contents
            and index definitions.
         """
         ret = self.copy_template()
         ret.insert_many(self.obs)
+        if name is not None:
+            ret.table_name = name
         return ret
 
     def create_index(self, attr, unique=False, accept_none=False):
@@ -358,11 +364,11 @@ class Table(object):
                expected to be unique across table entries
            @type unique: boolean
            @param accept_none: flag indicating whether None is an acceptable
-               value for this attribute
+               unique key value for this attribute
            @type accept_none: boolean
         """
         if attr in self._indexes:
-            return
+            return self
             
         if unique:
             self._indexes[attr] = _UniqueObjIndex(attr,accept_none)
@@ -380,6 +386,7 @@ class Table(object):
                     ind[obval] = obj
                 else:
                     raise KeyError("None is not an allowed key")
+            return self
                     
         except KeyError:
             del self._indexes[attr]
@@ -433,6 +440,7 @@ class Table(object):
         """Inserts a collection of objects into the table."""
         for ob in it:
             self.insert(ob)
+        return self
 
     def remove(self, ob):
         """Removes an object from the table. If object is not in the table, then
@@ -774,6 +782,57 @@ class Table(object):
             else:
                 setattr(rec, attrname, val)
 
+    def groupby(self, keyexpr, **outexprs):
+        """simple prototype of group by, with support for expressions in the group-by clause 
+           and outputs
+           @param keyexpr: grouping field and optional expression for computing the key value;
+                if a string is passed
+           @type keyexpr: string or tuple
+           """
+        if isinstance(keyexpr, basestring):
+            groupname = keyexpr
+            keyfn = lambda o : getattr(o, keyexpr)
+        elif isinstance(expr, tuple):
+            groupname, keyfn = keyexpr
+         
+        groupedobs = defaultdict(list)
+        for ob in self.obs:
+            groupedobs[keyfn(ob)].append(ob)
+
+        tbl = Table()
+        tbl.create_index(groupname, unique=True)
+        for key, recs in groupedobs.iteritems():
+            groupobj = DataObject(**{groupname:key})
+            for subkey, expr in outexprs.items():
+                setattr(groupobj, subkey, expr(recs))
+            tbl.insert(groupobj)
+        return tbl
+
+    def groupby(self, keyexpr, **outexprs):
+        """simple prototype of group by, with support for expressions in the group-by clause 
+           and outputs
+           @param keyexpr: grouping field and optional expression for computing the key value;
+                if a string is passed
+           @type keyexpr: string or tuple
+           """
+        if isinstance(keyexpr, basestring):
+            groupname = keyexpr
+            keyfn = lambda o : getattr(o, keyexpr)
+        elif isinstance(expr, tuple):
+            groupname, keyfn = keyexpr
+         
+        groupedobs = defaultdict(list)
+        for ob in self.obs:
+            groupedobs[keyfn(ob)].append(ob)
+
+        tbl = Table()
+        tbl.create_index(groupname, unique=True)
+        for key, recs in groupedobs.iteritems():
+            groupobj = DataObject(**{groupname:key})
+            for subkey, expr in outexprs.items():
+                setattr(groupobj, subkey, expr(recs))
+            tbl.insert(groupobj)
+        return tbl
 
 class PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot().
@@ -819,7 +878,7 @@ class PivotTable(Table):
         return sorted(self._subtable_dict.items())
 
     def values(self):
-        return self._subtable_dict.values()
+        return [self._subtable_dict.items[k] for k in self.keys()]
 
     def pivot_key(self):
         """Return the set of attribute-value pairs that define the contents of this 
