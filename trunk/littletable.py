@@ -777,10 +777,7 @@ class Table(object):
                 val = fn(rec)
             except Exception:
                 val = default
-            if isinstance(rec, DataObject):
-                object.__setattr__(rec, attrname, val)
-            else:
-                setattr(rec, attrname, val)
+            object.__setattr__(rec, attrname, val)
 
     def groupby(self, keyexpr, **outexprs):
         """simple prototype of group by, with support for expressions in the group-by clause 
@@ -1071,7 +1068,7 @@ if __name__ == "__main__":
         dict(state="TX"),
         dict(city="New York"),
         dict(city="Phoenix", _orderby="stn"),
-        dict(city="Phoenix", _orderbydesc="stn"),
+        dict(city="Phoenix", _orderby="stn desc"),
         ]:
         print queryargs,
         result = stations.query(**queryargs)
