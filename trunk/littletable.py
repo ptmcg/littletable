@@ -808,32 +808,6 @@ class Table(object):
             tbl.insert(groupobj)
         return tbl
 
-    def groupby(self, keyexpr, **outexprs):
-        """simple prototype of group by, with support for expressions in the group-by clause 
-           and outputs
-           @param keyexpr: grouping field and optional expression for computing the key value;
-                if a string is passed
-           @type keyexpr: string or tuple
-           """
-        if isinstance(keyexpr, basestring):
-            groupname = keyexpr
-            keyfn = lambda o : getattr(o, keyexpr)
-        elif isinstance(expr, tuple):
-            groupname, keyfn = keyexpr
-         
-        groupedobs = defaultdict(list)
-        for ob in self.obs:
-            groupedobs[keyfn(ob)].append(ob)
-
-        tbl = Table()
-        tbl.create_index(groupname, unique=True)
-        for key, recs in groupedobs.iteritems():
-            groupobj = DataObject(**{groupname:key})
-            for subkey, expr in outexprs.items():
-                setattr(groupobj, subkey, expr(recs))
-            tbl.insert(groupobj)
-        return tbl
-
 class PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot().
     """
