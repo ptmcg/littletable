@@ -8,7 +8,8 @@ Version 0.5 -
 - Added optional name fields to clone and copy_template.
 
 - Modified create_index and insert_many to return self, so that a simple 
-  table creation and indexing could be done in a single chained statement.
+  table creation and indexing could be done in a single chained statement
+  (also suggested by Adam Sah, thanks!)
 
 - Fixed possible bug in PivotTable.values - now values are returned
   in the order of matching keys returned by keys().
