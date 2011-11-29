@@ -99,7 +99,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.5"
-__versionTime__ = "28 Nov 2011 00:04"
+__versionTime__ = "28 Nov 2011 22:41"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -696,26 +696,13 @@ class Table(object):
         else:
             raise ValueError("pivot can only be called using indexed attributes")
 
-    def csv_import(self, csv_source, transforms=None):
-        """Imports the contents of a CSV-formatted file into this table.
-           @param csv_source: CSV file - if a string is given, the file with that name will be 
-               opened, read, and closed; if a file object is given, then that object 
-               will be read as-is, and left for the caller to be closed.
-           @type csv_source: string or file
-           @param transforms: dict of functions by attribute name; if given, each
-               attribute will be transformed using the corresponding transform; if there is no 
-               matching transform, the attribute will be read as a string (default); the
-               transform function can also be defined as a (function, default-value) tuple; if
-               there is an Exception raised by the transform function, then the attribute will
-               be set to the given default value
-           @type transforms: dict (optional)
-        """
+    def _import(self, source, transforms=None, reader=csv.DictReader):
         close_on_exit = False
-        if isinstance(csv_source, basestring):
-            csv_source = open(csv_source)
+        if isinstance(source, basestring):
+            source = open(source)
             close_on_exit = True
         try:
-            csvdata = csv.DictReader(csv_source)
+            csvdata = reader(source)
             self.insert_many(DataObject(**s) for s in csvdata)
             if transforms:
                 for attr,fn in transforms.items():
@@ -726,8 +713,44 @@ class Table(object):
                     self.compute(attr, objfn, default)
         finally:
             if close_on_exit:
-                csv_source.close()
-            
+                source.close()
+
+    def csv_import(self, csv_source, transforms=None):
+        """Imports the contents of a CSV-formatted file into this table.
+           @param source: CSV file - if a string is given, the file with that name will be
+               opened, read, and closed; if a file object is given, then that object
+               will be read as-is, and left for the caller to be closed.
+           @type source: string or file
+           @param transforms: dict of functions by attribute name; if given, each
+               attribute will be transformed using the corresponding transform; if there is no
+               matching transform, the attribute will be read as a string (default); the
+               transform function can also be defined as a (function, default-value) tuple; if
+               there is an Exception raised by the transform function, then the attribute will
+               be set to the given default value
+           @type transforms: dict (optional)
+        """
+        return self._import(csv_source, transforms)
+
+    def _xsv_import(self, xsv_source, transforms=None, splitstr="\t"):
+        xsv_reader = lambda src: csv.DictReader(src, delimiter=splitstr)
+        return self._import(xsv_source, transforms, reader=xsv_reader)
+
+    def tsv_import(self, xsv_source, transforms=None):
+        """Imports the contents of a tab-separated data file into this table.
+           @param source: tab-separated data file - if a string is given, the file with that name will be
+               opened, read, and closed; if a file object is given, then that object
+               will be read as-is, and left for the caller to be closed.
+           @type source: string or file
+           @param transforms: dict of functions by attribute name; if given, each
+               attribute will be transformed using the corresponding transform; if there is no
+               matching transform, the attribute will be read as a string (default); the
+               transform function can also be defined as a (function, default-value) tuple; if
+               there is an Exception raised by the transform function, then the attribute will
+               be set to the given default value
+           @type transforms: dict (optional)
+        """
+        return self._xsv_import(xsv_source, transforms=transforms, splitstr="\t")
+
     def csv_export(self, csv_dest, fieldnames=None):
         """Exports the contents of the table to a CSV-formatted file.
            @param csv_dest: CSV file - if a string is given, the file with that name will be 
@@ -923,9 +946,11 @@ class PivotTable(Table):
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
 
-    def summary_counts(self,fn=None,col=None):
+    def summary_counts(self, fn=None, col=None, summarycolname=None):
         """Dump out the summary counts of this pivot table as a Table.
         """
+        if summarycolname is None:
+            summarycolname = col
         ret = Table()
         topattr = self._pivot_attrs[0]
         for attr in self._pivot_attrs:
@@ -933,10 +958,12 @@ class PivotTable(Table):
         if len(self._pivot_attrs) == 1:
             for sub in self.subtables:
                 subattr,subval = sub._attr_path[-1]
+                attrdict = {subattr:subval}
                 if fn is None:
-                    ret.insert(DataObject(**{subattr:subval, 'Count':len(sub)}))
+                    attrdict['Count'] = len(sub)
                 else:
-                    attrdict[fn.__name__] = reduce(fn, (s[col] for s in sub))
+                    attrdict[summarycolname] = fn(s[col] for s in sub)
+                ret.insert(DataObject(**attrdict))
         elif len(self._pivot_attrs) == 2:
             for sub in self.subtables:
                 for ssub in sub.subtables:
@@ -944,7 +971,7 @@ class PivotTable(Table):
                     if fn is None:
                         attrdict['Count'] = len(ssub)
                     else:
-                        attrdict[fn.__name__] = reduce(fn, (s[col] for s in ssub))
+                        attrdict[summarycolname] = fn(s[col] for s in ssub)
                     ret.insert(DataObject(**attrdict))
         elif len(self._pivot_attrs) == 3:
             for sub in self.subtables:
@@ -954,7 +981,7 @@ class PivotTable(Table):
                         if fn is None:
                             attrdict['Count'] = len(sssub)
                         else:
-                            attrdict[fn.__name__] = reduce(fn, (s[col] for s in sssub))
+                            attrdict[summarycolname] = fn(s[col] for s in sssub)
                         ret.insert(DataObject(**attrdict))
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
