@@ -14,6 +14,8 @@ Version 0.5 -
 - Fixed possible bug in PivotTable.values - now values are returned
   in the order of matching keys returned by keys().
 
+- Fixed bugs in Table.pivot(), see pivot_demo.py
+
 
 Version 0.4 -
 -------------
