@@ -1,4 +1,5 @@
 #
+#
 # littletable.py
 # 
 # littletable is a simple in-memory database for ad-hoc or user-defined objects,
@@ -98,8 +99,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print item
 """
 
-__version__ = "0.5"
-__versionTime__ = "28 Nov 2011 22:41"
+__version__ = "0.6"
+__versionTime__ = "4 Dec 2011 23:14"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -435,6 +436,7 @@ class Table(object):
         for attr, ind in self._indexes.items():
             obval = getattr(obj, attr)
             ind[obval] = obj
+        return self
             
     def insert_many(self, it):
         """Inserts a collection of objects into the table."""
@@ -545,7 +547,26 @@ class Table(object):
         self.remove_many(affected)
         return len(affected)
     
-    def where(self, wherefn, maxrecs=0):
+    def addfield(self, field, fieldfn=None):
+        """A table mutator that can add a new attribute to every object in the table.
+           @param field: name of new attribute to add
+           @type field: string
+           @param fieldfn: a method or lambda that returns a value to assign to the 
+            new attributes, as in::
+               
+               lambda ob : ob.commission * ob.gross_sales
+               
+           @type fieldfn: callable(object) (optional - if omitted, all attributes
+           are assigned None.
+           @returns: the table, with modified objects
+        """
+        if fieldfn is None:
+            fieldfn = lambda ob : None
+        for ob in self.obs:
+            setattr(ob, field, fieldfn(ob))
+        return self
+
+    def where(self, wherefn, limit=0):
         """An alternative to L{query}, using a matching predicate function to
            determine whether a given object matches the query or not.  You must use
            C{where} in place of C{query} if you want to query using inequalities or more
@@ -555,17 +576,26 @@ class Table(object):
                lambda ob : ob.unitprice > 10
                
            @type wherefn: callable(object) returning boolean
-           @param maxrecs: if only the first 'n' records are needed, then C{where} will 
+           @param limit: if only the first 'n' records are needed, then C{where} will 
                stop after locating 'n' matching records
-           @type maxrecs: int
+           @type limit: int
            @returns: a new Table containing the matching records
         """
         ret = self.copy_template()
-        if maxrecs:
-            ret.insert_many(islice(ifilter(wherefn, self.obs), 0, maxrecs))
+        if limit:
+            ret.insert_many(islice(ifilter(wherefn, self.obs), 0, limit))
         else:
             ret.insert_many(ifilter(wherefn, self.obs))
         return ret
+
+    def sort(self, key, reverse=False, limit=0):
+        if instance(key, basestring):
+            keyfn = lambda ob,key=key : getattr(ob,key)
+        else:
+            keyfn = key
+        recs = sorted(self.obs, key=keyfn, reverse=reverse)
+        return self.copy_template().insert_many(recs if limit == 0 
+                                                     else islice(recs,0,limit))
 
     def join(self, other, attrlist=None, **kwargs):
         """
@@ -800,7 +830,11 @@ class Table(object):
                 val = fn(rec)
             except Exception:
                 val = default
-            object.__setattr__(rec, attrname, val)
+            if isinstance(rec, DataObject):
+                object.__setattr__(rec, attrname, val)
+            else:
+                setattr(rec, attrname, val)
+        return self
 
     def groupby(self, keyexpr, **outexprs):
         """simple prototype of group by, with support for expressions in the group-by clause 
@@ -814,7 +848,7 @@ class Table(object):
             keyfn = lambda o : getattr(o, keyexpr)
         elif isinstance(expr, tuple):
             groupname, keyfn = keyexpr
-         
+
         groupedobs = defaultdict(list)
         for ob in self.obs:
             groupedobs[keyfn(ob)].append(ob)
@@ -827,6 +861,7 @@ class Table(object):
                 setattr(groupobj, subkey, expr(recs))
             tbl.insert(groupobj)
         return tbl
+
 
 class PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot().
@@ -890,11 +925,11 @@ class PivotTable(Table):
         """
         return bool(self.subtables)
     
-    def dump(self, out=sys.stdout, row_fn=repr, maxrecs=-1, indent=0):
+    def dump(self, out=sys.stdout, row_fn=repr, limit=-1, indent=0):
         """Dump out the contents of this table in a nested listing.
            @param out: output stream to write to
            @param row_fn: function to call to display individual rows
-           @param maxrecs: number of records to show at deepest level of pivot (-1=show all)
+           @param limit: number of records to show at deepest level of pivot (-1=show all)
            @param indent: current nesting level
         """
         NL = '\n'
@@ -906,10 +941,10 @@ class PivotTable(Table):
         if self.has_subtables():
             for sub in self.subtables:
                 if sub:
-                    sub.dump(out, row_fn, maxrecs, indent+1)
+                    sub.dump(out, row_fn, limit, indent+1)
         else:
-            if maxrecs >= 0:
-                showslice = slice(0,maxrecs)
+            if limit >= 0:
+                showslice = slice(0,limit)
             else:
                 showslice = slice(None,None)
             for r in self.obs[showslice]:
