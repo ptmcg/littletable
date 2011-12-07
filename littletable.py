@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "4 Dec 2011 23:14"
+__versionTime__ = "7 Dec 2011 13:56"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -593,9 +593,8 @@ class Table(object):
             keyfn = lambda ob,key=key : getattr(ob,key)
         else:
             keyfn = key
-        recs = sorted(self.obs, key=keyfn, reverse=reverse)
-        return self.copy_template().insert_many(recs if limit == 0 
-                                                     else islice(recs,0,limit))
+        recs.sort(key=keyfn, reverse=reverse)
+        return self
 
     def join(self, other, attrlist=None, **kwargs):
         """
@@ -740,7 +739,7 @@ class Table(object):
                     if isinstance(fn,tuple):
                         fn,default = fn
                     objfn = lambda obj : fn(getattr(obj,attr))
-                    self.compute(attr, objfn, default)
+                    self.addfield(attr, objfn, default)
         finally:
             if close_on_exit:
                 source.close()
@@ -814,13 +813,16 @@ class Table(object):
             if close_on_exit:
                 csv_dest.close()
 
-    def compute(self, attrname, fn, default=None):
+    def addfield(self, attrname, fn, default=None):
         """Computes a new attribute for each object in table, or replaces an
            existing attribute in each record with a computed value
            @param attrname: attribute to compute for each object
            @type attrname: string
            @param fn: function used to compute new attribute value, based on 
-           other values in the object
+           other values in the object, as in::
+               
+               lambda ob : ob.commission * ob.gross_sales
+               
            @type fn: function(obj) returns value
            @param default: value to use if an exception is raised while trying
            to evaluate fn
@@ -861,6 +863,9 @@ class Table(object):
                 setattr(groupobj, subkey, expr(recs))
             tbl.insert(groupobj)
         return tbl
+        
+    def run(self):
+        return self
 
 
 class PivotTable(Table):
