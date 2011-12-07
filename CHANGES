@@ -1,5 +1,17 @@
 Change History
 ==============
+Version 0.6 -
+-------------
+- Added sort(), contributed by Adam Sah.  sort() currently returns a 
+  new table, containing shallow copies of the objects from the original
+  table.  sort() may change to do an inplace sort, still working this out.
+  
+- Modified insert() and compute() to return self, for chaining support.
+
+- Renamed maxrecs parameters to 'limit', to be more similar to the same
+  concept in SQL.
+
+
 Version 0.5 - 
 -------------
 - Added groupby() method to Table (thanks, Adam Sah!) to generate tables 
@@ -7,9 +19,9 @@ Version 0.5 -
 
 - Added optional name fields to clone and copy_template.
 
-- Modified create_index and insert_many to return self, so that a simple 
-  table creation and indexing could be done in a single chained statement
-  (also suggested by Adam Sah, thanks!)
+- Modified create_index and insert_many to return self, so that a 
+  simple table creation and indexing could be done in a single chained 
+  statement (also suggested by Adam Sah, thanks!)
 
 - Fixed possible bug in PivotTable.values - now values are returned
   in the order of matching keys returned by keys().
