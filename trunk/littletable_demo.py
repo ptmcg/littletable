@@ -33,7 +33,7 @@ wishitems.insert(DataObject(custid="0020", sku="MAGNT-001"))
 wishitems.insert(DataObject(custid="0030", sku="MAGNT-001"))
 
 # print all items sold by the pound
-for item in catalog.query(unitofmeas="LB"):
+for item in catalog.where(unitofmeas="LB"):
     print item.sku, item.descr
 print
 
@@ -58,7 +58,7 @@ for bti in bigticketitems:
 print
 
 # list all wishlist items by customer, then in descending order by unit price
-for item in wishlists().query(_orderby="custid, unitprice desc"):
+for item in wishlists().sort("custid, unitprice desc"):
     print item
 print
 
