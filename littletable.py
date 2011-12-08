@@ -95,12 +95,12 @@ Here is a simple C{littletable} data storage/retrieval example::
         print item
 
     # list all wishlist items in descending order by price
-    for item in wishlists().query(_orderbydesc="unitprice"):
+    for item in wishlists().sort("unitprice desc"):
         print item
 """
 
 __version__ = "0.6"
-__versionTime__ = "7 Dec 2011 13:56"
+__versionTime__ = "8 Dec 2011 00:18"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -255,7 +255,7 @@ class Table(object):
        user-defined objects with publicly accessible attributes or properties.  Tables can be:
         - created, with an optional name, using standard Python L{C{Table() constructor}<__init__>}
         - indexed, with multiple indexes, with unique or non-unique values, see L{create_index}
-        - queried, specifying values to exact match in the desired records, see L{query}
+        - queried, specifying values to exact match in the desired records, see L{where}
         - filtered (using L{where}), using a simple predicate function to match desired records;
           useful for selecting using inequalities or compound conditions
         - accessed directly for keyed values, using C{table.indexattribute[key]} - see L{__getattr__}
@@ -274,7 +274,7 @@ class Table(object):
            @param table_name: name for Table
            @type table_name: string (optional)
         """
-        self.table_name = table_name
+        self(table_name)
         self.obs = []
         self._indexes = {}
 
@@ -339,7 +339,7 @@ class Table(object):
         for k,v in self._indexes.items():
             ret._indexes[k] = v.copy_template()
         if name is not None:
-            ret.table_name = name
+            ret(name)
         return ret
 
     def clone(self, name=None):
@@ -349,7 +349,7 @@ class Table(object):
         ret = self.copy_template()
         ret.insert_many(self.obs)
         if name is not None:
-            ret.table_name = name
+            ret(name)
         return ret
 
     def create_index(self, attr, unique=False, accept_none=False):
@@ -470,18 +470,26 @@ class Table(object):
         else:
             return 1e9
         
-    def query(self, **kwargs):
+    def where(self, *args, **kwargs):
         """Retrieves matching objects from the table, based on given
            named parameters.  If multiple named parameters are given, then
            only objects that satisfy all of the query criteria will be returned.
            
+           @param wherefn: a method or lambda that returns a boolean result, as in::
+               
+               lambda ob : ob.unitprice > 10
+               
+           @type wherefn: callable(object) returning boolean
+           
+           @param **kwargs: attributes for selecting records, given as additional 
+              named arguments of the form C{attrname="attrvalue"}.
+              
            Special kwargs:
             - C{_orderby="attr,..."} - resulting table should sort content objects
                 by the C{attr}s given in a comma-separated string; to sort in 
                 descending order, reference the attribute as C{attr desc}.
+            - C{_limit} - maximum number of records to return
 
-           @param **kwargs: attributes for selecting records, given as additional 
-              named arguments of the form C{attrname="attrvalue"}.
            @return: a new Table containing the matching objects
         """
         # extract meta keys
@@ -490,9 +498,6 @@ class Table(object):
             del kwargs[f]
 
         if kwargs:
-            ret = self.copy_template()
-            first = True
-            
             # order query criteria in ascending order of number of matching items
             # for each individual given attribute; this will minimize the number 
             # of filtering records that each subsequent attribute will have to
@@ -500,36 +505,31 @@ class Table(object):
             kwargs = kwargs.items()
             if len(kwargs) > 1 and len(self.obs) > 100:
                 kwargs = sorted(kwargs, key=self._query_attr_sort_fn)
+                
+            ret = self
             for k,v in kwargs:
-                if k in flags:
-                    continue
-                if first:
-                    if k in self._indexes:
-                        ret.insert_many(self._indexes[k][v])
-                    else:
-                        ret.insert_many( r for r in self.obs 
-                                        if hasattr(r,k) and getattr(r,k) == v )
+                newret = ret.copy_template()
+                if k in ret._indexes:
+                    newret.insert_many(ret._indexes[k][v])
                 else:
-                    if k in ret._indexes:
-                        newret = ret.copy_template()
-                        newret.insert_many(ret._indexes[k][v])
-                        ret = newret
-                    else:
-                        retobs = ret.obs[:]
-                        ret.remove_many( o for o in retobs 
-                                        if not hasattr(r,k) 
-                                            or (getattr(r,k) != v) )
-                first = False
+                    newret.insert_many( r for r in ret.obs 
+                                    if hasattr(r,k) and getattr(r,k) == v )
+                ret = newret
         else:
             ret = self.clone()
         
         for f,v in flags:
             if f == "_orderby":
-                attrs = [s.strip() for s in v.split(',')]
-                attr_orders = [(a.split()+['asc',])[:2] for a in attrs][::-1]
-                for attr,order in attr_orders:
-                     ret.obs.sort(key=lambda ob:getattr(ob,attr), reverse=(order=="desc"))
-            
+                ret.sort(v)
+            if f == "_limit":
+                del ret.obs[v:]
+
+        if args:
+            wherefn = args[0]
+            newret = ret.copy_template()
+            newret.insert_many(ifilter(wherefn, ret.obs))
+            ret = newret
+
         return ret
 
     def delete(self, **kwargs):
@@ -566,34 +566,17 @@ class Table(object):
             setattr(ob, field, fieldfn(ob))
         return self
 
-    def where(self, wherefn, limit=0):
-        """An alternative to L{query}, using a matching predicate function to
-           determine whether a given object matches the query or not.  You must use
-           C{where} in place of C{query} if you want to query using inequalities or more
-           complex matching criteria than simple C{attribute=value}.
-           @param wherefn: a method or lambda that returns a boolean result, as in::
-               
-               lambda ob : ob.unitprice > 10
-               
-           @type wherefn: callable(object) returning boolean
-           @param limit: if only the first 'n' records are needed, then C{where} will 
-               stop after locating 'n' matching records
-           @type limit: int
-           @returns: a new Table containing the matching records
-        """
-        ret = self.copy_template()
-        if limit:
-            ret.insert_many(islice(ifilter(wherefn, self.obs), 0, limit))
-        else:
-            ret.insert_many(ifilter(wherefn, self.obs))
-        return ret
-
-    def sort(self, key, reverse=False, limit=0):
-        if instance(key, basestring):
-            keyfn = lambda ob,key=key : getattr(ob,key)
+    def sort(self, key, reverse=False):
+        if isinstance(key, basestring):
+            attrs = [s.strip() for s in key.split(',')]
+            # leftmost attr is the most primary sort key, so do succession of 
+            # sorts from right to left
+            attr_orders = [(a.split()+['asc',])[:2] for a in attrs][::-1]
+            for attr,order in attr_orders:
+                 self.obs.sort(key=lambda ob:getattr(ob,attr), reverse=(order=="desc"))
         else:
             keyfn = key
-        recs.sort(key=keyfn, reverse=reverse)
+            self.obs.sort(key=keyfn, reverse=reverse)
         return self
 
     def join(self, other, attrlist=None, **kwargs):
@@ -886,7 +869,7 @@ class PivotTable(Table):
             self.insert_many(parent.obs)
         else:
             attr,val = attr_val_path[-1]
-            self.insert_many(parent.query(**{attr:val}))
+            self.insert_many(parent.where(**{attr:val}))
             parent._subtable_dict[val] = self
 
         if len(attrlist) > 0:
@@ -1138,13 +1121,13 @@ if __name__ == "__main__":
         dict(city="Phoenix", _orderby="stn desc"),
         ]:
         print queryargs,
-        result = stations.query(**queryargs)
+        result = stations.where(**queryargs)
         print len(result)
         for r in result: print r
         print
     #~ print stations.delete(city="Phoenix")
     #~ print stations.delete(city="Boston")
-    print list(stations.query())
+    print list(stations.where())
     print
 
     amfm = Table()
@@ -1162,7 +1145,7 @@ if __name__ == "__main__":
     print
     for rec in (stations.join_on("stn") + amfm.join_on("stn")
                 )(["stn", "city", (amfm,"band","AMFM"), 
-                   (stations,"state","st")]).query(_orderby="AMFM"):
+                   (stations,"state","st")]).sort("AMFM"):
         print repr(rec)
 
     print

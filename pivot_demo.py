@@ -18,7 +18,7 @@ places.csv_import('US_PPL.CSV',
 places.create_index('state')
 
 # add computed field, elevation rounded down by 1000's
-places.compute('elev2', lambda x: x.elev/1000*1000, 0)
+places.addfield('elev2', lambda x: x.elev/1000*1000, 0)
 places.create_index('elev2')
 
 print "summarize population by state"

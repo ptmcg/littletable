@@ -2,14 +2,18 @@ Change History
 ==============
 Version 0.6 -
 -------------
-- Added sort(), contributed by Adam Sah.  sort() currently returns a 
-  new table, containing shallow copies of the objects from the original
-  table.  sort() may change to do an inplace sort, still working this out.
-  
+- Added sort(), initial version contributed by Adam Sah. sort will take
+  a key function, or a string containing comma-separated attribute names.
+  Attributes can be qualified with "desc" to indicated sort to be done
+  in descending order.
+
 - Modified insert() and compute() to return self, for chaining support.
 
 - Renamed maxrecs parameters to 'limit', to be more similar to the same
   concept in SQL.
+  
+- Merged query and where into a single consolidated function named 'where'
+  for selecting matching records from a table.
 
 
 Version 0.5 - 
