@@ -2,6 +2,10 @@ Change History
 ==============
 Version 0.6 -
 -------------
+- Modified __getitem__ so that retrievals of slices return new Tables
+  instead of just lists of objects (essentially adding sliced indexing
+  as another chained accessor).
+
 - Added sort(), initial version contributed by Adam Sah. sort will take
   a key function, or a string containing comma-separated attribute names.
   Attributes can be qualified with "desc" to indicated sort to be done

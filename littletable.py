@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "8 Dec 2011 00:18"
+__versionTime__ = "11 Dec 2011 13:34"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -288,7 +288,12 @@ class Table(object):
         
     def __getitem__(self, i):
         """Provides direct indexed/sliced access to the Table's underlying list of objects."""
-        return self.obs[i]
+        if isinstance(i, slice):
+            ret = self.copy_template()
+            ret.insert_many(self.obs[i])
+            return ret
+        else:
+            return self.obs[i]
     
     def __getattr__(self, attr):
         """A quick way to query for matching records using their indexed attributes. The attribute
@@ -543,7 +548,7 @@ class Table(object):
         if not kwargs:
             return 0
         
-        affected = self.query(**kwargs)
+        affected = self.where(**kwargs)
         self.remove_many(affected)
         return len(affected)
     
