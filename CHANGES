@@ -6,6 +6,15 @@ Version 0.6 -
   instead of just lists of objects (essentially adding sliced indexing
   as another chained accessor).
 
+- Added count_fn to the dump_counts method of PivotTable, so that a
+  summarizing function other than mere counting can be used for each cell
+  in the pivot table.  Here is an example of summarizing population by
+  state and elevation, where each record has attributes state, elevation
+  (reduced to nearest 1000'), and population:
+  
+    piv = places.pivot('state elevation')
+    piv.dump_counts(count_fn=lambda recs:sum(r.population for r in recs))
+
 - Added sort(), initial version contributed by Adam Sah. sort will take
   a key function, or a string containing comma-separated attribute names.
   Attributes can be qualified with "desc" to indicated sort to be done
