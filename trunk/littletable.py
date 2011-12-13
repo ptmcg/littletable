@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "11 Dec 2011 13:34"
+__versionTime__ = "13 Dec 2011 06:45"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -944,7 +944,7 @@ class PivotTable(Table):
                 out.write("  "*(indent+1) + row_fn(r) + NL)
         out.flush()
         
-    def dump_counts(self, out=sys.stdout):
+    def dump_counts(self, out=sys.stdout, count_fn=len):
         """Dump out the summary counts of entries in this pivot table as a tabular listing.
            @param out: output stream to write to
         """
@@ -953,7 +953,7 @@ class PivotTable(Table):
             maxkeylen = max(len(str(k)) for k in self.keys())
             for sub in self.subtables:
                 out.write("%-*.*s " % (maxkeylen,maxkeylen,sub._attr_path[-1][1]))
-                out.write("%7d\n" % len(sub))
+                out.write("%7d\n" % count_fn(sub))
         elif len(self._pivot_attrs) == 2:
             out.write("Pivot: %s\n" % ','.join(self._pivot_attrs))
             maxkeylen = max(max(len(str(k)) for k in self.keys()),5)
@@ -965,9 +965,9 @@ class PivotTable(Table):
             for sub in self.subtables:
                 out.write("%-*.*s " % (maxkeylen,maxkeylen,sub._attr_path[-1][1]))
                 for ssub in sub.subtables:
-                    out.write("%*d " % (maxvallen,len(ssub)))
-                    keytally[ssub._attr_path[-1][1]] += len(ssub)
-                out.write("%7d\n" % len(sub))
+                    out.write("%*d " % (maxvallen,count_fn(ssub)))
+                    keytally[ssub._attr_path[-1][1]] += count_fn(ssub)
+                out.write("%7d\n" % count_fn(sub))
             out.write('%-*.*s ' % (maxkeylen,maxkeylen,"Total"))
             out.write(' '.join("%*d" % (maxvallen,tally) for k,tally in sorted(keytally.items())))
             out.write(" %7d\n" % sum(tally for k,tally in keytally.items()))
