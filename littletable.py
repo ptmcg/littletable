@@ -653,7 +653,7 @@ class Table(object):
                     if "{}" in expr or "{0}" in expr:
                         select_exprs[ename] = lambda r : expr.format(r)
                     else:
-                        select_exprs[ename] = lambda r : expr % r
+                        select_exprs[ename] = lambda r : expr % getattr(r, ename) if hasattr(r, ename) else "None"
         
         return self.select(**select_exprs)
 
