@@ -369,6 +369,9 @@ class Table(object):
     
     def __add__(self, other):
         """Support UNION of 2 tables using "+" operator."""
+        return self.union(other)
+
+    def union(self, other):
         return self.clone().insert_many(other.obs)
     
     def __call__(self, table_name):
