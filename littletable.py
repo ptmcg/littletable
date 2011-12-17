@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "13 Dec 2011 06:45"
+__versionTime__ = "17 Dec 2011 12:03"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -366,6 +366,10 @@ class Table(object):
         return bool(self.obs)
     
     __nonzero__ = __bool__
+    
+    def __add__(self, other):
+        """Support UNION of 2 tables using "+" operator."""
+        return self.clone().insert_many(other.obs)
     
     def __call__(self, table_name):
         """A simple way to assign a name to a table, such as those
