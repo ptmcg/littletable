@@ -81,7 +81,13 @@ Querying for exact matching attribute values
 Querying with indexed attributes
 --------------------------------
 
+If accessing a table using a unique index, giving a key value will return the single matching record, or raise KeyError.
     employees.empid['00086']
+    employees.by.empid['00086']
+
+If accessing a table using a non-unique index, will return a new table containing all matching records. If there are no matching records, the returned table will be empty.
+    employees.state['CA']
+    employees.by.state['CA']
 
 
 Querying for attribute value ranges

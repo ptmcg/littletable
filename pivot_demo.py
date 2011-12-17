@@ -30,7 +30,7 @@ places.create_index('elev2')
 
 print "summarize population by state"
 piv = places.pivot('state')
-pplByState = piv.summary_counts(sum, 'pop')
+pplByState = piv.summary_counts(sum, 'pop').sort('pop desc')
 for rec in pplByState:
     print rec.state, rec.pop
 piv.dump_counts(count_fn=lambda recs:sum(r.pop for r in recs))
@@ -52,8 +52,13 @@ for rec in alaskan_locns_3k_to_4k_ft:
 print
 
 piv.dump_counts(count_fn=lambda recs:sum(r.pop for r in recs))
+print
 
 pplByElev = piv.summary_counts(sum, 'pop')
 for rec in pplByElev[:100]:
     print rec.state, rec.elev2, rec.pop
 
+# find average elevation of person by state
+print "Average elevation of each person by state"
+piv = places.pivot('state')
+piv.dump_counts(count_fn=lambda recs:sum(r.pop*r.elev for r in recs)/sum(r.pop for r in recs))
