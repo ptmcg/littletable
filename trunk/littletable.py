@@ -111,10 +111,18 @@ import csv
 try:
     from itertools import product
 except ImportError:
-    def product(aseq,bseq):
-        for a in aseq:
-            for b in bseq:
-                yield a,b
+    def product(*seqs):
+        tupleseqs = [[(x,) for x in s] for s in seqs]
+        def _product(*seqs):
+            if len(seqs) == 1:
+                for x in seqs[0]:
+                    yield x
+            else:
+                for x in seqs[0]:
+                    for p in _product(*seqs[1:]):
+                        yield x+p
+        for p in _product(*tupleseqs):
+            yield p
 
 try:
     t = basestring
@@ -249,6 +257,37 @@ class _UniqueObjIndexWrapper(object):
                 ret.insert_many(self._index[k])
             return ret
             
+class _IndexAccessor(object):
+    def __init__(self, table):
+        self.table = table
+        
+    def __getattr__(self, attr):
+        """A quick way to query for matching records using their indexed attributes. The attribute
+           name is used to locate the index, and returns a wrapper on the index.  This wrapper provides
+           dict-like access to the underlying records in the table, as in::
+           
+              employees.socsecnum["000-00-0000"]
+              customers.zipcode["12345"]
+              
+           The behavior differs slightly for unique and non-unique indexes:
+             - if the index is unique, then retrieving a matching object, will return just the object;
+               if there is no matching object, C{KeyError} is raised (making a table with a unique
+               index behave very much like a Python dict)
+             - if the index is non-unique, then all matching objects will be returned in a new Table,
+               just as if a regular query had been performed; if no objects match the key value, an empty
+               Table is returned and no exception is raised.
+               
+           If there is no index defined for the given attribute, then C{AttributeError} is raised.
+        """
+        if attr in self.table._indexes:
+            ret = self.table._indexes[attr]
+            if isinstance(ret, _UniqueObjIndex):
+                ret = _UniqueObjIndexWrapper(ret)
+            if isinstance(ret, _ObjIndex):
+                ret = _ObjIndexWrapper(ret)
+            return ret
+        raise AttributeError("Table '%s' has no index '%s'" % (self.table_name, attr))
+
 
 class Table(object):
     """Table is the main class in C{littletable}, for representing a collection of DataObjects or
@@ -277,6 +316,7 @@ class Table(object):
         self(table_name)
         self.obs = []
         self._indexes = {}
+        self.by = _IndexAccessor(self)
 
     def __len__(self):
         """Return the number of objects in the Table."""
@@ -552,25 +592,6 @@ class Table(object):
         self.remove_many(affected)
         return len(affected)
     
-    def addfield(self, field, fieldfn=None):
-        """A table mutator that can add a new attribute to every object in the table.
-           @param field: name of new attribute to add
-           @type field: string
-           @param fieldfn: a method or lambda that returns a value to assign to the 
-            new attributes, as in::
-               
-               lambda ob : ob.commission * ob.gross_sales
-               
-           @type fieldfn: callable(object) (optional - if omitted, all attributes
-           are assigned None.
-           @returns: the table, with modified objects
-        """
-        if fieldfn is None:
-            fieldfn = lambda ob : None
-        for ob in self.obs:
-            setattr(ob, field, fieldfn(ob))
-        return self
-
     def sort(self, key, reverse=False):
         if isinstance(key, basestring):
             attrs = [s.strip() for s in key.split(',')]
@@ -583,6 +604,51 @@ class Table(object):
             keyfn = key
             self.obs.sort(key=keyfn, reverse=reverse)
         return self
+
+    def select(self, *fields, **exprs):
+        """
+        Create a new table containing a subset of attributes, with optionally 
+        newly-added fields computed from each rec in the original table.
+        @param fields - one or more strings, each string is an attribute name to be included in the output
+        @type fields - string (multiple)
+        @param exprs - one or more named callable arguments, to compute additional fields using the given function; 
+        @type exprs - name=callable, callable takes the record as an argument, and returns the new attribute value
+        If a string is passed as a callable, this string will be used using string formatting, given the record
+        as a source of interpolation values.  For instance "
+        """
+        ret = Table()
+        for rec in self.obs:
+            attrvalues = dict((fieldname, getattr(rec, fieldname, None)) 
+                            for fieldname in fields)
+            for fieldname, expr in exprs.items():
+                attrvalues[fieldname] = expr(rec)
+            ret.insert(DataObject(**attrvalues))
+        return ret
+
+    def format(self, *fields, **exprs):
+        """
+        Create a new table with all string formatted attribute values, typically in preparation for
+        formatted output.
+        @param fields - one or more strings, each string is an attribute name to be included in the output
+        @type fields - string (multiple)
+        @param exprs - one or more named string arguments, to format the given attribute with a formatting string 
+        @type exprs - name=string
+        """
+        select_exprs = {}
+        for f in fields:
+            select_exprs[f] = lambda r : str(getattr,f,None)
+
+        for ename,expr in exprs.items():
+            if isinstance(expr, basestring):
+                if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', expr):
+                    select_exprs[ename] = lambda r : str(getattr(r, expr, None))
+                else:
+                    if "{}" in expr or "{0}" in expr:
+                        select_exprs[ename] = lambda r : expr.format(r)
+                    else:
+                        select_exprs[ename] = lambda r : expr % r
+        
+        return self.select(**select_exprs)
 
     def join(self, other, attrlist=None, **kwargs):
         """
@@ -809,7 +875,7 @@ class Table(object):
            @param fn: function used to compute new attribute value, based on 
            other values in the object, as in::
                
-               lambda ob : ob.commission * ob.gross_sales
+               lambda ob : ob.commission_pct/100.0 * ob.gross_sales
                
            @type fn: function(obj) returns value
            @param default: value to use if an exception is raised while trying
@@ -832,6 +898,10 @@ class Table(object):
            @param keyexpr: grouping field and optional expression for computing the key value;
                 if a string is passed
            @type keyexpr: string or tuple
+           @param outexprs: named arguments describing one or more summary values to 
+           compute per key
+           @type outexprs: callable, taking a sequence of objects as input and returning
+           a single summary value
            """
         if isinstance(keyexpr, basestring):
             groupname = keyexpr
@@ -851,7 +921,40 @@ class Table(object):
                 setattr(groupobj, subkey, expr(recs))
             tbl.insert(groupobj)
         return tbl
-        
+
+    def groupby(self, keyexpr, **outexprs):
+        """simple prototype of group by, with support for expressions in the group-by clause 
+           and outputs
+           @param keyexpr: grouping field and optional expression for computing the key value;
+                if a string is passed
+           @type keyexpr: string or tuple
+           @param outexprs: named arguments describing one or more summary values to 
+           compute per key
+           @type outexprs: callable, taking a sequence of objects as input and returning
+           a single summary value
+           """
+        if isinstance(keyexpr, basestring):
+            keyattrs = keyexpr.split()
+            keyfn = lambda o : tuple(getattr(o, k) for k in keyattrs)
+
+        elif isinstance(keyexpr, tuple):
+            keyattrs = (keyexpr[0],)
+            keyfn = keyexpr[1]
+
+        groupedobs = defaultdict(list)
+        for ob in self.obs:
+            groupedobs[keyfn(ob)].append(ob)
+
+        tbl = Table()
+        for k in keyattrs:
+            tbl.create_index(k, unique=(len(keyattrs)==1))
+        for key, recs in sorted(groupedobs.iteritems()):
+            groupobj = DataObject(**dict(zip(keyattrs, key)))
+            for subkey, expr in outexprs.items():
+                setattr(groupobj, subkey, expr(recs))
+            tbl.insert(groupobj)
+        return tbl
+
     def run(self):
         return self
 
@@ -944,33 +1047,43 @@ class PivotTable(Table):
                 out.write("  "*(indent+1) + row_fn(r) + NL)
         out.flush()
         
-    def dump_counts(self, out=sys.stdout, count_fn=len):
+    def dump_counts(self, out=sys.stdout, count_fn=len, colwidth=10):
         """Dump out the summary counts of entries in this pivot table as a tabular listing.
            @param out: output stream to write to
         """
         if len(self._pivot_attrs) == 1:
             out.write("Pivot: %s\n" % ','.join(self._pivot_attrs))
             maxkeylen = max(len(str(k)) for k in self.keys())
-            for sub in self.subtables:
-                out.write("%-*.*s " % (maxkeylen,maxkeylen,sub._attr_path[-1][1]))
-                out.write("%7d\n" % count_fn(sub))
+            maxvallen = colwidth
+            keytally = {}
+            for k, sub in self.items():
+                sub_v = count_fn(sub)
+                maxvallen = max(maxvallen, len(str(sub_v)))
+                keytally[k] = sub_v
+            for k,sub in self.items():
+                out.write("%-*.*s " % (maxkeylen,maxkeylen,k))
+                out.write("%*s\n" % (maxvallen,keytally[k]))
         elif len(self._pivot_attrs) == 2:
             out.write("Pivot: %s\n" % ','.join(self._pivot_attrs))
             maxkeylen = max(max(len(str(k)) for k in self.keys()),5)
-            maxvallen = max(max(len(str(k)) for k in self.subtables[0].keys()),7)
+            maxvallen = max(max(len(str(k)) for k in self.subtables[0].keys()),colwidth)
             keytally = dict((k,0) for k in self.subtables[0].keys())
             out.write("%*s " % (maxkeylen,''))
             out.write(' '.join("%*.*s" % (maxvallen,maxvallen,k) for k in self.subtables[0].keys()))
-            out.write('   Total\n')
-            for sub in self.subtables:
-                out.write("%-*.*s " % (maxkeylen,maxkeylen,sub._attr_path[-1][1]))
-                for ssub in sub.subtables:
-                    out.write("%*d " % (maxvallen,count_fn(ssub)))
-                    keytally[ssub._attr_path[-1][1]] += count_fn(ssub)
-                out.write("%7d\n" % count_fn(sub))
+            out.write(' %*s\n' % (maxvallen, 'Total'))
+            for k,sub in self.items():
+                out.write("%-*.*s " % (maxkeylen,maxkeylen,k))
+                for kk,ssub in sub.items():
+                    ssub_v = count_fn(ssub)
+                    out.write("%*d " % (maxvallen,ssub_v))
+                    keytally[kk] += ssub_v
+                    maxvallen = max(maxvallen, len(str(ssub_v)))
+                sub_v = count_fn(sub)
+                maxvallen = max(maxvallen, len(str(sub_v)))
+                out.write("%*d\n" % (maxvallen,sub_v))
             out.write('%-*.*s ' % (maxkeylen,maxkeylen,"Total"))
             out.write(' '.join("%*d" % (maxvallen,tally) for k,tally in sorted(keytally.items())))
-            out.write(" %7d\n" % sum(tally for k,tally in keytally.items()))
+            out.write(" %*d\n" % (maxvallen,sum(tally for k,tally in keytally.items())))
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
 
