@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "17 Dec 2011 12:03"
+__versionTime__ = "26 Dec 2011 01:21"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -569,12 +569,14 @@ class Table(object):
                 ret = newret
         else:
             ret = self.clone()
-        
-        for f,v in flags:
-            if f == "_orderby":
-                ret.sort(v)
-            if f == "_limit":
-                del ret.obs[v:]
+
+        # apply flags
+        # sort before clip
+        if flags:
+            if '_orderby' in flags:
+                ret.sort(flags['_orderby'])
+            if '_limit' in flags:
+                del ret.obs[flags['_limit']:]
 
         if args:
             wherefn = args[0]
@@ -722,10 +724,12 @@ class Table(object):
         thiscolindex = othercolindex = None
         if thiscol in self._indexes:
             thiscolindex = self._indexes[thiscol]
+        else:
+            raise ValueError("indexed attribute required for join: "+thiscol)
         if othercol in other._indexes:
             othercolindex = other._indexes[othercol]
-        if not(thiscolindex and othercolindex):
-            raise ValueError("can only join on indexed attributes")
+        else:
+            raise ValueError("indexed attribute required for join: "+othercol)
 
         # use table with fewer keys to drive join
         if len(thiscolindex) < len(othercolindex):
@@ -898,36 +902,6 @@ class Table(object):
             else:
                 setattr(rec, attrname, val)
         return self
-
-    def groupby(self, keyexpr, **outexprs):
-        """simple prototype of group by, with support for expressions in the group-by clause 
-           and outputs
-           @param keyexpr: grouping field and optional expression for computing the key value;
-                if a string is passed
-           @type keyexpr: string or tuple
-           @param outexprs: named arguments describing one or more summary values to 
-           compute per key
-           @type outexprs: callable, taking a sequence of objects as input and returning
-           a single summary value
-           """
-        if isinstance(keyexpr, basestring):
-            groupname = keyexpr
-            keyfn = lambda o : getattr(o, keyexpr)
-        elif isinstance(expr, tuple):
-            groupname, keyfn = keyexpr
-
-        groupedobs = defaultdict(list)
-        for ob in self.obs:
-            groupedobs[keyfn(ob)].append(ob)
-
-        tbl = Table()
-        tbl.create_index(groupname, unique=True)
-        for key, recs in groupedobs.iteritems():
-            groupobj = DataObject(**{groupname:key})
-            for subkey, expr in outexprs.items():
-                setattr(groupobj, subkey, expr(recs))
-            tbl.insert(groupobj)
-        return tbl
 
     def groupby(self, keyexpr, **outexprs):
         """simple prototype of group by, with support for expressions in the group-by clause 
