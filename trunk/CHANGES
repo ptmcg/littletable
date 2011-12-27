@@ -28,6 +28,10 @@ Version 0.6 -
 - Merged query and where into a single consolidated function named 'where'
   for selecting matching records from a table.
 
+- Add union function to add records of two tables. '+' between two tables
+  will perform union; '+' between join terms, or a table and a join term,
+  will perform join.
+
 
 Version 0.5 - 
 -------------

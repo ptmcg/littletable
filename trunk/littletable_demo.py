@@ -13,7 +13,7 @@ customers.insert(DataObject(id="0020", name="Wile E. Coyote"))
 customers.insert(DataObject(id="0030", name="Jonny Quest"))
 
 # print a particular customer name
-print customers.id["0030"].name
+print customers.by.id["0030"].name
 print
 
 catalog = Table("catalog")
