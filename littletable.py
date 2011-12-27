@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "26 Dec 2011 01:21"
+__versionTime__ = "27 Dec 2011 13:40"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -369,11 +369,16 @@ class Table(object):
     
     def __add__(self, other):
         """Support UNION of 2 tables using "+" operator."""
-        return self.union(other)
+        if isinstance(other, JoinTerm):
+            # special case if added to a JoinTerm, do join, not union
+            return other + self
+        else:
+            # assume other is another Table, just union them
+            return self.union(other)
 
     def union(self, other):
         return self.clone().insert_many(other.obs)
-    
+
     def __call__(self, table_name):
         """A simple way to assign a name to a table, such as those
            dynamically created by joins and queries.
