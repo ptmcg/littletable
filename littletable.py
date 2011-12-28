@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "27 Dec 2011 13:40"
+__versionTime__ = "28 Dec 2011 01:56"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -664,7 +664,7 @@ class Table(object):
         
         return self.select(**select_exprs)
 
-    def join(self, other, attrlist=None, **kwargs):
+    def join(self, other, attrlist=None, auto_create_indexes=True, **kwargs):
         """
         Join the objects of one table with the objects of another, based on the given 
         matching attributes in the named arguments.  The attrlist specifies the attributes to 
@@ -700,7 +700,7 @@ class Table(object):
             return Table(retname)
         
         if isinstance(attrlist, basestring):
-            attrlist = attrlist.split()
+            attrlist = re.split(r'[,\s]+', attrlist)
             
         # expand attrlist to full (table, name, alias) tuples
         thisnames = set(_object_attrnames(self.obs[0]))
@@ -718,13 +718,19 @@ class Table(object):
                     elif col in othernames:
                         fullcols.append( (other, col, col) )
                     else:
-                        pass
+                         raise ValueError("join attribute not found: " + col)
         else:
             fullcols = [(self,n,n) for n in thisnames]
             fullcols += [(other,n,n) for n in othernames]
 
         thiscols = list(ifilter(lambda o:o[0] is self, fullcols))
         othercols = list(ifilter(lambda o:o[0] is other, fullcols))
+
+        if auto_create_indexes:
+            if thiscol not in self._indexes:
+                self.create_index(thiscol)
+            if othercol not in other._indexes:
+                other.create_index(othercol)
 
         thiscolindex = othercolindex = None
         if thiscol in self._indexes:
