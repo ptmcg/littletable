@@ -32,6 +32,12 @@ Version 0.6 -
   will perform union; '+' between join terms, or a table and a join term,
   will perform join.
 
+- join() verifies that all named attributes exist in one of the source
+  tables
+
+- join() will automatically create indexes for join columns if indexes
+  do not already exist
+
 
 Version 0.5 - 
 -------------
