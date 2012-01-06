@@ -100,13 +100,15 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "28 Dec 2011 01:56"
+__versionTime__ = "28 Jan 2012 02:50"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
-from collections import defaultdict
+from collections import defaultdict, deque, namedtuple
 from itertools import groupby,ifilter,islice,starmap,repeat
 import csv
+_consumer = deque(maxlen=0)
+do_all = _consumer.extend
 
 try:
     from itertools import product
@@ -316,6 +318,7 @@ class Table(object):
         self(table_name)
         self.obs = []
         self._indexes = {}
+        self._uniqueIndexes = []
         self.by = _IndexAccessor(self)
 
     def __len__(self):
@@ -393,8 +396,9 @@ class Table(object):
            index definitions.
         """
         ret = Table(self.table_name)
-        for k,v in self._indexes.items():
-            ret._indexes[k] = v.copy_template()
+        #~ for k,v in self._indexes.items():
+            #~ ret._indexes[k] = v.copy_template()
+        ret._indexes.update(dict((k,v.copy_template()) for k,v in self._indexes.items()))
         if name is not None:
             ret(name)
         return ret
@@ -430,6 +434,7 @@ class Table(object):
             
         if unique:
             self._indexes[attr] = _UniqueObjIndex(attr,accept_none)
+            self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
         else:
             self._indexes[attr] = _ObjIndex(attr)
             accept_none = True
@@ -448,6 +453,7 @@ class Table(object):
                     
         except KeyError:
             del self._indexes[attr]
+            self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
             raise
     
     def delete_index(self, attr):
@@ -458,6 +464,7 @@ class Table(object):
         """
         if attr in self._indexes:
             del self._indexes[attr]
+            self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
             
     def insert(self, obj):
         """Insert a new object into this Table.
@@ -476,7 +483,7 @@ class Table(object):
            """
            
         # verify new object doesn't duplicate any existing unique index values
-        uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
+        uniqueIndexes = self._uniqueIndexes #[ind for ind in self._indexes.values() if ind.is_unique]
         if any((getattr(obj, ind.attr, None) is None and not ind.accept_none) 
                 or (
                 hasattr(obj, ind.attr) and getattr(obj, ind.attr) in ind
@@ -497,24 +504,27 @@ class Table(object):
             
     def insert_many(self, it):
         """Inserts a collection of objects into the table."""
-        for ob in it:
-            self.insert(ob)
+        #~ for ob in it:
+            #~ self.insert(ob)
+        do_all(self.insert(ob) for ob in it)
         return self
 
     def remove(self, ob):
         """Removes an object from the table. If object is not in the table, then
            no action is taken and no exception is raised."""
         # remove from indexes
-        for attr,ind in self._indexes.items():
-            ind.remove(ob)
+        #~ for attr,ind in self._indexes.items():
+            #~ ind.remove(ob)
+        do_all(ind.remove(ob) for attr,ind in self._indexes.items())
 
         # remove from main object list
         self.obs.remove(ob)
 
     def remove_many(self, it):
         """Removes a collection of objects from the table."""
-        for ob in it:
-            self.remove(ob)
+        #~ for ob in it:
+            #~ self.remove(ob)
+        do_all(self.remove(ob) for ob in it)
 
     def _query_attr_sort_fn(self, attr_val):
         attr,v = attr_val
@@ -612,8 +622,10 @@ class Table(object):
             # leftmost attr is the most primary sort key, so do succession of 
             # sorts from right to left
             attr_orders = [(a.split()+['asc',])[:2] for a in attrs][::-1]
-            for attr,order in attr_orders:
-                 self.obs.sort(key=lambda ob:getattr(ob,attr), reverse=(order=="desc"))
+            #~ for attr,order in attr_orders:
+                 #~ self.obs.sort(key=lambda ob:getattr(ob,attr), reverse=(order=="desc"))
+            do_all(self.obs.sort(key=lambda ob:getattr(ob,attr), reverse=(order=="desc"))
+                        for attr,order in attr_orders)
         else:
             keyfn = key
             self.obs.sort(key=keyfn, reverse=reverse)
@@ -632,10 +644,10 @@ class Table(object):
         """
         ret = Table()
         for rec in self.obs:
-            attrvalues = dict((fieldname, getattr(rec, fieldname, None)) 
-                            for fieldname in fields)
-            for fieldname, expr in exprs.items():
-                attrvalues[fieldname] = expr(rec)
+            attrvalues = dict((fieldname, getattr(rec, fieldname, None)) for fieldname in fields)
+            #~ for fieldname, expr in exprs.items():
+                #~ attrvalues[fieldname] = expr(rec)
+            attrvalues.update(dict((fieldname, expr(rec)) for fieldname, expr in exprs.items()))
             ret.insert(DataObject(**attrvalues))
         return ret
 
@@ -648,9 +660,11 @@ class Table(object):
         @param exprs - one or more named string arguments, to format the given attribute with a formatting string 
         @type exprs - name=string
         """
-        select_exprs = {}
-        for f in fields:
-            select_exprs[f] = lambda r : str(getattr,f,None)
+        #~ select_exprs = {}
+        #~ for f in fields:
+            #~ select_exprs[f] = lambda r : str(getattr,f,None)
+        fields = set(fields)
+        select_exprs = dict((f, lambda r,f=f : str(getattr,f,None)) for f in fields)
 
         for ename,expr in exprs.items():
             if isinstance(expr, basestring):
@@ -751,22 +765,26 @@ class Table(object):
             swap = True
             
         # find matching rows
-        matchingrows = []
-        for key,rows in shortindex.items():
-            if key in longindex:
-                if swap:
-                    matchingrows.append( (longindex[key], rows) )
-                else:
-                    matchingrows.append( (rows, longindex[key]) )
+        #~ matchingrows = []
+        #~ for key,rows in shortindex.items():
+            #~ if key in longindex:
+                #~ if swap:
+                    #~ matchingrows.append( (longindex[key], rows) )
+                #~ else:
+                    #~ matchingrows.append( (rows, longindex[key]) )
+        matchingrows = list((longindex[key],rows) if swap else (rows, longindex[key])
+                                for key,rows in shortindex.items())
 
         joinrows = []
         for thisrows,otherrows in matchingrows:
             for trow,orow in product(thisrows,otherrows):
                 retobj = DataObject()
-                for _,c,a in thiscols:
-                    setattr(retobj, a, getattr(trow,c))
-                for _,c,a in othercols:
-                    setattr(retobj, a, getattr(orow,c))
+                #~ for _,c,a in thiscols:
+                    #~ setattr(retobj, a, getattr(trow,c))
+                do_all(setattr(retobj, a, getattr(trow,c)) for _,c,a in thiscols)
+                #~ for _,c,a in othercols:
+                    #~ setattr(retobj, a, getattr(orow,c))
+                do_all(setattr(retobj, a, getattr(orow,c)) for _,c,a in othercols)
                 joinrows.append(retobj)
 
         ret = Table(retname)
@@ -878,13 +896,16 @@ class Table(object):
             csv_dest.write(','.join(fieldnames) + '\n')
             csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore')
             if hasattr(self.obs[0], "__dict__"):
-                for o in self.obs:
-                    csvout.writerow(o.__dict__)
+                #~ for o in self.obs:
+                    #~ csvout.writerow(o.__dict__)
+                do_all(csvout.writerow(o.__dict__) for o in self.obs)
             else:
-                for o in self.obs:
-                    row = dict(starmap(lambda obj, fld: (fld, getattr(obj, fld)),
-                                       zip(repeat(o), fieldnames)))
-                    csvout.writerow(row)
+                #~ for o in self.obs:
+                    #~ row = dict(starmap(lambda obj, fld: (fld, getattr(obj, fld)),
+                                       #~ zip(repeat(o), fieldnames)))
+                    #~ csvout.writerow(row)
+                do_all(csvout.writerow(dict(starmap(lambda obj, fld: (fld, getattr(obj, fld)),
+                                       zip(repeat(o), fieldnames)))) for o in self.obs)
         finally:
             if close_on_exit:
                 csv_dest.close()
@@ -903,6 +924,7 @@ class Table(object):
            @param default: value to use if an exception is raised while trying
            to evaluate fn
            """
+        #~ def _addFieldToRec(rec, fn=fn, default=default):
         for rec in self:
             try:
                 val = fn(rec)
@@ -911,7 +933,11 @@ class Table(object):
             if isinstance(rec, DataObject):
                 object.__setattr__(rec, attrname, val)
             else:
-                setattr(rec, attrname, val)
+                try:
+                    setattr(rec, attrname, val)
+                except AttributeError:
+                    import pdb; pdb.set_trace()
+        #~ do_all(_addFieldToRec(r) for r in self)
         return self
 
     def groupby(self, keyexpr, **outexprs):
@@ -934,16 +960,20 @@ class Table(object):
             keyfn = keyexpr[1]
 
         groupedobs = defaultdict(list)
-        for ob in self.obs:
-            groupedobs[keyfn(ob)].append(ob)
+        #~ for ob in self.obs:
+            #~ groupedobs[keyfn(ob)].append(ob)
+        do_all(groupedobs[keyfn(ob)].append(ob) for ob in self.obs)
 
         tbl = Table()
-        for k in keyattrs:
-            tbl.create_index(k, unique=(len(keyattrs)==1))
+        #~ for k in keyattrs:
+            #~ tbl.create_index(k, unique=(len(keyattrs)==1))
+        do_all(tbl.create_index(k, unique=(len(keyattrs)==1)) for k in keyattrs)
         for key, recs in sorted(groupedobs.iteritems()):
             groupobj = DataObject(**dict(zip(keyattrs, key)))
-            for subkey, expr in outexprs.items():
-                setattr(groupobj, subkey, expr(recs))
+            #~ for subkey, expr in outexprs.items():
+                #~ setattr(groupobj, subkey, expr(recs))
+            do_all(setattr(groupobj, subkey, expr(recs)) 
+                        for subkey, expr in outexprs.items())
             tbl.insert(groupobj)
         return tbl
 
@@ -963,8 +993,9 @@ class PivotTable(Table):
         self._pivot_attrs = attrlist[:]
         self._subtable_dict = {}
         
-        for k,v in parent._indexes.items():
-            self._indexes[k] = v.copy_template()
+        #~ for k,v in parent._indexes.items():
+            #~ self._indexes[k] = v.copy_template()
+        self._indexes.update(dict((k,v.copy_template()) for k,v in parent._indexes.items()))
         if not attr_val_path:
             self.insert_many(parent.obs)
         else:
@@ -1027,9 +1058,10 @@ class PivotTable(Table):
             out.write("Pivot: %s" % ','.join(self._pivot_attrs))
         out.write(NL)
         if self.has_subtables():
-            for sub in self.subtables:
-                if sub:
-                    sub.dump(out, row_fn, limit, indent+1)
+            #~ for sub in self.subtables:
+                #~ if sub:
+                    #~ sub.dump(out, row_fn, limit, indent+1)
+            do_all(sub.dump(out, row_fn, limit, indent+1) for sub in self.subtables if sub)
         else:
             if limit >= 0:
                 showslice = slice(0,limit)
@@ -1086,8 +1118,9 @@ class PivotTable(Table):
             summarycolname = col
         ret = Table()
         topattr = self._pivot_attrs[0]
-        for attr in self._pivot_attrs:
-            ret.create_index(attr)
+        #~ for attr in self._pivot_attrs:
+            #~ ret.create_index(attr)
+        do_all(ret.create_index(attr) for attr in self._pivot_attrs)
         if len(self._pivot_attrs) == 1:
             for sub in self.subtables:
                 subattr,subval = sub._attr_path[-1]
