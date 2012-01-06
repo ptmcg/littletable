@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "28 Jan 2012 02:50"
+__versionTime__ = "28 Jan 2012 04:05"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -924,8 +924,8 @@ class Table(object):
            @param default: value to use if an exception is raised while trying
            to evaluate fn
            """
-        #~ def _addFieldToRec(rec, fn=fn, default=default):
-        for rec in self:
+        #~ for rec in self:
+        def _addFieldToRec(rec, fn=fn, default=default):
             try:
                 val = fn(rec)
             except Exception:
@@ -933,11 +933,8 @@ class Table(object):
             if isinstance(rec, DataObject):
                 object.__setattr__(rec, attrname, val)
             else:
-                try:
-                    setattr(rec, attrname, val)
-                except AttributeError:
-                    import pdb; pdb.set_trace()
-        #~ do_all(_addFieldToRec(r) for r in self)
+                setattr(rec, attrname, val)
+        do_all(_addFieldToRec(r) for r in self)
         return self
 
     def groupby(self, keyexpr, **outexprs):
