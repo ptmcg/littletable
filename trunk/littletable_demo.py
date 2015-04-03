@@ -12,25 +12,31 @@ customers.insert(DataObject(id="0010", name="George Jetson"))
 customers.insert(DataObject(id="0020", name="Wile E. Coyote"))
 customers.insert(DataObject(id="0030", name="Jonny Quest"))
 
-# print a particular customer name
-print customers.by.id["0030"].name
-print
-
 catalog = Table("catalog")
 catalog.create_index("sku", unique=True)
 catalog.insert(DataObject(sku="BRDSD-001", descr="Bird seed", unitofmeas="LB",unitprice=3))
 catalog.insert(DataObject(sku="MAGNT-001", descr="Magnet", unitofmeas="EA",unitprice=8))
 catalog.insert(DataObject(sku="MAGLS-001", descr="Magnifying glass", unitofmeas="EA",unitprice=12))
 catalog.insert(DataObject(sku="ANVIL-001", descr="1000lb anvil", unitofmeas="EA",unitprice=100))
+catalog.insert(DataObject(sku="ROPE-001", descr="1 in. heavy rope", unitofmeas="100FT",unitprice=10))
+catalog.insert(DataObject(sku="ROBOT-001", descr="Domestic robot", unitofmeas="EA",unitprice=5000))
 
 wishitems = Table("wishitems")
 wishitems.create_index("custid")
 wishitems.create_index("sku")
 wishitems.insert(DataObject(custid="0030", sku="MAGLS-001"))
+wishitems.insert(DataObject(custid="0020", sku="MAGLS-001"))
 wishitems.insert(DataObject(custid="0020", sku="ANVIL-001"))
+wishitems.insert(DataObject(custid="0020", sku="ROPE-001"))
 wishitems.insert(DataObject(custid="0020", sku="BRDSD-001"))
 wishitems.insert(DataObject(custid="0020", sku="MAGNT-001"))
 wishitems.insert(DataObject(custid="0030", sku="MAGNT-001"))
+wishitems.insert(DataObject(custid="0030", sku="ROBOT-001"))
+wishitems.insert(DataObject(custid="0010", sku="ROBOT-001"))
+
+# print a particular customer name
+print customers.by.id["0030"].name
+print
 
 # print all items sold by the pound
 for item in catalog.where(unitofmeas="LB"):
@@ -71,4 +77,10 @@ print
 
 # pivot on both sku number and customer name, giving tabular output
 piv2 = wishlistsdata.pivot("sku name")
-print piv2.dump_counts()
+piv2.dump_counts()
+print
+
+# pivot on both sku number and customer name, giving tabular output
+# tabulate by sum(unitprice) for all items in each pivot table cell
+piv2.dump_counts(count_fn=lambda recs:sum(r.unitprice for r in recs))
+print
