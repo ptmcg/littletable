@@ -76,10 +76,10 @@ Here is a simple C{littletable} data storage/retrieval example::
     # print a particular customer name 
     # (unique indexes will return a single item; non-unique
     # indexes will return a list of all matching items)
-    print customers.id["0030"].name
+    print customers.by.id["0030"].name
 
     # print all items sold by the pound
-    for item in catalog.query(unitofmeas="LB"):
+    for item in catalog.where(unitofmeas="LB"):
         print item.sku, item.descr
 
     # print all items that cost more than 10
@@ -89,7 +89,7 @@ Here is a simple C{littletable} data storage/retrieval example::
     # join tables to create queryable wishlists collection
     wishlists = customers.join_on("id") + wishitems.join_on("custid") + catalog.join_on("sku")
 
-    # print all wishlist items with price > 10
+    # wishlists is now a new table; print all wishlist items with price > 10
     bigticketitems = wishlists().where(lambda ob : ob.unitprice > 10)
     for item in bigticketitems:
         print item
@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.6"
-__versionTime__ = "28 Jan 2012 04:05"
+__versionTime__ = "3 Apr 2015 11:45"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -833,7 +833,7 @@ class Table(object):
                     if isinstance(fn,tuple):
                         fn,default = fn
                     objfn = lambda obj : fn(getattr(obj,attr))
-                    self.addfield(attr, objfn, default)
+                    self.add_field(attr, objfn, default)
         finally:
             if close_on_exit:
                 source.close()
@@ -910,7 +910,7 @@ class Table(object):
             if close_on_exit:
                 csv_dest.close()
 
-    def addfield(self, attrname, fn, default=None):
+    def add_field(self, attrname, fn, default=None):
         """Computes a new attribute for each object in table, or replaces an
            existing attribute in each record with a computed value
            @param attrname: attribute to compute for each object
