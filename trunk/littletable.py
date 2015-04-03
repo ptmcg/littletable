@@ -552,10 +552,10 @@ class Table(object):
               named arguments of the form C{attrname="attrvalue"}.
               
            Special kwargs:
-            - C{_orderby="attr,..."} - resulting table should sort content objects
-                by the C{attr}s given in a comma-separated string; to sort in 
-                descending order, reference the attribute as C{attr desc}.
-            - C{_limit} - maximum number of records to return
+             - C{_orderby="attr,..."} - resulting table should sort content objects
+               by the C{attr}s given in a comma-separated string; to sort in 
+               descending order, reference the attribute as C{attr desc}.
+             - C{_limit} - maximum number of records to return
 
            @return: a new Table containing the matching objects
         """
@@ -605,7 +605,7 @@ class Table(object):
         """Deletes matching objects from the table, based on given
            named parameters.  If multiple named parameters are given, then
            only objects that satisfy all of the query criteria will be removed.
-           @param **kwargs: attributes for selecting records, given as additional 
+           @param kwargs: attributes for selecting records, given as additional 
               named arguments of the form C{attrname="attrvalue"}.
            @return: the number of objects removed from the table
         """
@@ -701,7 +701,7 @@ class Table(object):
             object in each table)
         @type attrlist: string, or list of strings or C{(table,attribute[,alias])} tuples
             (list may contain both strings and tuples)
-        @param **kwargs: attributes to join on, given as additional named arguments
+        @param kwargs: attributes to join on, given as additional named arguments
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
         @returns: a new Table containing the joined data as new DataObjects
         """
@@ -840,10 +840,10 @@ class Table(object):
 
     def csv_import(self, csv_source, transforms=None):
         """Imports the contents of a CSV-formatted file into this table.
-           @param source: CSV file - if a string is given, the file with that name will be
+           @param csv_source: CSV file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
                will be read as-is, and left for the caller to be closed.
-           @type source: string or file
+           @type csv_source: string or file
            @param transforms: dict of functions by attribute name; if given, each
                attribute will be transformed using the corresponding transform; if there is no
                matching transform, the attribute will be read as a string (default); the
@@ -858,12 +858,12 @@ class Table(object):
         xsv_reader = lambda src: csv.DictReader(src, delimiter=splitstr)
         return self._import(xsv_source, transforms, reader=xsv_reader)
 
-    def tsv_import(self, xsv_source, transforms=None):
+    def tsv_import(self, tsv_source, transforms=None):
         """Imports the contents of a tab-separated data file into this table.
-           @param source: tab-separated data file - if a string is given, the file with that name will be
+           @param tsv_source: tab-separated data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
                will be read as-is, and left for the caller to be closed.
-           @type source: string or file
+           @type tsv_source: string or file
            @param transforms: dict of functions by attribute name; if given, each
                attribute will be transformed using the corresponding transform; if there is no
                matching transform, the attribute will be read as a string (default); the
@@ -872,7 +872,7 @@ class Table(object):
                be set to the given default value
            @type transforms: dict (optional)
         """
-        return self._xsv_import(xsv_source, transforms=transforms, splitstr="\t")
+        return self._xsv_import(tsv_source, transforms=transforms, splitstr="\t")
 
     def csv_export(self, csv_dest, fieldnames=None):
         """Exports the contents of the table to a CSV-formatted file.
