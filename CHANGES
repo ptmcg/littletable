@@ -2,6 +2,18 @@ Change History
 ==============
 Version 0.6 -
 -------------
+- Added pseudo-accessor "by" to Tables, to make access to indexed fields
+  read more naturally:
+  
+    print students.id[12345]
+
+  is now
+  
+    print students.by.id[12345]
+
+- Table.compute renamed to Table.add_field, to more clearly describe
+  what this method does.
+
 - Modified __getitem__ so that retrievals of slices return new Tables
   instead of just lists of objects (essentially adding sliced indexing
   as another chained accessor).
@@ -20,7 +32,7 @@ Version 0.6 -
   Attributes can be qualified with "desc" to indicated sort to be done
   in descending order.
 
-- Modified insert() and compute() to return self, for chaining support.
+- Modified insert() and add_field() to return self, for chaining support.
 
 - Renamed maxrecs parameters to 'limit', to be more similar to the same
   concept in SQL.
