@@ -7,7 +7,7 @@
 # to a collection of data objects, without dealing with SQL
 #
 #
-# Copyright (c) 2010  Paul T. McGuire
+# Copyright (c) 2010-2015  Paul T. McGuire
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -76,10 +76,10 @@ Here is a simple C{littletable} data storage/retrieval example::
     # print a particular customer name 
     # (unique indexes will return a single item; non-unique
     # indexes will return a list of all matching items)
-    print customers.by.id["0030"].name
+    print customers.id["0030"].name
 
     # print all items sold by the pound
-    for item in catalog.where(unitofmeas="LB"):
+    for item in catalog.query(unitofmeas="LB"):
         print item.sku, item.descr
 
     # print all items that cost more than 10
@@ -89,7 +89,7 @@ Here is a simple C{littletable} data storage/retrieval example::
     # join tables to create queryable wishlists collection
     wishlists = customers.join_on("id") + wishitems.join_on("custid") + catalog.join_on("sku")
 
-    # wishlists is now a new table; print all wishlist items with price > 10
+    # print all wishlist items with price > 10
     bigticketitems = wishlists().where(lambda ob : ob.unitprice > 10)
     for item in bigticketitems:
         print item
@@ -99,13 +99,14 @@ Here is a simple C{littletable} data storage/retrieval example::
         print item
 """
 
-__version__ = "0.6"
-__versionTime__ = "3 Apr 2015 11:45"
+__version__ = "0.7"
+__versionTime__ = "3 Aug 2015 09:39"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
 from collections import defaultdict, deque, namedtuple
 from itertools import groupby,ifilter,islice,starmap,repeat
+from operator import attrgetter
 import csv
 _consumer = deque(maxlen=0)
 do_all = _consumer.extend
@@ -164,6 +165,8 @@ class DataObject(object):
             return getattr(self,k)
         else:
             raise KeyError("object has no such attribute " + k)
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
 
 class _ObjIndex(object):
     def __init__(self, attr):
@@ -375,9 +378,16 @@ class Table(object):
         if isinstance(other, JoinTerm):
             # special case if added to a JoinTerm, do join, not union
             return other + self
-        else:
-            # assume other is another Table, just union them
+        elif isinstance(other, Table):
+            # if other is another Table, just union them
             return self.union(other)
+        else:
+            # assume other is a sequence of some sort, insert all elements
+            return self.clone().insert_many(other)
+
+    def __iadd__(self, other):
+        """Support UNION of 2 tables using "+=" operator."""
+        return self.insert_many(other)
 
     def union(self, other):
         return self.clone().insert_many(other.obs)
@@ -552,16 +562,16 @@ class Table(object):
               named arguments of the form C{attrname="attrvalue"}.
               
            Special kwargs:
-             - C{_orderby="attr,..."} - resulting table should sort content objects
-               by the C{attr}s given in a comma-separated string; to sort in 
-               descending order, reference the attribute as C{attr desc}.
-             - C{_limit} - maximum number of records to return
+            - C{_orderby="attr,..."} - resulting table should sort content objects
+                by the C{attr}s given in a comma-separated string; to sort in 
+                descending order, reference the attribute as C{attr desc}.
+            - C{_limit} - maximum number of records to return
 
            @return: a new Table containing the matching objects
         """
         # extract meta keys
-        flags = [(k,v) for k,v in kwargs.items() if k.startswith("_")]
-        for f,v in flags:
+        flags = dict((k,v) for k,v in kwargs.items() if k.startswith("_"))
+        for f in flags:
             del kwargs[f]
 
         if kwargs:
@@ -605,7 +615,7 @@ class Table(object):
         """Deletes matching objects from the table, based on given
            named parameters.  If multiple named parameters are given, then
            only objects that satisfy all of the query criteria will be removed.
-           @param kwargs: attributes for selecting records, given as additional 
+           @param **kwargs: attributes for selecting records, given as additional 
               named arguments of the form C{attrname="attrvalue"}.
            @return: the number of objects removed from the table
         """
@@ -617,39 +627,80 @@ class Table(object):
         return len(affected)
     
     def sort(self, key, reverse=False):
-        if isinstance(key, basestring):
-            attrs = [s.strip() for s in key.split(',')]
-            # leftmost attr is the most primary sort key, so do succession of 
-            # sorts from right to left
-            attr_orders = [(a.split()+['asc',])[:2] for a in attrs][::-1]
-            #~ for attr,order in attr_orders:
-                 #~ self.obs.sort(key=lambda ob:getattr(ob,attr), reverse=(order=="desc"))
-            do_all(self.obs.sort(key=lambda ob:getattr(ob,attr), reverse=(order=="desc"))
+        """Sort Table in place, using given fields as sort key.
+           @param key: if this is a string, it is a comma-separated list of field names,
+              optionally followed by 'desc' to indicate descending sort instead of the 
+              default ascending sort; if a list or tuple, it is a list or tuple of field names
+              or field names with ' desc' appended; if it is a function, then it is the 
+              function to be used as the sort key function
+           @return: self
+        """
+        if isinstance(key, (basestring,list,tuple)):
+            if isinstance(key, basestring):
+                attrdefs = [s.strip() for s in key.split(',')]
+                # leftmost attr is the most primary sort key, so do succession of 
+                # sorts from right to left
+                attr_orders = [(a.split()+['asc',])[:2] for a in attrdefs][::-1]
+            else:
+                # attr definitions were already resolved to a sequence by the caller
+                attr_orders = key
+            attrs = [attr for attr,order in attr_orders]
+
+            #special optimization if all orders are ascending or descending
+            if all(order=='asc' for attr,order in attr_orders):
+                self.obs.sort(key=attrgetter(*attrs), reverse=reverse)
+            elif all(order=='desc' for attr,order in attr_orders):
+                self.obs.sort(key=attrgetter(*attrs), reverse=not reverse)
+            else:
+                # mix of ascending and descending sorts, have to do succession of sorts
+                #~ for attr,order in attr_orders:
+                     #~ self.obs.sort(key=lambda ob:getattr(ob,attr), reverse=(order=="desc"))
+                do_all(self.obs.sort(key=attrgetter(attr), reverse=(order=="desc"))
                         for attr,order in attr_orders)
         else:
             keyfn = key
             self.obs.sort(key=keyfn, reverse=reverse)
         return self
 
-    def select(self, *fields, **exprs):
+    def select(self, fields, **exprs):
         """
         Create a new table containing a subset of attributes, with optionally 
         newly-added fields computed from each rec in the original table.
-        @param fields - one or more strings, each string is an attribute name to be included in the output
-        @type fields - string (multiple)
+        @param fields - list of strings, or single space-delimited string, listing attribute name to be included in the output
+        @type fields - list, or space-delimited string
         @param exprs - one or more named callable arguments, to compute additional fields using the given function; 
         @type exprs - name=callable, callable takes the record as an argument, and returns the new attribute value
         If a string is passed as a callable, this string will be used using string formatting, given the record
-        as a source of interpolation values.  For instance "
+        as a source of interpolation values.  For instance, C{fullName = '%(lastName)s, %(firstName)s'}
+        
+        Special kwargs:
+            - C{_unique=True} - only return a set of unique rows
         """
-        ret = Table()
+        if isinstance(fields, basestring):
+            fields = fields.split()
+
+        unique = exprs.pop('_unique', False)
+        
+        def _makeStringCallable(expr):
+            if isinstance(expr,basestring):
+                return lambda rec: expr % rec
+            else:
+                return expr
+
+        exprs = dict((k, _makeStringCallable(v)) for k,v in exprs)
+            
+        raw_tuples = []
         for rec in self.obs:
-            attrvalues = dict((fieldname, getattr(rec, fieldname, None)) for fieldname in fields)
-            #~ for fieldname, expr in exprs.items():
-                #~ attrvalues[fieldname] = expr(rec)
-            attrvalues.update(dict((fieldname, expr(rec)) for fieldname, expr in exprs.items()))
-            ret.insert(DataObject(**attrvalues))
-        return ret
+            attrvalues = tuple(getattr(rec, fieldname, None) for fieldname in fields)
+            if exprs:
+                attrvalues += tuple(expr(rec) for expr in exprs.values())
+            raw_tuples.append(attrvalues)
+        
+        if unique:
+            raw_tuples = list(set(raw_tuples))
+
+        allNames = tuple(fields) + tuple(exprs.keys())
+        return Table().insert_many(DataObject(**dict(zip(allNames, outtuple))) for outtuple in raw_tuples)
 
     def format(self, *fields, **exprs):
         """
@@ -701,7 +752,7 @@ class Table(object):
             object in each table)
         @type attrlist: string, or list of strings or C{(table,attribute[,alias])} tuples
             (list may contain both strings and tuples)
-        @param kwargs: attributes to join on, given as additional named arguments
+        @param **kwargs: attributes to join on, given as additional named arguments
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
         @returns: a new Table containing the joined data as new DataObjects
         """
@@ -840,10 +891,10 @@ class Table(object):
 
     def csv_import(self, csv_source, transforms=None):
         """Imports the contents of a CSV-formatted file into this table.
-           @param csv_source: CSV file - if a string is given, the file with that name will be
+           @param source: CSV file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
                will be read as-is, and left for the caller to be closed.
-           @type csv_source: string or file
+           @type source: string or file
            @param transforms: dict of functions by attribute name; if given, each
                attribute will be transformed using the corresponding transform; if there is no
                matching transform, the attribute will be read as a string (default); the
@@ -858,12 +909,12 @@ class Table(object):
         xsv_reader = lambda src: csv.DictReader(src, delimiter=splitstr)
         return self._import(xsv_source, transforms, reader=xsv_reader)
 
-    def tsv_import(self, tsv_source, transforms=None):
+    def tsv_import(self, xsv_source, transforms=None):
         """Imports the contents of a tab-separated data file into this table.
-           @param tsv_source: tab-separated data file - if a string is given, the file with that name will be
+           @param source: tab-separated data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
                will be read as-is, and left for the caller to be closed.
-           @type tsv_source: string or file
+           @type source: string or file
            @param transforms: dict of functions by attribute name; if given, each
                attribute will be transformed using the corresponding transform; if there is no
                matching transform, the attribute will be read as a string (default); the
@@ -872,7 +923,7 @@ class Table(object):
                be set to the given default value
            @type transforms: dict (optional)
         """
-        return self._xsv_import(tsv_source, transforms=transforms, splitstr="\t")
+        return self._xsv_import(xsv_source, transforms=transforms, splitstr="\t")
 
     def csv_export(self, csv_dest, fieldnames=None):
         """Exports the contents of the table to a CSV-formatted file.
@@ -937,6 +988,10 @@ class Table(object):
         do_all(_addFieldToRec(r) for r in self)
         return self
 
+    def addfield(self, attrname, fn, default=None):
+        # deprecated in favor of add_field
+        return self.add_field(attrname, fn, default)
+
     def groupby(self, keyexpr, **outexprs):
         """simple prototype of group by, with support for expressions in the group-by clause 
            and outputs
@@ -977,6 +1032,15 @@ class Table(object):
     def run(self):
         return self
 
+    def unique(self):
+        ret = self.copy_template()
+        seen = set()
+        for rec in self:
+            reckey = tuple(rec.__dict__.values())
+            if reckey not in seen:
+                seen.add(reckey)
+                ret.insert(rec)
+        return ret
 
 class PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot().
@@ -1064,8 +1128,10 @@ class PivotTable(Table):
                 showslice = slice(0,limit)
             else:
                 showslice = slice(None,None)
-            for r in self.obs[showslice]:
-                out.write("  "*(indent+1) + row_fn(r) + NL)
+            #~ for r in self.obs[showslice]:
+                #~ out.write("  "*(indent+1) + row_fn(r) + NL)
+            do_all(out.write("  "*(indent+1) + row_fn(r) + NL)
+                      for r in self.obs[showslice])
         out.flush()
         
     def dump_counts(self, out=sys.stdout, count_fn=len, colwidth=10):

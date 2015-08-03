@@ -1,19 +1,37 @@
 Change History
 ==============
+Version 0.7 -
+-------------
+- Added support for '+=' operator, for in-place union. Unlike '+', does
+  not return a new Table, but instead updates the LHS table in place.
+  
+- Renamed addfield to add_field to be consistent with other two-word 
+  method names in the Table interface.  addfield is still retained for
+  compatibility (just calls add_field with called args); but is deprecated
+  and will be removed in a future version.
+
+- Added unique() method on Table, to return a new Table with duplicate
+  entries removed. To support comparison of DataObjects that might be in
+  the table, DataObjects now support __eq__ and hash methods.
+
+- Changed interface to Table.select(). Formerly was called as
+
+    table.select('field1','field2','field3')
+
+  But now the fields are specified as either a single space-delimited
+  string or a list of strings.
+
+    table.select('field1 field2 field3')
+
+- The special '_orderby' argument to Table.where() is deprecated, since
+  following the where() call with sort() is so straightforward.
+
+- The special '_unique' argument to Table.select() is deprecated, since
+  following the select() call with unique() is so straightforward.
+
+
 Version 0.6 -
 -------------
-- Added pseudo-accessor "by" to Tables, to make access to indexed fields
-  read more naturally:
-  
-    print students.id[12345]
-
-  is now
-  
-    print students.by.id[12345]
-
-- Table.compute renamed to Table.add_field, to more clearly describe
-  what this method does.
-
 - Modified __getitem__ so that retrievals of slices return new Tables
   instead of just lists of objects (essentially adding sliced indexing
   as another chained accessor).
@@ -32,7 +50,7 @@ Version 0.6 -
   Attributes can be qualified with "desc" to indicated sort to be done
   in descending order.
 
-- Modified insert() and add_field() to return self, for chaining support.
+- Modified insert() and compute() to return self, for chaining support.
 
 - Renamed maxrecs parameters to 'limit', to be more similar to the same
   concept in SQL.
@@ -42,7 +60,7 @@ Version 0.6 -
 
 - Add union function to add records of two tables. '+' between two tables
   will perform union; '+' between join terms, or a table and a join term,
-  will perform join.
+  will perform join. Returns a new Table.
 
 - join() verifies that all named attributes exist in one of the source
   tables
