@@ -99,8 +99,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print item
 """
 
-__version__ = "0.7"
-__versionTime__ = "5 Dec 2015 18:11"
+__version__ = "0.8"
+__versionTime__ = "5 Dec 2015 20:03"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
