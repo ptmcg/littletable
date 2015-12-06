@@ -562,26 +562,28 @@ class Table(object):
             return 1e9
         
     def where(self, *args, **kwargs):
-        """Retrieves matching objects from the table, based on given
-           named parameters.  If multiple named parameters are given, then
-           only objects that satisfy all of the query criteria will be returned.
-           
-           @param wherefn: a method or lambda that returns a boolean result, as in::
-               
-               lambda ob : ob.unitprice > 10
-               
-           @type wherefn: callable(object) returning boolean
-           
-           @param **kwargs: attributes for selecting records, given as additional 
-              named arguments of the form C{attrname="attrvalue"}.
-              
-           Special kwargs:
-            - C{_orderby="attr,..."} - resulting table should sort content objects
-                by the C{attr}s given in a comma-separated string; to sort in 
-                descending order, reference the attribute as C{attr desc}.
-            - C{_limit} - maximum number of records to return
+        """
+        Retrieves matching objects from the table, based on given
+        named parameters.  If multiple named parameters are given, then
+        only objects that satisfy all of the query criteria will be returned.
+        
+        Special named args:
+         - C{_orderby="attr,..."} - resulting table should sort content objects
+           by the C{attr}s given in a comma-separated string; to sort in 
+           descending order, reference the attribute as C{attr desc}.
 
-           @return: a new Table containing the matching objects
+         - C{_limit} - maximum number of records to return
+           
+        @param wherefn: a method or lambda that returns a boolean result, as in::
+           
+           lambda ob : ob.unitprice > 10
+           
+        @type wherefn: callable(object) returning boolean
+
+        @param kwargs: attributes for selecting records, given as additional 
+          named arguments of the form C{attrname="attrvalue"}.
+
+        @return: a new Table containing the matching objects
         """
         # extract meta keys
         flags = dict((k,v) for k,v in kwargs.items() if k.startswith("_"))
@@ -629,7 +631,7 @@ class Table(object):
         """Deletes matching objects from the table, based on given
            named parameters.  If multiple named parameters are given, then
            only objects that satisfy all of the query criteria will be removed.
-           @param **kwargs: attributes for selecting records, given as additional 
+           @param kwargs: attributes for selecting records, given as additional 
               named arguments of the form C{attrname="attrvalue"}.
            @return: the number of objects removed from the table
         """
@@ -680,15 +682,17 @@ class Table(object):
         """
         Create a new table containing a subset of attributes, with optionally 
         newly-added fields computed from each rec in the original table.
-        @param fields - list of strings, or single space-delimited string, listing attribute name to be included in the output
-        @type fields - list, or space-delimited string
-        @param exprs - one or more named callable arguments, to compute additional fields using the given function; 
-        @type exprs - name=callable, callable takes the record as an argument, and returns the new attribute value
+
+        Special kwargs:
+            - C{_unique=True} - only return a set of unique rows
+
+        @param fields: list of strings, or single space-delimited string, listing attribute name to be included in the output
+        @type fields: list, or space-delimited string
+        @param exprs: one or more named callable arguments, to compute additional fields using the given function
+        @type exprs: C{name=callable}, callable takes the record as an argument, and returns the new attribute value
         If a string is passed as a callable, this string will be used using string formatting, given the record
         as a source of interpolation values.  For instance, C{fullName = '%(lastName)s, %(firstName)s'}
         
-        Special kwargs:
-            - C{_unique=True} - only return a set of unique rows
         """
         if isinstance(fields, basestring):
             fields = fields.split()
@@ -720,10 +724,10 @@ class Table(object):
         """
         Create a new table with all string formatted attribute values, typically in preparation for
         formatted output.
-        @param fields - one or more strings, each string is an attribute name to be included in the output
-        @type fields - string (multiple)
-        @param exprs - one or more named string arguments, to format the given attribute with a formatting string 
-        @type exprs - name=string
+        @param fields: one or more strings, each string is an attribute name to be included in the output
+        @type fields: string (multiple)
+        @param exprs: one or more named string arguments, to format the given attribute with a formatting string 
+        @type exprs: name=string
         """
         #~ select_exprs = {}
         #~ for f in fields:
@@ -766,7 +770,7 @@ class Table(object):
             object in each table)
         @type attrlist: string, or list of strings or C{(table,attribute[,alias])} tuples
             (list may contain both strings and tuples)
-        @param **kwargs: attributes to join on, given as additional named arguments
+        @param kwargs: attributes to join on, given as additional named arguments
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
         @returns: a new Table containing the joined data as new DataObjects
         """
@@ -905,10 +909,10 @@ class Table(object):
 
     def csv_import(self, csv_source, transforms=None):
         """Imports the contents of a CSV-formatted file into this table.
-           @param source: CSV file - if a string is given, the file with that name will be
+           @param csv_source: CSV file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
                will be read as-is, and left for the caller to be closed.
-           @type source: string or file
+           @type csv_source: string or file
            @param transforms: dict of functions by attribute name; if given, each
                attribute will be transformed using the corresponding transform; if there is no
                matching transform, the attribute will be read as a string (default); the
@@ -925,10 +929,10 @@ class Table(object):
 
     def tsv_import(self, xsv_source, transforms=None):
         """Imports the contents of a tab-separated data file into this table.
-           @param source: tab-separated data file - if a string is given, the file with that name will be
+           @param xsv_source: tab-separated data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
                will be read as-is, and left for the caller to be closed.
-           @type source: string or file
+           @type xsv_source: string or file
            @param transforms: dict of functions by attribute name; if given, each
                attribute will be transformed using the corresponding transform; if there is no
                matching transform, the attribute will be read as a string (default); the
