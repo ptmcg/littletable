@@ -1,12 +1,16 @@
 Change History
 ==============
-Version 0.7 -
+Version 0.8 -
 -------------
 - Added json_import and json_export methods to Table, with same interface
   as csv_import and csv_export. The import file should contain a JSON
   object string per row, or a succession of JSON objects (can be pretty-
   printed), but *not* a single JSON list of objects.
 
+- Included pivot_demo.py as part of the source distribution.
+
+Version 0.7 -
+-------------
 - Added support for '+=' operator, for in-place union. Unlike '+', does
   not return a new Table, but instead updates the LHS table in place.
   
