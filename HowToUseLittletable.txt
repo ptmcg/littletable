@@ -168,16 +168,16 @@ Some simple littletable recipes:
 
 - Sorted table by attribute x
 
-    employees.query(_orderby="salary")
+    employees.sort("salary")
     
 
 - Sorted table by primary attribute x, secondary attribute y
 
-    salesmen.query(_orderby="salary, commission")
+    salesmen.sort("salary,commission")
 
 
 - Get top 5 objects in table by value of attribute x
 
-    salesmen.query(_orderby="sales desc")[:5]
+    salesmen.sort("sales desc")[:5]
 
 
