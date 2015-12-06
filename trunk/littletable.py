@@ -100,7 +100,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.7"
-__versionTime__ = "3 Aug 2015 09:39"
+__versionTime__ = "5 Dec 2015 18:11"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -108,6 +108,7 @@ from collections import defaultdict, deque, namedtuple
 from itertools import groupby,ifilter,islice,starmap,repeat
 from operator import attrgetter
 import csv
+import json
 _consumer = deque(maxlen=0)
 do_all = _consumer.extend
 
@@ -146,6 +147,19 @@ def _object_attrnames(obj):
     else:
         raise ValueError("object with unknown attributes")
 
+def _to_json(obj):
+    if hasattr(obj, "__dict__"):
+        # normal object
+        return json.dumps(obj.__dict__)
+    elif isinstance(obj, tuple) and hasattr(obj, "_fields"):
+        # namedtuple
+        return json.dumps(dict(zip(obj._fields, obj)))
+    elif hasattr(obj, "__slots__"):
+        return json.dumps({k:v for k,v in zip(obj.__slots__, 
+                                                (getattr(obj,a) for a in obj.__slots__))})
+    else:
+        raise ValueError("object with unknown attributes")
+    
 class DataObject(object):
     """A generic semi-mutable object for storing data values in a table. Attributes
        can be set by passing in named arguments in the constructor, or by setting them
@@ -960,6 +974,66 @@ class Table(object):
         finally:
             if close_on_exit:
                 csv_dest.close()
+
+    def json_import(self, source, transforms=None):
+        """Imports the contents of a JSON data file into this table.
+           @param source: JSON data file - if a string is given, the file with that name will be
+               opened, read, and closed; if a file object is given, then that object
+               will be read as-is, and left for the caller to be closed.
+           @type source: string or file
+           @param transforms: dict of functions by attribute name; if given, each
+               attribute will be transformed using the corresponding transform; if there is no
+               matching transform, the attribute will be read as a string (default); the
+               transform function can also be defined as a (function, default-value) tuple; if
+               there is an Exception raised by the transform function, then the attribute will
+               be set to the given default value
+           @type transforms: dict (optional)
+        """
+        class _JsonFileReader(object):
+            def __init__(self, src):
+                self.source = src
+            def __iter__(self):
+                current = ''
+                for line in self.source:
+                    if current:
+                        current += ' '
+                    current += line
+                    try:
+                        yield json.loads(current)
+                        current = ''
+                    except Exception:
+                        pass
+        return self._import(source, transforms=transforms, reader=_JsonFileReader)
+
+    def json_export(self, dest, fieldnames=None):
+        """Exports the contents of the table to a JSON-formatted file.
+           @param dest: output file - if a string is given, the file with that name will be 
+               opened, written, and closed; if a file object is given, then that object 
+               will be written as-is, and left for the caller to be closed.
+           @type dest: string or file
+           @param fieldnames: attribute names to be exported; can be given as a single
+               string with space-delimited names, or as a list of attribute names
+        """
+        close_on_exit = False
+        if isinstance(dest, basestring):
+            dest = open(dest,'wb')
+            close_on_exit = True
+        try:
+            if isinstance(fieldnames, basestring):
+                fieldnames = fieldnames.split()
+
+            if fieldnames is None:
+                do_all(
+                    dest.write(_to_json(o)+'\n') for o in self.obs
+                )
+            else:
+                do_all(
+                    dest.write(json.dumps({f:getattr(o, f) for f in fieldnames})+'\n') 
+                        for o in self.obs
+                )
+        finally:
+            if close_on_exit:
+                dest.close()
 
     def add_field(self, attrname, fn, default=None):
         """Computes a new attribute for each object in table, or replaces an
