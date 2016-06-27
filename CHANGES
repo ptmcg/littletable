@@ -1,5 +1,25 @@
 Change History
 ==============
+
+Version 0.9 - 
+-------------
+- Python 3 compatibility.
+
+- (feature previously released in version 0.6 but not documented)
+  Added 'by' index accessor on tables, to help distinguish that the index 
+  attributes are not attributes of the table itself, but of the objects 
+  in the table:
+
+    # using unique index 'sku' on catalog table:
+    print(catalog.by.sku["ANVIL-001"].descr)
+    
+    # using non-unique index 'state' on stations table:
+    stations.create_index("state")
+    for az_stn in stations.by.state['AZ']:
+        print(az_stn)
+
+  Updated inline examples to use '<table>.by.<index_name>' syntax.
+
 Version 0.8 -
 -------------
 - Added json_import and json_export methods to Table, with same interface
