@@ -43,6 +43,8 @@ Table, C{littletable} offers:
  - access to objects using indexed attributes
  - simplified joins using '+' operator syntax between annotated Tables
  - the result of any query or join is a new first-class C{littletable} Table
+ - pivot on one or two attributes to gather tabulated data summaries
+ - easy import/export to CSV and JSON files
 
 C{littletable} Tables do not require an upfront schema definition, but simply work off of the
 attributes in the stored values, and those referenced in any query parameters.
@@ -80,7 +82,7 @@ Here is a simple C{littletable} data storage/retrieval example::
     print(customers.by.id["0030"].name)
 
     # print all items sold by the pound
-    for item in catalog.query(unitofmeas="LB"):
+    for item in catalog.where(unitofmeas="LB"):
         print(item.sku, item.descr)
 
     # print all items that cost more than 10
@@ -100,8 +102,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "0.9"
-__versionTime__ = "27 Jun 2016 10:02"
+__version__ = "0.10"
+__versionTime__ = "27 Jun 2016 14:58"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
