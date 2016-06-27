@@ -10,7 +10,6 @@
 # Copyright (c) 2011  Paul T. McGuire
 #
 from littletable import Table
-from urllib import urlopen
 
 places = Table()
 
@@ -21,40 +20,40 @@ places.csv_import(data_source,
 places.create_index('state')
 
 # add computed field, elevation rounded down by 1000's
-places.addfield('elev2', lambda x: x.elev/1000*1000, 0)
+places.addfield('elev2', lambda x: int(x.elev/1000)*1000, 0)
 places.create_index('elev2')
 
-print "summarize population by state"
+print("summarize population by state")
 piv = places.pivot('state')
 pplByState = piv.summary_counts(sum, 'pop').sort('pop desc')
 for rec in pplByState:
-    print rec.state, rec.pop
+    print(rec.state, rec.pop)
 piv.dump_counts(count_fn=lambda recs:sum(r.pop for r in recs))
 
-print
-print "summarize population by elevation"
+print('')
+print("summarize population by elevation")
 piv = places.pivot('elev2')
 pplByElev = piv.summary_counts(sum, 'pop')
 for rec in pplByElev:
-    print rec.elev2, rec.pop
+    print(rec.elev2, rec.pop)
 piv.dump_counts(count_fn=lambda recs:sum(r.pop for r in recs))
 
-print
-print "summarize population by state and elevation"
+print('')
+print("summarize population by state and elevation")
 piv = places.pivot('state elev2')
 alaskan_locns_3k_to_4k_ft = piv['AK'][3000]
 for rec in alaskan_locns_3k_to_4k_ft:
-    print rec
-print
+    print(rec)
+print('')
 
 piv.dump_counts(count_fn=lambda recs:sum(r.pop for r in recs))
-print
+print('')
 
 pplByElev = piv.summary_counts(sum, 'pop')
 for rec in pplByElev[:100]:
-    print rec.state, rec.elev2, rec.pop
+    print(rec.state, rec.elev2, rec.pop)
 
 # find average elevation of person by state
-print "Average elevation of each person by state"
+print("Average elevation of each person by state")
 piv = places.pivot('state')
-piv.dump_counts(count_fn=lambda recs:sum(r.pop*r.elev for r in recs)/sum(r.pop for r in recs))
+piv.dump_counts(count_fn=lambda recs: int(sum(r.pop*r.elev for r in recs)/sum(r.pop for r in recs)))

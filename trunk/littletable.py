@@ -7,7 +7,7 @@
 # to a collection of data objects, without dealing with SQL
 #
 #
-# Copyright (c) 2010-2015  Paul T. McGuire
+# Copyright (c) 2010-2016  Paul T. McGuire
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -63,6 +63,7 @@ Here is a simple C{littletable} data storage/retrieval example::
     catalog.insert(DataObject(sku="BRDSD-001", descr="Bird seed", unitofmeas="LB",unitprice=3))
     catalog.insert(DataObject(sku="MAGNT-001", descr="Magnet", unitofmeas="EA",unitprice=8))
     catalog.insert(DataObject(sku="MAGLS-001", descr="Magnifying glass", unitofmeas="EA",unitprice=12))
+    print(catalog.by.sku["ANVIL-001"].descr)
 
     wishitems = Table('wishitems')
     wishitems.create_index("custid")
@@ -76,15 +77,15 @@ Here is a simple C{littletable} data storage/retrieval example::
     # print a particular customer name 
     # (unique indexes will return a single item; non-unique
     # indexes will return a list of all matching items)
-    print customers.id["0030"].name
+    print(customers.by.id["0030"].name)
 
     # print all items sold by the pound
     for item in catalog.query(unitofmeas="LB"):
-        print item.sku, item.descr
+        print(item.sku, item.descr)
 
     # print all items that cost more than 10
     for item in catalog.where(lambda o : o.unitprice>10):
-        print item.sku, item.descr, item.unitprice
+        print(item.sku, item.descr, item.unitprice)
 
     # join tables to create queryable wishlists collection
     wishlists = customers.join_on("id") + wishitems.join_on("custid") + catalog.join_on("sku")
@@ -92,20 +93,25 @@ Here is a simple C{littletable} data storage/retrieval example::
     # print all wishlist items with price > 10
     bigticketitems = wishlists().where(lambda ob : ob.unitprice > 10)
     for item in bigticketitems:
-        print item
+        print(item)
 
     # list all wishlist items in descending order by price
     for item in wishlists().sort("unitprice desc"):
-        print item
+        print(item)
 """
 
-__version__ = "0.8"
-__versionTime__ = "5 Dec 2015 20:03"
+__version__ = "0.9"
+__versionTime__ = "27 Jun 2016 10:02"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
+PY_3 = sys.version_info[0] == 3
+
 from collections import defaultdict, deque, namedtuple
-from itertools import groupby,ifilter,islice,starmap,repeat
+from itertools import groupby,islice,starmap,repeat
+if not PY_3:
+    from itertools import ifilter as filter
+    
 from operator import attrgetter
 import csv
 import json
@@ -196,7 +202,7 @@ class _ObjIndex(object):
     def __iter__(self):
         return iter(self.obs)
     def keys(self):
-        return sorted(self.obs.keys())
+        return sorted(filter(None, self.obs.keys()))
     def items(self):
         return self.obs.items()
     def remove(self, obj):
@@ -285,9 +291,12 @@ class _IndexAccessor(object):
            name is used to locate the index, and returns a wrapper on the index.  This wrapper provides
            dict-like access to the underlying records in the table, as in::
            
-              employees.socsecnum["000-00-0000"]
-              customers.zipcode["12345"]
-              
+              employees.by.socsecnum["000-00-0000"]
+              customers.by.zipcode["12345"]
+        
+           ('by' is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
+           are not attributes of the table, but of items in the table.)
+
            The behavior differs slightly for unique and non-unique indexes:
              - if the index is unique, then retrieving a matching object, will return just the object;
                if there is no matching object, C{KeyError} is raised (making a table with a unique
@@ -360,8 +369,11 @@ class Table(object):
            name is used to locate the index, and returns a wrapper on the index.  This wrapper provides
            dict-like access to the underlying records in the table, as in::
            
-              employees.socsecnum["000-00-0000"]
-              customers.zipcode["12345"]
+              employees.by.socsecnum["000-00-0000"]
+              customers.by.zipcode["12345"]
+        
+           ('by' is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
+           are not attributes of the table, but of items in the table.)
               
            The behavior differs slightly for unique and non-unique indexes:
              - if the index is unique, then retrieving a matching object, will return just the object;
@@ -622,7 +634,7 @@ class Table(object):
         if args:
             wherefn = args[0]
             newret = ret.copy_template()
-            newret.insert_many(ifilter(wherefn, ret.obs))
+            newret.insert_many(filter(wherefn, ret.obs))
             ret = newret
 
         return ret
@@ -774,7 +786,9 @@ class Table(object):
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
         @returns: a new Table containing the joined data as new DataObjects
         """
-        thiscol,othercol = kwargs.items()[0]
+        if not kwargs:
+            raise TypeError("must specify at least one join attribute as a named argument")
+        thiscol,othercol = next(iter(kwargs.items()))
 
         retname = ("(%s:%s^%s:%s)" % 
                 (self.table_name, thiscol, other.table_name, othercol))
@@ -806,8 +820,8 @@ class Table(object):
             fullcols = [(self,n,n) for n in thisnames]
             fullcols += [(other,n,n) for n in othernames]
 
-        thiscols = list(ifilter(lambda o:o[0] is self, fullcols))
-        othercols = list(ifilter(lambda o:o[0] is other, fullcols))
+        thiscols = list(filter(lambda o:o[0] is self, fullcols))
+        othercols = list(filter(lambda o:o[0] is other, fullcols))
 
         if auto_create_indexes:
             if thiscol not in self._indexes:
@@ -888,10 +902,13 @@ class Table(object):
         else:
             raise ValueError("pivot can only be called using indexed attributes")
 
-    def _import(self, source, transforms=None, reader=csv.DictReader):
+    def _import(self, source, encoding, transforms=None, reader=csv.DictReader):
         close_on_exit = False
         if isinstance(source, basestring):
-            source = open(source)
+            if PY_3:
+                source = open(source, encoding=encoding)
+            else:
+                source = open(source)
             close_on_exit = True
         try:
             csvdata = reader(source)
@@ -907,7 +924,7 @@ class Table(object):
             if close_on_exit:
                 source.close()
 
-    def csv_import(self, csv_source, transforms=None):
+    def csv_import(self, csv_source, encoding='UTF-8', transforms=None):
         """Imports the contents of a CSV-formatted file into this table.
            @param csv_source: CSV file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -921,7 +938,7 @@ class Table(object):
                be set to the given default value
            @type transforms: dict (optional)
         """
-        return self._import(csv_source, transforms)
+        return self._import(csv_source, encoding, transforms)
 
     def _xsv_import(self, xsv_source, transforms=None, splitstr="\t"):
         xsv_reader = lambda src: csv.DictReader(src, delimiter=splitstr)
@@ -1404,15 +1421,15 @@ if __name__ == "__main__":
         dict(city="Phoenix", _orderby="stn"),
         dict(city="Phoenix", _orderby="stn desc"),
         ]:
-        print queryargs,
+        print(queryargs)
         result = stations.where(**queryargs)
-        print len(result)
-        for r in result: print r
-        print
+        print(len(result))
+        for r in result: print (r)
+        print('')
     #~ print stations.delete(city="Phoenix")
     #~ print stations.delete(city="Boston")
-    print list(stations.where())
-    print
+    print(list(stations.where()))
+    print('')
 
     amfm = Table()
     amfm.create_index("stn", unique=True)
@@ -1420,33 +1437,39 @@ if __name__ == "__main__":
     amfm.insert(DataObject(stn="KPHX", band="FM"))
     amfm.insert(DataObject(stn="KPHA", band="FM"))
     amfm.insert(DataObject(stn="KDFW", band="FM"))
+    print(amfm.by.stn["KPHY"])
+    print(amfm.by.stn["KPHY"].band)
     
     try:
         amfm.insert(DataObject(stn="KPHA", band="AM"))
     except KeyError:
-        print "duplicate key not allowed"
+        print("duplicate key not allowed")
 
-    print
+    print('')
     for rec in (stations.join_on("stn") + amfm.join_on("stn")
                 )(["stn", "city", (amfm,"band","AMFM"), 
                    (stations,"state","st")]).sort("AMFM"):
-        print repr(rec)
+        print(repr(rec))
 
-    print
+    print('')
     for rec in (stations.join_on("stn") + amfm.join_on("stn")
                 )(["stn", "city", (amfm,"band"), (stations,"state","st")]):
-        print json_dumps(rec.__dict__)
+        print(json_dumps(rec.__dict__))
 
-    print
+    print('')
     for rec in (stations.join_on("stn") + amfm.join_on("stn"))():
-        print json_dumps(rec.__dict__)
-
-    print
+        print(json_dumps(rec.__dict__))
+        
+    print('')
     stations.create_index("state")
+    for az_stn in stations.by.state['AZ']:
+        print(az_stn)
+
+    print('')
     pivot = stations.pivot("state")
     pivot.dump_counts()
     
-    print
+    print('')
     amfm.create_index("band")
     pivot = (stations.join_on("stn") + amfm)().pivot("state band")
     pivot.dump_counts()
