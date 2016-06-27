@@ -294,7 +294,7 @@ class _IndexAccessor(object):
               employees.by.socsecnum["000-00-0000"]
               customers.by.zipcode["12345"]
         
-           ('by' is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
+           (C{'by'} is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
            are not attributes of the table, but of items in the table.)
 
            The behavior differs slightly for unique and non-unique indexes:
@@ -372,7 +372,7 @@ class Table(object):
               employees.by.socsecnum["000-00-0000"]
               customers.by.zipcode["12345"]
         
-           ('by' is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
+           (C{'by'} is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
            are not attributes of the table, but of items in the table.)
               
            The behavior differs slightly for unique and non-unique indexes:
@@ -573,14 +573,14 @@ class Table(object):
         else:
             return 1e9
         
-    def where(self, *args, **kwargs):
+    def where(self, wherefn=None, **kwargs):
         """
         Retrieves matching objects from the table, based on given
         named parameters.  If multiple named parameters are given, then
         only objects that satisfy all of the query criteria will be returned.
         
         Special named args:
-         - C{_orderby="attr,..."} - resulting table should sort content objects
+         - C{_orderby="attr,..."} - (Deprecated) resulting table should sort content objects
            by the C{attr}s given in a comma-separated string; to sort in 
            descending order, reference the attribute as C{attr desc}.
 
@@ -631,8 +631,7 @@ class Table(object):
             if '_limit' in flags:
                 del ret.obs[flags['_limit']:]
 
-        if args:
-            wherefn = args[0]
+        if wherefn is not None:
             newret = ret.copy_template()
             newret.insert_many(filter(wherefn, ret.obs))
             ret = newret
@@ -696,7 +695,7 @@ class Table(object):
         newly-added fields computed from each rec in the original table.
 
         Special kwargs:
-            - C{_unique=True} - only return a set of unique rows
+            - C{_unique=True} - (Deprecated) only return a set of unique rows
 
         @param fields: list of strings, or single space-delimited string, listing attribute name to be included in the output
         @type fields: list, or space-delimited string
