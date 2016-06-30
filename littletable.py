@@ -103,7 +103,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.10"
-__versionTime__ = "27 Jun 2016 14:58"
+__versionTime__ = "30 Jun 2016 15:40"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -925,12 +925,15 @@ class Table(object):
             if close_on_exit:
                 source.close()
 
-    def csv_import(self, csv_source, encoding='UTF-8', transforms=None):
+    def csv_import(self, csv_source, encoding='UTF-8', transforms=None, **kwargs):
         """Imports the contents of a CSV-formatted file into this table.
            @param csv_source: CSV file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
                will be read as-is, and left for the caller to be closed.
            @type csv_source: string or file
+           @param encoding: encoding to be used for reading source text if C{csv_source} is
+               passed as a string filename
+           @type encoding: string (default='UTF-8')
            @param transforms: dict of functions by attribute name; if given, each
                attribute will be transformed using the corresponding transform; if there is no
                matching transform, the attribute will be read as a string (default); the
@@ -938,8 +941,13 @@ class Table(object):
                there is an Exception raised by the transform function, then the attribute will
                be set to the given default value
            @type transforms: dict (optional)
+           @param kwargs: additional constructor arguments for csv C{DictReader} objects, such as C{delimiter}
+               or C{fieldnames}; these are passed directly through to the csv C{DictReader} constructor
+           @type kwargs: named arguments (optional)
         """
-        return self._import(csv_source, encoding, transforms)
+        reader_args = dict((k,v) for k,v in kwargs.items() if k not in ['encoding', 'csv_source', 'transforms'])
+        reader = lambda src: csv.DictReader(src, **reader_args)
+        return self._import(csv_source, encoding, transforms, reader=reader)
 
     def _xsv_import(self, xsv_source, transforms=None, splitstr="\t"):
         xsv_reader = lambda src: csv.DictReader(src, delimiter=splitstr)
