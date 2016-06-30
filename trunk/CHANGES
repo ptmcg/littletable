@@ -1,6 +1,14 @@
 Change History
 ==============
 
+Version 0.10 - 
+-------------
+- Extended interface to Table.csv_import, to accept passthru of 
+  additional named arguments (such as 'delimiter' or 'fieldnames') to the
+  DictReader constructor used to read the import data.
+
+- Miscellaneous documentation cleanup.
+
 Version 0.9 - 
 -------------
 - Python 3 compatibility.
