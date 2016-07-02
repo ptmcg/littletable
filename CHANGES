@@ -3,9 +3,38 @@ Change History
 
 Version 0.10 - 
 -------------
+- Deprecated access to indexed fields using '<tablename>.<fieldname>', as
+  this obscures the fact that the fields are attributes of the table's objects,
+  not of the table itself. Instead, index access will be done using the 'by'
+  index accessor, introduced in version 0.6 (see comments below in notes
+  for release 0.9). Indexes-as-table-attributes will be completely removed 
+  in release 1.0.
+
+- Deprecated Table.run(). Will be removed in release 1.0.
+
 - Extended interface to Table.csv_import, to accept passthru of 
   additional named arguments (such as 'delimiter' or 'fieldnames') to the
   DictReader constructor used to read the import data.
+
+- Extended interface to Table.csv_export and json_export, to support
+  addition of 'encoding' argument (default='UTF-8') for the output file.
+  (Python 3 only)
+
+- Added set item support to DataObject, to support "obj['a'] = 100" style
+  assignments. Note that DataObjects are only semi-mutable: a given key or 
+  attribute can only be assigned once, not overwritten.
+
+- Added 'key' argument to Table.unique, to support passing a callable to 
+  unique for special cases for defining what makes an object 'unique'. 
+  Default is the prior behavior, which is a tuple of all of the values of
+  the object.
+
+- Added exceptions to DataObject when attempting to modify an existing
+  attribute. New attributes are still supported, but existing attributes
+  cannot be overwritten. (Applies to both attribute and indexed assignments.)
+  Formerly, these assignments would simply fail silently.
+
+- Using OrderedDict when supported, to preserve field order in JSON output.
 
 - Miscellaneous documentation cleanup.
 
