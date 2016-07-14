@@ -103,7 +103,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.10"
-__versionTime__ = "2 Jul 2016 13:47"
+__versionTime__ = "14 Jul 2016 11:52"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -125,6 +125,8 @@ except ImportError:
 from operator import attrgetter
 import csv
 import json
+import re
+
 _consumer = deque(maxlen=0)
 do_all = _consumer.extend
 
@@ -181,7 +183,6 @@ class DataObject(object):
        are ignored.  Table joins are returned as a Table of DataObjects."""
     def __init__(self, **kwargs):
         if kwargs:
-            self.__dict__ = ODict()
             self.__dict__.update(kwargs)
     def __repr__(self):
         return '{' + ', '.join(("%r: %r" % k_v) for k_v in self.__dict__.items()) + '}'
@@ -216,7 +217,8 @@ class _ObjIndex(object):
     def __len__(self):
         return len(self.obs)
     def __iter__(self):
-        return iter(self.obs)
+        return iter(self.obs.keys())
+
     def keys(self):
         return sorted(filter(None, self.obs.keys()))
     def items(self):
@@ -234,26 +236,30 @@ class _ObjIndex(object):
         
 class _UniqueObjIndex(_ObjIndex):
     def __init__(self, attr, accept_none=False):
-        self.attr = attr
+        super(_UniqueObjIndex, self).__init__(attr)
         self.obs = {}
         self.is_unique = True
         self.accept_none = accept_none
-        self.none_values = set()
+        self.none_values = list()
     def __setitem__(self, k, v):
-        if k:
+        if k is not None:
             if k not in self.obs:
                 self.obs[k] = v
             else:
                 raise KeyError("duplicate key value %s" % k)
         else:
-            self.none_values.add(v)
+            if self.accept_none:
+	            self.none_values.append(v)
+            else:
+                raise ValueError("None is not a valid index key")
+
     def __getitem__(self, k):
-        if k:
+        if k is not None:
             return [self.obs.get(k)] if k in self.obs else []
         else:
             return list(self.none_values)
     def __contains__(self, k):
-        if k:
+        if k is not None:
             return k in self.obs
         else:
             return self.accept_none and self.none_values
@@ -263,11 +269,13 @@ class _UniqueObjIndex(_ObjIndex):
         return [(k,[v]) for k,v in self.obs.items()]
     def remove(self, obj):
         k = getattr(obj, self.attr)
-        if k:
-            if k in self.obs:
-                del self.obs[k]
+        if k is not None:
+            self.obs.pop(k, None)
         else:
-            self.none_values.discard(obj)
+            try:
+                self.none_values.remove(obj)
+            except ValueError:
+                pass
 
 class _ObjIndexWrapper(object):
     def __init__(self, ind):
@@ -279,18 +287,14 @@ class _ObjIndexWrapper(object):
         if k in self._index:
             ret.insert_many(self._index[k])
         return ret
+
     def __contains__(self, k):
         return k in self._index
 
-class _UniqueObjIndexWrapper(object):
-    def __init__(self, ind):
-        self._index = ind
-    def __getattr__(self, attr):
-        return getattr(self._index, attr)
-    def __contains__(self, k):
-        return k in self._index
+
+class _UniqueObjIndexWrapper(_ObjIndexWrapper):
     def __getitem__(self, k):
-        if k:
+        if k is not None:
             return self._index[k][0]
         else:
             ret = Table()
@@ -330,7 +334,7 @@ class _IndexAccessor(object):
             if isinstance(ret, _ObjIndex):
                 ret = _ObjIndexWrapper(ret)
             return ret
-        raise AttributeError("Table '%s' has no index '%s'" % (self.table_name, attr))
+        raise AttributeError("Table '%s' has no index '%s'" % (self.table.table_name, attr))
 
 
 class Table(object):
@@ -742,7 +746,7 @@ class Table(object):
             else:
                 return expr
 
-        exprs = dict((k, _makeStringCallable(v)) for k,v in exprs)
+        exprs = dict((k, _makeStringCallable(v)) for k,v in exprs.items())
             
         raw_tuples = []
         for rec in self.obs:
@@ -888,7 +892,8 @@ class Table(object):
         for tbl,collist in zip([self,other],[thiscols,othercols]):
             for _,c,a in collist:
                 if c in tbl._indexes:
-                    ret.create_index(a) # no unique indexes in join results
+                    if a not in ret._indexes:
+                        ret.create_index(a) # no unique indexes in join results
         ret.insert_many(joinrows)
         return ret
 
@@ -1019,7 +1024,7 @@ class Table(object):
             if close_on_exit:
                 csv_dest.close()
 
-    def json_import(self, source, transforms=None):
+    def json_import(self, source, encoding="UTF-8", transforms=None):
         """Imports the contents of a JSON data file into this table.
            @param source: JSON data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1047,7 +1052,7 @@ class Table(object):
                         current = ''
                     except Exception:
                         pass
-        return self._import(source, transforms=transforms, reader=_JsonFileReader)
+        return self._import(source, encoding, transforms=transforms, reader=_JsonFileReader)
 
     def json_export(self, dest, fieldnames=None, encoding="UTF-8"):
         """Exports the contents of the table to a JSON-formatted file.
@@ -1107,7 +1112,7 @@ class Table(object):
             except Exception:
                 val = default
             if isinstance(rec, DataObject):
-                object.__setattr__(rec, attrname, val)
+                rec.__dict__[attrname] = val
             else:
                 setattr(rec, attrname, val)
         do_all(_addFieldToRec(r) for r in self)
@@ -1135,6 +1140,9 @@ class Table(object):
         elif isinstance(keyexpr, tuple):
             keyattrs = (keyexpr[0],)
             keyfn = keyexpr[1]
+
+        else:
+            raise TypeError("keyexpr must be string or tuple")
 
         groupedobs = defaultdict(list)
         do_all(groupedobs[keyfn(ob)].append(ob) for ob in self.obs)
@@ -1166,7 +1174,11 @@ class Table(object):
         seen = set()
         for rec in self:
             if key is None:
-                reckey = tuple(rec.__dict__.values())
+                try:
+                    ob_dict = vars(rec)
+                except TypeError:
+                    ob_dict = dict((k, getattr(rec, k)) for k in _object_attrnames(rec))
+                reckey = tuple(sorted(ob_dict.items()))
             else:
                 reckey = key(rec)
             if reckey not in seen:
