@@ -63,10 +63,10 @@ Indexing attributes
     employees.create_index('zipcode')
 
     # unique indexes return a single object
-    print employees.ssn["001-02-0003"].name
+    print employees.by.ssn["001-02-0003"].name
     
     # non unique indexes return a list
-    for emp in employees.zipcode["12345"]:
+    for emp in employees.by.zipcode["12345"]:
         print e.name
 
 
@@ -91,7 +91,7 @@ If accessing a table using a non-unique index, will return a new table containin
 Querying for attribute value ranges
 -----------------------------------
 
-    employees.where(lambda emp : emp.salary > 50000)
+    employees.where(lambda emp: emp.salary > 50000)
 
 
 Joining tables
@@ -140,7 +140,7 @@ Some simple littletable recipes:
 
 - Find objects with NULL attribute values (an object's attribute is considered NULL if the object does not have that attribute, or if its value is None):
 
-    table.where(lambda o : getattr(o, keyattr, None) is None)
+    table.where(lambda o: getattr(o, keyattr, None) is None)
     
 
 - Histogram of values of a particular attribute:
