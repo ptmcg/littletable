@@ -12,6 +12,9 @@ Version 0.10 -
 
 - Deprecated Table.run(). Will be removed in release 1.0.
 
+- Added Table.info() method, to give summary information about a table's
+  name, columns, indexes, size, etc.
+
 - Extended interface to Table.csv_import, to accept passthru of 
   additional named arguments (such as 'delimiter' or 'fieldnames') to the
   DictReader constructor used to read the import data.
