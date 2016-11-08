@@ -103,7 +103,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.10"
-__versionTime__ = "14 Jul 2016 11:52"
+__versionTime__ = "08 Nov 2016 00:34"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -249,7 +249,7 @@ class _UniqueObjIndex(_ObjIndex):
                 raise KeyError("duplicate key value %s" % k)
         else:
             if self.accept_none:
-	            self.none_values.append(v)
+                self.none_values.append(v)
             else:
                 raise ValueError("None is not a valid index key")
 
@@ -295,7 +295,10 @@ class _ObjIndexWrapper(object):
 class _UniqueObjIndexWrapper(_ObjIndexWrapper):
     def __getitem__(self, k):
         if k is not None:
-            return self._index[k][0]
+            try:
+                return self._index[k][0]
+            except IndexError:
+                raise KeyError("no such value %r in index %r" % (k, self._index.attr))
         else:
             ret = Table()
             if k in self._index:
@@ -334,7 +337,7 @@ class _IndexAccessor(object):
             if isinstance(ret, _ObjIndex):
                 ret = _ObjIndexWrapper(ret)
             return ret
-        raise AttributeError("Table '%s' has no index '%s'" % (self.table.table_name, attr))
+        raise AttributeError("Table %r has no index %r" % (self.table.table_name, attr))
 
 
 class Table(object):
@@ -401,6 +404,29 @@ class Table(object):
         else:
             return self.obs[i]
     
+    def __delitem__(self, i):
+        if isinstance(i, int):
+            delidxs = [i]
+        elif isinstance(i, slice):
+            obs_len = len(self.obs)
+            norm_slice = slice(i.start if i.start >= 0 else i.start+obs_len, 
+                               i.stop if i.stop >= 0 else i.stop+obs_len, 
+                               i.step)
+            delidxs = sorted(range(norm_slice.start, norm_slice.stop, norm_slice.step), reverse=True)
+        else:
+            raise TypeError("Table index must be int or slice")
+
+        for idx in delidxs:
+            self.pop(idx)
+
+    def pop(self, i):
+        ret = self.obs.pop(i)
+
+        # remove from indexes
+        do_all(ind.remove(ret) for attr,ind in self._indexes.items())
+        
+        return ret
+        
     def __getattr__(self, attr):
         """(Deprecated) A quick way to query for matching records using their indexed attributes. The attribute
            name is used to locate the index, and returns a wrapper on the index.  This wrapper provides
@@ -433,7 +459,7 @@ class Table(object):
             if isinstance(ret, _ObjIndex):
                 ret = _ObjIndexWrapper(ret)
             return ret
-        raise AttributeError("Table '%s' has no index '%s'" % (self.table_name, attr))
+        raise AttributeError("Table %r has no index %r" % (self.table_name, attr))
 
     def __bool__(self):
         return bool(self.obs)
@@ -563,7 +589,7 @@ class Table(object):
                 if (getattr(obj, ind.attr, None) is None and not ind.accept_none):
                     raise KeyError("unique key cannot be None or blank for index %s" % ind.attr, obj)
                 if getattr(obj, ind.attr) in ind:
-                    raise KeyError("duplicate unique key value '%s' for index %s" % (getattr(obj,ind.attr), ind.attr), obj)
+                    raise KeyError("duplicate unique key value %r for index %s" % (getattr(obj,ind.attr), ind.attr), obj)
 
         self.obs.append(obj)
         for attr, ind in self._indexes.items():
@@ -1401,12 +1427,12 @@ class JoinTerm(object):
                     return self() + other
                 else:
                     return self() + other()
-        raise ValueError("cannot add object of type '%s' to JoinTerm" % other.__class__.__name__)
+        raise ValueError("cannot add object of type %r to JoinTerm" % other.__class__.__name__)
 
     def __radd__(self, other):
         if isinstance(other, Table):
             return other.join_on(self.joinfield) + self
-        raise ValueError("cannot add object of type '%s' to JoinTerm" % other.__class__.__name__)
+        raise ValueError("cannot add object of type %r to JoinTerm" % other.__class__.__name__)
             
     def __call__(self, attrs=None):
         if self.jointo:
@@ -1513,3 +1539,18 @@ if __name__ == "__main__":
     amfm.create_index("band")
     pivot = (stations.join_on("stn") + amfm)().pivot("state band")
     pivot.dump_counts()
+    
+    print('')
+    for rec in amfm:
+        print(rec)
+    print('')
+    del amfm[0:-1:2]
+    for i in amfm:
+        print(i)
+
+    print('')
+    print(amfm.pop(-1))
+    print(len(amfm))
+    print(amfm.by.stn['KPHY'])
+    
+    
