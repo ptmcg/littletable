@@ -24,6 +24,9 @@ Version 0.10 -
   assignments. Note that DataObjects are only semi-mutable: a given key or 
   attribute can only be assigned once, not overwritten.
 
+- Added more list-like access to Table, including del table[index], 
+  del table[start:end:step] and pop().
+
 - Added 'key' argument to Table.unique, to support passing a callable to 
   unique for special cases for defining what makes an object 'unique'. 
   Default is the prior behavior, which is a tuple of all of the values of
