@@ -102,8 +102,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "0.10"
-__versionTime__ = "08 Nov 2016 00:34"
+__version__ = "0.11"
+__versionTime__ = "30 Jan 2018 01:40"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
@@ -598,7 +598,7 @@ class Table(object):
         # verify new object doesn't duplicate any existing unique index values
         unique_indexes = self._uniqueIndexes  # [ind for ind in self._indexes.values() if ind.is_unique]
         NO_SUCH_ATTR = object()
-        if any((getattr(obj, ind.attr, None) is None and not ind.accept_none) or
+        if unique_indexes and any((getattr(obj, ind.attr, None) is None and not ind.accept_none) or
                (getattr(obj, ind.attr, NO_SUCH_ATTR) in ind)
                 for ind in unique_indexes):
             # had a problem, find which one
