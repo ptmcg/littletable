@@ -164,7 +164,7 @@ class TableCreateTests:
         make_unique_key = lambda *args: ''.join(chars[arg] for arg in args)
         make_rec = lambda aa, bb, cc: self.make_data_object(make_unique_key(aa, bb, cc), chars[bb], chars[cc])
         test_size = 10
-        table = make_test_table(make_rec, test_size)
+        table = make_test_table(make_rec, test_size)("Table_1")
         table.create_index('a', unique=True)
         rec_type = type(self.make_data_object(0, 0, 0))
 
@@ -175,8 +175,8 @@ class TableCreateTests:
             table.insert(self.make_data_object(None, None, None))
 
         # create duplicate index
-        #~ with self.assertRaises(ValueError):
-            #~ table.create_index('a', unique=True, accept_none=True)
+        with self.assertRaises(ValueError):
+            table.create_index('a', unique=True, accept_none=True)
 
         # create unique index that allows None values
         table.delete_index('a')
@@ -187,6 +187,17 @@ class TableCreateTests:
         table.delete_index('a')
         with self.assertRaises(KeyError):
             table.create_index('a', unique=True, accept_none=False)
+
+        table.create_index('a', unique=True, accept_none=True)
+        table.create_index('c')
+
+        import pprint
+        info = table.info()
+        pprint.pprint(info)
+        self.assertEqual(info['name'], 'Table_1')
+        self.assertEqual(list(sorted(info['fields'])), list('abc'))
+        self.assertEqual(list(sorted(info['indexes'])), [('a', True), ('c', False)])
+        self.assertEqual(info['len'], 1001)
 
     def test_delete_by_filter(self):
         test_size = 10
