@@ -5,30 +5,36 @@
 #
 
 from littletable import Table, DataObject
+from collections import namedtuple
+Customer = namedtuple("Customer", "id name")
+CatalogItem = namedtuple("CatalogItem", "sku descr unitofmeas unitprice")
 
 customers = Table("customers")
 customers.create_index("id", unique=True)
-customers.insert(DataObject(id="0010", name="George Jetson"))
-customers.insert(DataObject(id="0020", name="Wile E. Coyote"))
-customers.insert(DataObject(id="0030", name="Jonny Quest"))
+customers.insert(Customer(id="0010", name="George Jetson"))
+customers.insert(Customer(id="0020", name="Wile E. Coyote"))
+customers.insert(Customer(id="0030", name="Jonny Quest"))
 
 catalog = Table("catalog")
 catalog.create_index("sku", unique=True)
-catalog.insert(DataObject(sku="BRDSD-001", descr="Bird seed", unitofmeas="LB",unitprice=3))
-catalog.insert(DataObject(sku="MAGNT-001", descr="Magnet", unitofmeas="EA",unitprice=8))
-catalog.insert(DataObject(sku="MAGLS-001", descr="Magnifying glass", unitofmeas="EA",unitprice=12))
-catalog.insert(DataObject(sku="ANVIL-001", descr="1000lb anvil", unitofmeas="EA",unitprice=100))
-catalog.insert(DataObject(sku="ROPE-001", descr="1 in. heavy rope", unitofmeas="100FT",unitprice=10))
-catalog.insert(DataObject(sku="ROBOT-001", descr="Domestic robot", unitofmeas="EA",unitprice=5000))
+catalog.insert(CatalogItem(sku="BRDSD-001", descr="Bird seed", unitofmeas="LB",unitprice=3))
+catalog.insert(CatalogItem(sku="BBS-001", descr="Steel BB's", unitofmeas="LB",unitprice=5))
+catalog.insert(CatalogItem(sku="MAGNT-001", descr="Magnet", unitofmeas="EA",unitprice=8))
+catalog.insert(CatalogItem(sku="MAGLS-001", descr="Magnifying glass", unitofmeas="EA",unitprice=12))
+catalog.insert(CatalogItem(sku="ANVIL-001", descr="1000lb anvil", unitofmeas="EA",unitprice=100))
+catalog.insert(CatalogItem(sku="ROPE-001", descr="1 in. heavy rope", unitofmeas="100FT",unitprice=10))
+catalog.insert(CatalogItem(sku="ROBOT-001", descr="Domestic robot", unitofmeas="EA",unitprice=5000))
 
 wishitems = Table("wishitems")
 wishitems.create_index("custid")
 wishitems.create_index("sku")
+# there is no user-defined type for these items, just use DataObjects
 wishitems.insert(DataObject(custid="0030", sku="MAGLS-001"))
 wishitems.insert(DataObject(custid="0020", sku="MAGLS-001"))
 wishitems.insert(DataObject(custid="0020", sku="ANVIL-001"))
 wishitems.insert(DataObject(custid="0020", sku="ROPE-001"))
 wishitems.insert(DataObject(custid="0020", sku="BRDSD-001"))
+wishitems.insert(DataObject(custid="0020", sku="BBS-001"))
 wishitems.insert(DataObject(custid="0020", sku="MAGNT-001"))
 wishitems.insert(DataObject(custid="0030", sku="MAGNT-001"))
 wishitems.insert(DataObject(custid="0030", sku="ROBOT-001"))
@@ -43,8 +49,14 @@ for item in catalog.where(unitofmeas="LB"):
     print(item.sku, item.descr)
 print('')
 
+# if querying on an indexed item, use ".by.attribute-name[key]"
+catalog.create_index("unitofmeas")
+for item in catalog.by.unitofmeas["LB"]:
+    print(item.sku, item.descr)
+print('')
+
 # print all items that cost more than 10
-for item in catalog.where(lambda ob : ob.unitprice>10):
+for item in catalog.where(lambda ob : ob.unitprice > 10):
     print(item.sku, item.descr, item.unitprice)
 print('')
 
