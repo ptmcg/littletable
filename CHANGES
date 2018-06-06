@@ -5,6 +5,10 @@ Version 0.11 -
 --------------
 - Performance enhancement in insert(), also speeds up pivot() and other
   related methods.
+  
+- Fixed bug in fetching keys if keys evaluate to a falsey value (such as 0).
+  Would also manifest as omitting columns from pivot tables for falsey 
+  key values.
 
 Version 0.10 - 
 -------------

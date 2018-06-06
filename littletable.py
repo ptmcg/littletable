@@ -103,14 +103,15 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.11"
-__versionTime__ = "30 Jan 2018 01:40"
+__versionTime__ = "6 Jun 2018 00:15"
 __author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import sys
-from operator import attrgetter
+from operator import attrgetter, ne
 import csv
 from collections import defaultdict, deque, namedtuple
 from itertools import groupby,islice,starmap,repeat
+from functools import partial
 
 PY_2 = sys.version_info[0] == 2
 PY_3 = sys.version_info[0] == 3
@@ -233,7 +234,7 @@ class _ObjIndex(object):
         return iter(self.obs.keys())
 
     def keys(self):
-        return sorted(filter(None, self.obs.keys()))
+        return sorted(filter(partial(ne, None), self.obs.keys()))
     def items(self):
         return self.obs.items()
     def remove(self, obj):
@@ -1544,5 +1545,3 @@ if __name__ == "__main__":
     print(amfm.pop(-1))
     print(len(amfm))
     print(amfm.by.stn['KPHY'])
-    
-    

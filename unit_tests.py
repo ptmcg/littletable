@@ -228,7 +228,7 @@ class TableCreateTests:
             table.add_field('d', lambda rec: rec.a+rec.b+rec.c)
 
             table.create_index('d')
-            self.assertEqual(len(table.by.d.keys()), (test_size-1)*3)
+            self.assertEqual(len(table.by.d.keys()), len(range(0, 27+1)))
 
     def test_add_two_tables(self):
         test_size = 10
