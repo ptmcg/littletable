@@ -16,9 +16,9 @@ setup(# Distribution meta-data
     version = littletable_version,
     description = "Python in-memory ORM database",
     author = "Paul McGuire",
-    author_email = "ptmcg@users.sourceforge.net",
+    author_email = "ptmcg@austin.rr.com",
     license = "MIT License",
-    url = "http://littletable.sourceforge.net/",
+    url = "https://github.com/ptmcg/littletable/",
     py_modules = modules,
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -32,5 +32,7 @@ setup(# Distribution meta-data
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',        ]
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        ]
     )
