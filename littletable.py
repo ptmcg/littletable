@@ -35,7 +35,9 @@ C{littletable} - a Python module to give ORM-like access to a collection of obje
 
 The C{littletable} module provides a low-overhead, schema-less, in-memory database access to a 
 collection of user objects.  C{littletable} provides a L{DataObject} class for ad hoc creation
-of semi-immutable objects that can be stored in a C{littletable} L{Table}.
+of semi-immutable objects that can be stored in a C{littletable} L{Table}. C{Table}s can also
+contain user-defined objects, using those objects' C{__dict__}, C{__slots__}, or C{_fields}
+mappings to access object attributes.
 
 In addition to basic insert/remove/query/delete access to the contents of a 
 Table, C{littletable} offers:
@@ -103,14 +105,14 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.11"
-__versionTime__ = "6 Jun 2018 00:15"
-__author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
+__versionTime__ = "30 Jan 2018 01:40"
+__author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
 from operator import attrgetter, ne
 import csv
-from collections import defaultdict, deque, namedtuple
-from itertools import groupby,islice,starmap,repeat
+from collections import defaultdict, deque
+from itertools import starmap, repeat
 from functools import partial
 
 PY_2 = sys.version_info[0] == 2
@@ -595,40 +597,50 @@ class Table(object):
            If the table has no unique indexes, then it is possible to insert duplicate
            objects into the table.
            """
-           
-        # verify new object doesn't duplicate any existing unique index values
-        unique_indexes = self._uniqueIndexes  # [ind for ind in self._indexes.values() if ind.is_unique]
-        NO_SUCH_ATTR = object()
-        if unique_indexes and any((getattr(obj, ind.attr, None) is None and not ind.accept_none) or
-               (getattr(obj, ind.attr, NO_SUCH_ATTR) in ind)
-                for ind in unique_indexes):
-            # had a problem, find which one
-            for ind in unique_indexes:
-                if getattr(obj, ind.attr, None) is None and not ind.accept_none:
-                    raise KeyError("unique key cannot be None or blank for index %s" % ind.attr, obj)
-                if getattr(obj, ind.attr) in ind:
-                    raise KeyError("duplicate unique key value '%s' for index %s" % (getattr(obj, ind.attr), ind.attr), 
-                                   obj)
-
-        self.obs.append(obj)
-        for attr, ind in self._indexes.items():
-            obval = getattr(obj, attr)
-            ind[obval] = obj
+        self.insert_many([obj])
         return self
             
     def insert_many(self, it):
         """Inserts a collection of objects into the table."""
-        do_all(self.insert(ob) for ob in it)
+        unique_indexes = self._uniqueIndexes  # [ind for ind in self._indexes.values() if ind.is_unique]
+        NO_SUCH_ATTR = object()
+        new_objs = list(it)
+        if unique_indexes:
+            for ind in unique_indexes:
+                ind_attr = ind.attr
+                new_keys = {getattr(obj, ind_attr, NO_SUCH_ATTR): obj for obj in it}
+                if not ind.accept_none and (None in new_keys or NO_SUCH_ATTR in new_keys):
+                    raise KeyError("unique key cannot be None or blank for index %s" % ind_attr, 
+                                    [ob for ob in new_objs if getattr(ob, ind_attr, NO_SUCH_ATTR) is None])
+                if len(new_keys) < len(new_objs):
+                    raise KeyError("given sequence contains duplicate keys for index %s" % ind_attr)
+                for key in new_keys:
+                    if key in ind:
+                        obj = new_keys[key]
+                        raise KeyError("duplicate unique key value '%s' for index %s" % (getattr(obj, ind_attr), ind_attr), 
+                                       new_keys[key])
+                    
+        for obj in new_objs:
+            self.obs.append(obj)
+            for attr, ind in self._indexes.items():
+                obval = getattr(obj, attr)
+                ind[obval] = obj
+
         return self
 
     def remove(self, ob):
         """Removes an object from the table. If object is not in the table, then
            no action is taken and no exception is raised."""
-        # remove from indexes
-        do_all(ind.remove(ob) for attr, ind in self._indexes.items())
+        try:
+            ob_ind = self.obs.index(ob)
+        except ValueError:
+            pass
+        else:
+            # remove from indexes
+            do_all(ind.remove(ob) for attr, ind in self._indexes.items())
 
-        # remove from main object list
-        self.obs.remove(ob)
+            # remove from main object list
+            self.obs.pop(ob_ind)
         
         return self
 
