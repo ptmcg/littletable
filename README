@@ -1,6 +1,9 @@
-littletable - a Python module to give ORM-like access to a collection of objects
+#littletable - a Python module to give ORM-like access to a collection of objects
 
-The littletable module provides a low-overhead, schema-less, in-memory database access to a collection of user objects. littletable provides a DataObject class for ad hoc creation of semi-immutable objects that can be stored in a littletable Table.
+The littletable module provides a low-overhead, schema-less, in-memory database access to a collection 
+of user objects. littletable provides a DataObject class for ad hoc creation of semi-immutable objects 
+that can be stored in a littletable Table. Tables can also contain user-defined objects, using those 
+objects' `__dict__`, `__slots__`, or `_fields` mappings to access object attributes.
 
 In addition to basic ORM-style insert/remove/query/delete access to the contents of a Table, littletable offers:
 • simple indexing for improved retrieval performance, and optional enforcing key uniqueness 
@@ -8,9 +11,11 @@ In addition to basic ORM-style insert/remove/query/delete access to the contents
 • simplified joins using '+' operator syntax between annotated Tables 
 • the result of any query or join is a new first-class littletable Table 
 
-littletable Tables do not require an upfront schema definition, but simply work off of the attributes in the stored values, and those referenced in any query parameters.
+littletable Tables do not require an upfront schema definition, but simply work off of the attributes in 
+the stored values, and those referenced in any query parameters.
 
 Here is a simple littletable data storage/retrieval example:
+
    from littletable import Table, DataObject
 
    customers = Table('customers')
