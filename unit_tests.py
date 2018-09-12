@@ -5,7 +5,14 @@ import json
 from collections import namedtuple
 DataTuple = namedtuple("DataTuple", "a b c")
 
-import io
+import sys
+PY_2 = sys.version_info[0] == 2
+PY_3 = sys.version_info[0] == 3
+
+if PY_3:
+    import io
+else:
+    import StringIO as io
 
 class Slotted:
     __slots__ = ['a', 'b', 'c']
