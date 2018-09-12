@@ -19,6 +19,7 @@ setup(# Distribution meta-data
     author_email = "ptmcg@austin.rr.com",
     license = "MIT License",
     url = "https://github.com/ptmcg/littletable/",
+    download_url = "https://pypi.org/project/littletable/",
     py_modules = modules,
     classifiers=[
         'Development Status :: 3 - Alpha',
