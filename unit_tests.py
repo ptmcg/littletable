@@ -518,4 +518,8 @@ class TablePivotTests_Slotted(unittest.TestCase, TablePivotTests, UsingSlottedOb
 
 
 if __name__ == '__main__':
+    if sys.version_info[:2] == (2, 6):
+        print('unit_tests.py only runs on Python 2.7 or later')
+        sys.exit(0)
+
     unittest.main()
