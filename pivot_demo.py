@@ -20,7 +20,7 @@ places.csv_import(data_source,
 places.create_index('state')
 
 # add computed field, elevation rounded down by 1000's
-places.addfield('elev2', lambda x: int(x.elev/1000)*1000, 0)
+places.add_field('elev2', lambda x: int(x.elev/1000)*1000, 0)
 places.create_index('elev2')
 
 print("summarize population by state")

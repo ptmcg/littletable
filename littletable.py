@@ -104,8 +104,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "0.11"
-__versionTime__ = "30 Jan 2018 01:40"
+__version__ = "1.0.0"
+__versionTime__ = "2 Oct 2018 21:22"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -190,7 +190,8 @@ def _to_json(obj):
         return json.dumps(ODict((k, v) for k, v in zip(obj.__slots__, (getattr(obj, a) for a in obj.__slots__))))
     else:
         raise ValueError("object with unknown attributes")
-    
+
+
 class DataObject(object):
     """A generic semi-mutable object for storing data values in a table. Attributes
        can be set by passing in named arguments in the constructor, or by setting them
@@ -249,7 +250,8 @@ class _ObjIndex(object):
         return key in self.obs
     def copy_template(self):
         return self.__class__(self.attr)
-        
+
+
 class _UniqueObjIndex(_ObjIndex):
     def __init__(self, attr, accept_none=False):
         super(_UniqueObjIndex, self).__init__(attr)
@@ -323,7 +325,8 @@ class _UniqueObjIndexWrapper(_ObjIndexWrapper):
             if k in self._index:
                 ret.insert_many(self._index[k])
             return ret
-            
+
+
 class _IndexAccessor(object):
     def __init__(self, table):
         self.table = table
@@ -445,40 +448,6 @@ class Table(object):
         do_all(ind.remove(ret) for attr,ind in self._indexes.items())
         
         return ret
-        
-    def __getattr__(self, attr):
-        """(Deprecated) A quick way to query for matching records using their indexed attributes. The attribute
-           name is used to locate the index, and returns a wrapper on the index.  This wrapper provides
-           dict-like access to the underlying records in the table, as in::
-           
-              employees.socsecnum["000-00-0000"]
-              customers.zipcode["12345"]
-        
-           (L{by} is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
-           are not attributes of the table, but of items in the table. Use of C{'by'} is preferred, and 
-           will replace direct attribute access in a future release.)::
-
-              employees.by.socsecnum["000-00-0000"]
-              customers.by.zipcode["12345"]
-              
-           The behavior differs slightly for unique and non-unique indexes:
-             - if the index is unique, then retrieving a matching object, will return just the object;
-               if there is no matching object, C{KeyError} is raised (making a table with a unique
-               index behave very much like a Python dict)
-             - if the index is non-unique, then all matching objects will be returned in a new Table,
-               just as if a regular query had been performed; if no objects match the key value, an empty
-               Table is returned and no exception is raised.
-               
-           If there is no index defined for the given attribute, then C{AttributeError} is raised.
-        """
-        if attr in self._indexes:
-            ret = self._indexes[attr]
-            if isinstance(ret, _UniqueObjIndex):
-                ret = _UniqueObjIndexWrapper(ret)
-            if isinstance(ret, _ObjIndex):
-                ret = _ObjIndexWrapper(ret)
-            return ret
-        raise AttributeError("Table %r has no index %r" % (self.table_name, attr))
 
     def __bool__(self):
         return bool(self.obs)
@@ -549,7 +518,7 @@ class Table(object):
         """
         if attr in self._indexes:
             raise ValueError('index %r already defined for table' % attr)
-            
+
         if unique:
             self._indexes[attr] = _UniqueObjIndex(attr, accept_none)
             self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
@@ -597,8 +566,7 @@ class Table(object):
            If the table has no unique indexes, then it is possible to insert duplicate
            objects into the table.
            """
-        self.insert_many([obj])
-        return self
+        return self.insert_many([obj])
             
     def insert_many(self, it):
         """Inserts a collection of objects into the table."""
@@ -683,7 +651,7 @@ class Table(object):
             # for each individual given attribute; this will minimize the number 
             # of filtering records that each subsequent attribute will have to
             # handle
-            kwargs = kwargs.items()
+            kwargs = list(kwargs.items())
             if len(kwargs) > 1 and len(self) > 100:
                 kwargs = sorted(kwargs, key=self._query_attr_sort_fn)
                 
@@ -876,7 +844,7 @@ class Table(object):
                     elif col in othernames:
                         fullcols.append((other, col, col))
                     else:
-                         raise ValueError("join attribute not found: " + col)
+                        raise ValueError("join attribute not found: " + col)
         else:
             fullcols = [(self, n, n) for n in thisnames]
             fullcols += [(other, n, n) for n in othernames]
@@ -924,7 +892,7 @@ class Table(object):
             for _, c, a in collist:
                 if c in tbl._indexes:
                     if a not in ret._indexes:
-                        ret.create_index(a) # no unique indexes in join results
+                        ret.create_index(a)  # no unique indexes in join results
         ret.insert_many(joinrows)
         return ret
 
@@ -973,6 +941,7 @@ class Table(object):
         finally:
             if close_on_exit:
                 source.close()
+        return self
 
     def csv_import(self, csv_source, encoding='UTF-8', transforms=None, **kwargs):
         """Imports the contents of a CSV-formatted file into this table.
@@ -1144,10 +1113,6 @@ class Table(object):
         do_all(_add_field_to_rec(r) for r in self)
         return self
 
-    addfield = add_field
-    """(Deprecated) Legacy method to add a field to all objects in table; to be replaced by L{add_field}.
-    """
-
     def groupby(self, keyexpr, **outexprs):
         """simple prototype of group by, with support for expressions in the group-by clause 
            and outputs
@@ -1175,16 +1140,11 @@ class Table(object):
 
         tbl = Table()
         do_all(tbl.create_index(k, unique=(len(keyattrs) == 1)) for k in keyattrs)
-        for key, recs in sorted(groupedobs.iteritems()):
+        for key, recs in sorted(groupedobs.items()):
             groupobj = DataObject(**dict(zip(keyattrs, key)))
             do_all(setattr(groupobj, subkey, expr(recs)) for subkey, expr in outexprs.items())
             tbl.insert(groupobj)
         return tbl
-
-    def run(self):
-        """(Deprecated) Returns the Table. Will be removed in a future release.
-        """
-        return self
 
     def unique(self, key=None):
         """
@@ -1392,6 +1352,7 @@ class PivotTable(Table):
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
         return ret
 
+
 class JoinTerm(object):
     """Temporary object created while composing a join across tables using 
        L{Table.join_on} and '+' addition. JoinTerm's are usually created by 
@@ -1463,7 +1424,7 @@ class JoinTerm(object):
         
 
 if __name__ == "__main__":
-    
+
     rawdata = """\
     Phoenix:AZ:85001:KPHX
     Phoenix:AZ:85001:KPHY
@@ -1484,12 +1445,12 @@ if __name__ == "__main__":
 
     # perform some queries and deletes
     for queryargs in [
-        dict(city="Phoenix"),
-        dict(city="Phoenix", stn="KPHX"),
-        dict(stn="KPHA", city="Phoenix"),
-        dict(state="TX"),
-        dict(city="New York"),
-        ]:
+            dict(city="Phoenix"),
+            dict(city="Phoenix", stn="KPHX"),
+            dict(stn="KPHA", city="Phoenix"),
+            dict(state="TX"),
+            dict(city="New York"),
+            ]:
         print(queryargs)
         result = stations.where(**queryargs)
         print(len(result))
@@ -1510,7 +1471,7 @@ if __name__ == "__main__":
     amfm.insert(DataObject(stn="KDFW", band="FM"))
     print(amfm.by.stn["KPHY"])
     print(amfm.by.stn["KPHY"].band)
-    
+
     try:
         amfm.insert(DataObject(stn="KPHA", band="AM"))
     except KeyError:
@@ -1530,7 +1491,7 @@ if __name__ == "__main__":
     print('')
     for rec in (stations.join_on("stn") + amfm.join_on("stn"))():
         print(json_dumps(vars(rec)))
-        
+
     print('')
     stations.create_index("state")
     for az_stn in stations.by.state['AZ']:
@@ -1539,7 +1500,7 @@ if __name__ == "__main__":
     print('')
     pivot = stations.pivot("state")
     pivot.dump_counts()
-    
+
     print('')
     amfm.create_index("band")
     pivot = (stations.join_on("stn") + amfm)().pivot("state band")

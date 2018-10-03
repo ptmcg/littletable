@@ -4,6 +4,6 @@ include pivot_demo.py
 include setup.py
 include CHANGES
 include LICENSE
-include README
+include README.md
 include htmldoc\*.*
 include HowToUseLittletable.txt

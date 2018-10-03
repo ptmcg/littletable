@@ -25,6 +25,9 @@ class Slotted:
     def __eq__(self, other):
         return (isinstance(other, Slotted) and
                 all(getattr(self, attr) == getattr(other, attr) for attr in self.__slots__))
+    
+    def __repr__(self):
+        return "{}:(a={}, b={}, c={})".format(type(self).__name__, self.a, self.b, self.c)
 
 
 class TestDataObjects(unittest.TestCase):
@@ -410,8 +413,7 @@ a,b,c
 2,2,1
 2,2,2"""
         incsv = io.StringIO(data)
-        csvtable = lt.Table()
-        csvtable.csv_import(incsv, transforms={'a': int, 'b': int, 'c': int})
+        csvtable = lt.Table().csv_import(incsv, transforms={'a': int, 'b': int, 'c': int})
 
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
@@ -468,8 +470,7 @@ a,b,c
             {"a": 2, "b": 2, "c": 1}
             {"a": 2, "b": 2, "c": 2}"""
         injson = io.StringIO(data)
-        jsontable = lt.Table()
-        jsontable.json_import(injson, transforms={'a': int, 'b': int, 'c': int})
+        jsontable = lt.Table().json_import(injson, transforms={'a': int, 'b': int, 'c': int})
 
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
