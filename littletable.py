@@ -576,7 +576,7 @@ class Table(object):
         if unique_indexes:
             for ind in unique_indexes:
                 ind_attr = ind.attr
-                new_keys = {getattr(obj, ind_attr, NO_SUCH_ATTR): obj for obj in it}
+                new_keys = dict((getattr(obj, ind_attr, NO_SUCH_ATTR), obj) for obj in it)
                 if not ind.accept_none and (None in new_keys or NO_SUCH_ATTR in new_keys):
                     raise KeyError("unique key cannot be None or blank for index %s" % ind_attr, 
                                     [ob for ob in new_objs if getattr(ob, ind_attr, NO_SUCH_ATTR) is None])
