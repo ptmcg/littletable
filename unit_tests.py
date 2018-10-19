@@ -4,10 +4,9 @@ import itertools
 import json
 from collections import namedtuple
 try:
-    import zorch
     from types import SimpleNamespace
 except ImportError:
-    class SimpleNamespace:
+    class SimpleNamespace(object):
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
         def __repr__(self):
