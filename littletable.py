@@ -941,6 +941,16 @@ class Table(object):
                             yield [next(seq_iter)]
                         except StopIteration:
                             break
+
+                if issubclass(row_class, tuple) or hasattr(row_class, '__dict__'):
+                    make_row = lambda do, cls=row_class: cls(**vars(do))
+                else:
+                    def make_row(do, cls=row_class):
+                        attrs = []
+                        for attr in cls.__slots__:
+                            attrs.append(getattr(do, attr, None))
+                        return cls(*attrs)
+
                 for slice in slices(csvdata):
                     scratch = Table().insert_many(DataObject(**s) for s in slice)
                     if not scratch:
@@ -954,7 +964,7 @@ class Table(object):
                     if row_class is DataObject:
                         self += scratch
                     else:
-                        self.insert_many(row_class(**vars(rec)) for rec in scratch)
+                        self.insert_many(make_row(rec) for rec in scratch)
             else:
                 self.insert_many(row_class(**s) for s in csvdata)
         finally:

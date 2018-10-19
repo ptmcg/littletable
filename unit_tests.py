@@ -27,7 +27,7 @@ if PY_3:
 else:
     import StringIO as io
 
-class Slotted:
+class Slotted(object):
     __slots__ = ['a', 'b', 'c']
 
     def __init__(self, a, b, c):
