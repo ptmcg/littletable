@@ -6,6 +6,18 @@ Version 1.0.0 -
 - Fixed bug where dict.iteritems() was used in some cases, all
   now converted to using items().
 
+- Updated xxx_import methods to return self, so that tables can be
+  declared and loaded in a single statement:
+  
+        data_table = Table().csv_import('data_file.csv')
+
+- Added optional row_class argument argument to all xxx_import methods
+  to designate a user class to use when constructing the rows to be imported
+  to the table. The default is DataObject, but any class that supports 
+  `Class(**attributes)` construction (including namedtuples and 
+  SimpleNamespace) can be given. If the desired class does not support
+  this kind of initialization, a factory method can be given instead.
+
 - Deleted deprecated Table.run() and Table.addfield methods. run()
   did nothing more than return self; addfield has been replaced by
   add_field.
@@ -15,11 +27,6 @@ Version 1.0.0 -
   
         employee = emp_data.by.emp_id('12345')
         qa_dept_employees = emp_data.by.department_name('QA')
-
-- Updated xxx_import methods to return self, so that tables can be
-  declared and loaded in a single statement:
-  
-        data_table = Table().csv_import('data_file.csv')
 
 
 Version 0.11 -

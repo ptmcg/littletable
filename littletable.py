@@ -7,7 +7,7 @@
 # to a collection of data objects, without dealing with SQL
 #
 #
-# Copyright (c) 2010-2016  Paul T. McGuire
+# Copyright (c) 2010-2018  Paul T. McGuire
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -105,14 +105,14 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "1.0.0"
-__versionTime__ = "2 Oct 2018 21:22"
+__versionTime__ = "19 Oct 2018 13:58 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
 from operator import attrgetter, ne
 import csv
 from collections import defaultdict, deque
-from itertools import starmap, repeat
+from itertools import starmap, repeat, islice
 from functools import partial
 
 PY_2 = sys.version_info[0] == 2
@@ -124,6 +124,8 @@ if PY_2:
 try:
     from collections import OrderedDict as ODict
 except ImportError:
+    # TODO - try importing ordereddict backport to Py2
+    
     # best effort, just use dict, but won't preserve ordering of fields
     # in tables or output files
     ODict = dict
@@ -920,7 +922,7 @@ class Table(object):
         else:
             raise ValueError("pivot can only be called using indexed attributes")
 
-    def _import(self, source, encoding, transforms=None, reader=csv.DictReader):
+    def _import(self, source, encoding, transforms=None, reader=csv.DictReader, row_class=DataObject):
         close_on_exit = False
         if isinstance(source, basestring):
             if PY_3:
@@ -930,20 +932,37 @@ class Table(object):
             close_on_exit = True
         try:
             csvdata = reader(source)
-            self.insert_many(DataObject(**s) for s in csvdata)
             if transforms:
-                for attr, fn in transforms.items():
-                    default = None
-                    if isinstance(fn, tuple):
-                        fn, default = fn
-                    objfn = lambda obj: fn(getattr(obj, attr))
-                    self.add_field(attr, objfn, default)
+                def slices(seq, slice_size=128):
+                    seq_iter = iter(seq)
+                    while True:
+                        yield islice(seq_iter, 0, slice_size)
+                        try:
+                            yield [next(seq_iter)]
+                        except StopIteration:
+                            break
+                for slice in slices(csvdata):
+                    scratch = Table().insert_many(DataObject(**s) for s in slice)
+                    if not scratch:
+                        continue
+                    for attr, fn in transforms.items():
+                        default = None
+                        if isinstance(fn, tuple):
+                            fn, default = fn
+                        objfn = lambda obj: fn(getattr(obj, attr))
+                        scratch.add_field(attr, objfn, default)
+                    if row_class is DataObject:
+                        self += scratch
+                    else:
+                        self.insert_many(row_class(**vars(rec)) for rec in scratch)
+            else:
+                self.insert_many(row_class(**s) for s in csvdata)
         finally:
             if close_on_exit:
                 source.close()
         return self
 
-    def csv_import(self, csv_source, encoding='UTF-8', transforms=None, **kwargs):
+    def csv_import(self, csv_source, encoding='UTF-8', transforms=None, row_class=DataObject, **kwargs):
         """Imports the contents of a CSV-formatted file into this table.
            @param csv_source: CSV file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -965,13 +984,13 @@ class Table(object):
         """
         reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding', 'csv_source', 'transforms'])
         reader = lambda src: csv.DictReader(src, **reader_args)
-        return self._import(csv_source, encoding, transforms, reader=reader)
+        return self._import(csv_source, encoding, transforms, reader=reader, row_class=row_class)
 
-    def _xsv_import(self, xsv_source, encoding, transforms=None, splitstr="\t"):
+    def _xsv_import(self, xsv_source, encoding, transforms=None, splitstr="\t", row_class=DataObject):
         xsv_reader = lambda src: csv.DictReader(src, delimiter=splitstr)
-        return self._import(xsv_source, encoding, transforms, reader=xsv_reader)
+        return self._import(xsv_source, encoding, transforms, reader=xsv_reader, row_class=row_class)
 
-    def tsv_import(self, xsv_source, encoding="UTF-8", transforms=None):
+    def tsv_import(self, xsv_source, encoding="UTF-8", transforms=None, row_class=DataObject):
         """Imports the contents of a tab-separated data file into this table.
            @param xsv_source: tab-separated data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -985,7 +1004,7 @@ class Table(object):
                be set to the given default value
            @type transforms: dict (optional)
         """
-        return self._xsv_import(xsv_source, encoding, transforms=transforms, splitstr="\t")
+        return self._xsv_import(xsv_source, encoding, transforms=transforms, splitstr="\t", row_class=row_class)
 
     def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8"):
         """Exports the contents of the table to a CSV-formatted file.
@@ -1024,7 +1043,7 @@ class Table(object):
             if close_on_exit:
                 csv_dest.close()
 
-    def json_import(self, source, encoding="UTF-8", transforms=None):
+    def json_import(self, source, encoding="UTF-8", transforms=None, row_class=DataObject):
         """Imports the contents of a JSON data file into this table.
            @param source: JSON data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1052,7 +1071,7 @@ class Table(object):
                         current = ''
                     except Exception:
                         pass
-        return self._import(source, encoding, transforms=transforms, reader=_JsonFileReader)
+        return self._import(source, encoding, transforms=transforms, reader=_JsonFileReader, row_class=row_class)
 
     def json_export(self, dest, fieldnames=None, encoding="UTF-8"):
         """Exports the contents of the table to a JSON-formatted file.
