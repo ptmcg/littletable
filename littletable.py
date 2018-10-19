@@ -942,14 +942,11 @@ class Table(object):
                         except StopIteration:
                             break
 
-                if issubclass(row_class, tuple) or hasattr(row_class, '__dict__'):
-                    make_row = lambda do, cls=row_class: cls(**vars(do))
+                if hasattr(row_class, '__dict__') or hasattr(row_class, '_fields'):
+                    make_row = lambda do, cls=row_class, vars=vars: cls(**vars(do))
                 else:
-                    def make_row(do, cls=row_class):
-                        attrs = []
-                        for attr in cls.__slots__:
-                            attrs.append(getattr(do, attr, None))
-                        return cls(*attrs)
+                    def make_row(do, cls=row_class, cls_slots=row_class.__slots__, getattr=getattr):
+                        return cls(*(getattr(do, attr, None) for attr in cls_slots))
 
                 for slice in slices(csvdata):
                     scratch = Table().insert_many(DataObject(**s) for s in slice)
