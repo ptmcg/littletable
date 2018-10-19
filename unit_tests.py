@@ -3,6 +3,20 @@ import littletable as lt
 import itertools
 import json
 from collections import namedtuple
+try:
+    import zorch
+    from types import SimpleNamespace
+except ImportError:
+    class SimpleNamespace:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+        def __repr__(self):
+            keys = sorted(self.__dict__)
+            items = ("{}={!r}".format(k, self.__dict__[k]) for k in keys)
+            return "{}({})".format(type(self).__name__, ", ".join(items))
+        def __eq__(self, other):
+            return vars(self) == vars(other)
+
 DataTuple = namedtuple("DataTuple", "a b c")
 
 import sys
@@ -80,6 +94,11 @@ class UsingSlottedObjects:
     def make_data_object(a, b, c):
         return Slotted(a=a, b=b, c=c)
 
+class UsingSimpleNamespace:
+    @staticmethod
+    def make_data_object(a, b, c):
+        return SimpleNamespace(a=a, b=b, c=c)
+    
 
 def load_table(table, rec_factory_fn, table_size):
     test_size = table_size
@@ -265,6 +284,9 @@ class TableCreateTests_Namedtuples(unittest.TestCase, TableCreateTests, UsingNam
 class TableCreateTests_Slotted(unittest.TestCase, TableCreateTests, UsingSlottedObjects):
     pass
 
+class TableCreateTests_SimpleNamespace(unittest.TestCase, TableCreateTests, UsingSimpleNamespace):
+    pass
+
 
 class TableJoinTests:
     def test_simple_join(self):
@@ -319,6 +341,9 @@ class TableJoinTests_Namedtuples(unittest.TestCase, TableJoinTests, UsingNamedtu
 class TableJoinTests_Slotted(unittest.TestCase, TableJoinTests, UsingSlottedObjects):
     pass
 
+class TableJoinTests_SimpleNamespace(unittest.TestCase, TableJoinTests, UsingSimpleNamespace):
+    pass
+
 
 class TableTransformTests:
     def test_sort(self):
@@ -360,6 +385,9 @@ class TableTransformTests_Namedtuples(unittest.TestCase, TableTransformTests, Us
     pass
 
 class TableTransformTests_Slotted(unittest.TestCase, TableTransformTests, UsingSlottedObjects):
+    pass
+
+class TableTransformTests_SimpleNamespace(unittest.TestCase, TableTransformTests, UsingSimpleNamespace):
     pass
 
 
@@ -420,6 +448,14 @@ a,b,c
 
         self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
         self.assertEqual(len(data.splitlines())-1, len(csvtable))
+
+        incsv = io.StringIO(data)
+        row_prototype = self.make_data_object(0, 0, 0)
+        csvtable2 = lt.Table().csv_import(incsv, transforms={'a': int, 'b': int, 'c': int}, row_class=type(row_prototype))[:3]
+        
+        print(type(t1[0]).__name__, t1[0])
+        print(type(csvtable2[0]).__name__, csvtable2[0])
+        self.assertEqual(type(t1[0]), type(csvtable2[0]))
 
     def test_json_export(self):
         from itertools import permutations
@@ -488,6 +524,9 @@ class TableImportExportTests_Namedtuples(unittest.TestCase, TableImportExportTes
 class TableImportExportTests_Slotted(unittest.TestCase, TableImportExportTests, UsingSlottedObjects):
     pass
 
+class TableImportExportTests_SimpleNamespace(unittest.TestCase, TableImportExportTests, UsingSimpleNamespace):
+    pass
+
 
 class TablePivotTests:
     def test_pivot(self):
@@ -514,6 +553,9 @@ class TablePivotTests_Namedtuples(unittest.TestCase, TablePivotTests, UsingNamed
     pass
 
 class TablePivotTests_Slotted(unittest.TestCase, TablePivotTests, UsingSlottedObjects):
+    pass
+
+class TablePivotTests_SimpleNamespace(unittest.TestCase, TablePivotTests, UsingSimpleNamespace):
     pass
 
 
