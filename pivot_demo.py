@@ -11,16 +11,16 @@
 #
 from littletable import Table
 
-places = Table()
-
 # import from csv, convert elevation from meters to feet
-data_source = 'us_ppl.csv'
-places.csv_import(data_source, 
-                    transforms={'elev':lambda s:int(s)*33/10, 'pop':int})
-places.create_index('state')
+places = Table().csv_import('us_ppl.csv', 
+                            transforms={'elev':lambda s:int(s)*33/10, 
+                                        'pop':int})
 
 # add computed field, elevation rounded down by 1000's
 places.add_field('elev2', lambda x: int(x.elev/1000)*1000, 0)
+
+# create indexes
+places.create_index('state')
 places.create_index('elev2')
 
 print("summarize population by state")
