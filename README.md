@@ -1,4 +1,5 @@
 # littletable - a Python module to give ORM-like access to a collection of objects
+[![Build Status](https://travis-ci.org/ptmcg/littletable.svg?branch=master)](https://travis-ci.org/ptmcg/littletable)
 
 The littletable module provides a low-overhead, schema-less, in-memory database access to a collection 
 of user objects. littletable provides a DataObject class for ad hoc creation of semi-immutable objects 
