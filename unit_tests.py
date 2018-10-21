@@ -77,6 +77,20 @@ class TestDataObjects(unittest.TestCase):
 
         self.assertEqual(repr(ob2), "{'a': 10}")
 
+class TestTableTypes(unittest.TestCase):
+    def test_types(self):
+        
+        # check that Table and Index are recognized as Sequence and Mapping types
+        t = lt.Table()
+        self.assertTrue(isinstance(t, lt.Sequence))
+        
+        t.create_index("x")
+        self.assertTrue(isinstance(t.get_index('x'), lt.Mapping))
+
+        # make sure get_index returns a read-only access to the underlying index
+        with self.assertRaises(Exception):
+            t.get_index("x")['a'] = 100
+
 
 class UsingDataObjects:
     @staticmethod

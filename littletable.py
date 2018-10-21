@@ -105,7 +105,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "1.0.0"
-__versionTime__ = "19 Oct 2018 13:58 UTC"
+__versionTime__ = "21 Oct 2018 05:52 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -132,16 +132,19 @@ except ImportError:
 
 import re
 # import json in Python 2 or 3 compatible forms
-from functools import partial
-
 try:
     import simplejson as json
-
     json_dumps = partial(json.dumps, indent='  ')
 except ImportError:
     import json
-
     json_dumps = partial(json.dumps, indent=2)
+
+try:
+    # Python 3
+    from collections.abc import Mapping, Sequence
+except ImportError:
+    # Python 2.7
+    from collections import Mapping, Sequence
 
 _consumer = deque(maxlen=0)
 do_all = _consumer.extend
@@ -210,6 +213,8 @@ class DataObject(object):
             super(DataObject, self).__setattr__(attr, val)
         else:
             raise AttributeError("can't set existing attribute")
+    def __hasattr__(self, key):
+        return key in self.__dict__
     def __getitem__(self, k):
         if hasattr(self, k):
             return getattr(self, k)
@@ -222,6 +227,8 @@ class DataObject(object):
             raise KeyError("attribute already exists")
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
+    def __ne__(self, other):
+        return not (self == other)
 
 class _ObjIndex(object):
     def __init__(self, attr):
@@ -252,7 +259,12 @@ class _ObjIndex(object):
         return key in self.obs
     def copy_template(self):
         return self.__class__(self.attr)
-
+    def get(self, key, default=None):
+        if key in self:
+            return self[key]
+        else:
+            return default
+Mapping.register(_ObjIndex)
 
 class _UniqueObjIndex(_ObjIndex):
     def __init__(self, attr, accept_none=False):
@@ -310,9 +322,9 @@ class _ObjIndexWrapper(object):
         if k in self._index:
             ret.insert_many(self._index[k])
         return ret
-
     def __contains__(self, k):
         return k in self._index
+Mapping.register(_ObjIndexWrapper)
 
 
 class _UniqueObjIndexWrapper(_ObjIndexWrapper):
@@ -328,6 +340,9 @@ class _UniqueObjIndexWrapper(_ObjIndexWrapper):
                 ret.insert_many(self._index[k])
             return ret
 
+class _ReadonlyObjIndexWrapper(_ObjIndexWrapper):
+    def __setitem__(self, k, value):
+        raise Exception("no update access to index %r" % (self.attr, ))
 
 class _IndexAccessor(object):
     def __init__(self, table):
@@ -455,7 +470,14 @@ class Table(object):
         return bool(self.obs)
     
     __nonzero__ = __bool__
-    
+    def __reversed__(self):
+        return islice(self.obs, -1, -1, -1)
+    def __contains__(self, item):
+        return item in self.obs
+    def index(self, item):
+        return self.obs.index(item)
+    def count(self, item):
+        return self.obs.count(item)
     def __add__(self, other):
         """Support UNION of 2 tables using "+" operator."""
         if isinstance(other, JoinTerm):
@@ -541,7 +563,7 @@ class Table(object):
             del self._indexes[attr]
             self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
             raise
-    
+
     def delete_index(self, attr):
         """Deletes an index from the Table.  Can be used to drop and rebuild an index,
            or to convert a non-unique index to a unique index, or vice versa.
@@ -553,6 +575,9 @@ class Table(object):
             self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
         return self
             
+    def get_index(self, attr):
+        return _ReadonlyObjIndexWrapper(self._indexes[attr])
+
     def insert(self, obj):
         """Insert a new object into this Table.
            @param obj: any Python object -
@@ -1210,6 +1235,7 @@ class Table(object):
             'indexes': [(iname, self._indexes[iname] in unique_indexes) for iname in self._indexes],
         }
 
+Sequence.register(Table)
 
 class PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot().
