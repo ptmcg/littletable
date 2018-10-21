@@ -32,6 +32,12 @@ If you want, you can name the table at creation time, or any time later.
 
 Table names are not necessary for queries or updates, as they would be in SQL.  Table names can be useful in diagnosing problems, as they will be included in exception messages. Table joins also use the names of the source tables to create a helpful name for the resulting data table.
 
+You can easily import a CSV file into a Table using Table.csv_import():
+
+    t = Table().csv_import("my_data.csv")
+    
+Files containing JSON-formatted records can be similarly imported using Table.json_import().
+
 
 Inserting objects
 -----------------
