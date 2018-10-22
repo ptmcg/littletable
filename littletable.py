@@ -105,7 +105,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "1.0.0"
-__versionTime__ = "21 Oct 2018 05:52 UTC"
+__versionTime__ = "22 Oct 2018 03:34 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -1235,6 +1235,26 @@ class Table(object):
             'indexes': [(iname, self._indexes[iname] in unique_indexes) for iname in self._indexes],
         }
 
+    def as_html(self, fields):
+        """
+        Output the table as a rudimentary HTML table.
+        @param fields: fields in the table to be shown in the table
+        @type fields: list of strings or a single space-delimited string
+        @return: string of generated HTML representing the selected table row attributes
+        """
+        if isinstance(fields, str):
+            fields = fields.split()
+        def td_value(v):
+            return '<td><div align="{}">{}</div></td>'.format(('left','right')[isinstance(v, (int, float))], str(v))
+        def row_to_tr(r):
+            return "<tr>" + "".join(td_value(getattr(r, fld)) for fld in fields) + "</tr>\n"
+        ret = ""
+        ret += "<table>\n"
+        ret += "<tr>" + "".join(map('<th><div align="center">{}</div></th>'.format, fields)) + "</tr>\n"
+        ret += "".join(map(row_to_tr, self))
+        ret += "</table>"
+        return ret
+
 Sequence.register(Table)
 
 class PivotTable(Table):
@@ -1403,6 +1423,61 @@ class PivotTable(Table):
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
         return ret
+
+    def summarize(self, count_fn=len, col_label=None):
+        if col_label is None:
+            col_label = 'value'
+        if len(self._pivot_attrs) == 1:
+            col = self._pivot_attrs[0]
+        return _PivotTableSummary(self, self._pivot_attrs, count_fn, col_label)
+
+class _PivotTableSummary(object):
+    def __init__(self, pivot_table, pivot_attrs, count_fn=len, col_label=None):
+        self._pt = pivot_table
+        self._pivot_attrs = pivot_attrs
+        self._fn = count_fn
+        self._label = col_label
+
+    def as_html(self):
+        if len(self._pivot_attrs) == 1:
+            col = self._pivot_attrs[0]
+            col_label = self._label
+            data = Table().insert_many(DataObject(**{col: k, col_label: self._fn(sub)}) for k, sub in self._pt.items())
+            return data.as_html((col, col_label))
+
+        elif len(self._pivot_attrs) == 2:
+            def td_value(v):
+                return '<td><div align="{}">{}</div></td>'.format(('left','right')[isinstance(v, (int, float))], str(v))
+            def row_to_tr(r):
+                return "<tr>" + "".join(td_value(fld) for fld in r) + "</tr>\n"
+
+            ret = ""
+            ret += "<table>\n"
+
+            keytally = dict((k, 0) for k in self._pt.subtables[0].keys())
+            hdgs = sorted(keytally)
+            ret += "<tr><th/>" + "".join(map('<th><div align="center">{}</div></th>'.format, hdgs)) + "<th>Total</th></tr>\n"
+            for k, sub in self._pt.items():
+                row = [k,]
+                ssub_v_accum = 0
+                for kk, ssub in sub.items():
+                    ssub_v = self._fn(ssub)
+                    row.append(ssub_v)
+                    keytally[kk] += ssub_v
+                    ssub_v_accum += ssub_v
+                sub_v = ssub_v_accum # count_fn(sub)
+                row.append(sub_v)
+                ret += row_to_tr(row)
+            row = ['Total',]
+            row.extend(v for k,v in sorted(keytally.items()))
+            row.append(sum(keytally.values()))
+            ret += row_to_tr(row)
+
+            ret += "</table>"
+            return ret
+
+        else:  # if len(self._pivot_attrs) >= 3:
+            raise Exception("no HTML output format for 3-attribute pivot tables at this time")
 
 
 class JoinTerm(object):

@@ -3,6 +3,10 @@ Change History
 
 Version 1.0.0 -
 ---------------
+- Added Table.as_html() and PivotTable.summarize().as_html() methods
+  to support integration with Jupyter Notebook. Also included sample ipynb
+  file.
+
 - Fixed bug where dict.iteritems() was used in some cases, all
   now converted to using items().
 
