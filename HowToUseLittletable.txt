@@ -39,6 +39,41 @@ You can easily import a CSV file into a Table using Table.csv_import():
 Files containing JSON-formatted records can be similarly imported using Table.json_import().
 
 
+Importing data from fixed-width text files
+----------------------------------------------
+Some files contain fixed-width columns, you can use the FixedWidthReader class to import these into  littletable Tables.
+
+For data in this data file (not including the leading column numbers):
+          1         2         3         4         5         6
+0123456789012345678901234567890123456789012345678901234567890123456789
+0010GEORGE JETSON    12345 SPACESHIP ST   HOUSTON       TX 4.9
+0020WILE E COYOTE    312 ACME BLVD        TUCSON        AZ 7.3
+0030FRED FLINTSTONE  246 GRANITE LANE     BEDROCK       CA 2.6
+0040JONNY QUEST      31416 SCIENCE AVE    PALO ALTO     CA 8.1
+
+Define the columns to import as:
+
+    columns = [
+        ("id_no", 0, ),
+        ("name", 4, ),
+        ("address", 21, ),
+        ("city", 42, ),
+        ("state", 56, 58, ),
+        ("tech_skill_score", 59, None, float),
+        ]
+
+And use a FixedWidthReader to read the file and pass a list of dicts to a Table.insert_many:
+
+    characters_table = lt.Table().insert_many(lt.DataObject(**rec) for rec in
+                                              lt.FixedWidthReader(columns, "cartoon_characters.txt"))
+
+For each column, define:
+- the attribute name
+- the starting column
+- (optional) the ending column (the start of the next column is the default)
+- (optional) a function to transform the input string (in this example, 'tech_skill_score' gets converted to a float); if no function is specified, str.strip() is used
+
+
 Inserting objects
 -----------------
 Any object can be inserted into a table, using:

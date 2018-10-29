@@ -1,11 +1,17 @@
 Change History
 ==============
 
-Version 1.0.0 -
+Version 0.12.0 -
 ---------------
 - Added Table.as_html() and PivotTable.summarize().as_html() methods
   to support integration with Jupyter Notebook. Also included sample ipynb
-  file.
+  file. This API is still experimental, and may change before 1.0.0 release.
+
+- Added Table.all.xxx attribute accessor, to yield out all the values of a
+  particular attribute in the table as a sequence.
+
+- Added FixedWidthReader class to simplify import of data from files with
+  fixed width columns. See examples in HowToUseLittleTable.txt.
 
 - Fixed bug where dict.iteritems() was used in some cases, all
   now converted to using items().
@@ -29,8 +35,8 @@ Version 1.0.0 -
 - Also deleted deprecated attribute access to table indexes. Indexed
   access is now done as:
   
-        employee = emp_data.by.emp_id('12345')
-        qa_dept_employees = emp_data.by.department_name('QA')
+        employee = emp_data.by.emp_id['12345']
+        qa_dept_employees = emp_data.by.department_name['QA']
 
 
 Version 0.11 -

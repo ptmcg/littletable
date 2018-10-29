@@ -28,6 +28,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
+from __future__ import print_function
 
 __doc__ = """\
 
@@ -104,8 +105,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "1.0.0"
-__versionTime__ = "22 Oct 2018 03:34 UTC"
+__version__ = "0.12.0"
+__versionTime__ = "27 Oct 2018 23:45 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -124,11 +125,13 @@ if PY_2:
 try:
     from collections import OrderedDict as ODict
 except ImportError:
-    # TODO - try importing ordereddict backport to Py2
-    
-    # best effort, just use dict, but won't preserve ordering of fields
-    # in tables or output files
-    ODict = dict
+    # try importing ordereddict backport to Py2
+    try:
+         from ordereddict import OrderedDict as ODict
+    except ImportError:
+        # best effort, just use dict, but won't preserve ordering of fields
+        # in tables or output files
+        ODict = dict
 
 import re
 # import json in Python 2 or 3 compatible forms
@@ -344,6 +347,14 @@ class _ReadonlyObjIndexWrapper(_ObjIndexWrapper):
     def __setitem__(self, k, value):
         raise Exception("no update access to index %r" % (self.attr, ))
 
+class _TableAttributeValueLister(object):
+    def __init__(self, table, default=None):
+        self.table = table
+        self.default = default
+
+    def __getattr__(self, attr):
+        return (getattr(row, attr, self.default) for row in self.table)
+
 class _IndexAccessor(object):
     def __init__(self, table):
         self.table = table
@@ -379,6 +390,60 @@ class _IndexAccessor(object):
         raise AttributeError("Table %r has no index %r" % (self.table.table_name, attr))
 
 
+class FixedWidthReader(object):
+    """
+    Helper class to read fixed-width data and yield a sequence of dicts
+    representing each row of data.
+
+    Parameters:
+    - slice_spec: a list of tuples defining each column in the input file
+        Each tuple consists of:
+        - data column label
+        - starting column number (0-based)
+        - (optional) ending column number; if omitted or None, uses the 
+          starting column of the next spec tuple as the ending column 
+          for this column
+        - (optional) transform function: function called with the column
+          string value to convert to other type, such as int, float, 
+          datetime, etc.; if omitted or None, str.strip() will be used
+    - src_file: a string filename or a file-like object containing the
+        fixed-width data to be loaded
+    """
+    def __init__(self, slice_spec, src_file):
+        def parse_spec(spec):
+            ret = []
+            for cur, next_ in zip(spec, spec[1:]+[("", None, None, None)]):
+                label, col, endcol, fn = (cur + (None,)*2)[:4]
+                if label is None:
+                    continue
+                if endcol is None:
+                    endcol = next_[1]
+                if fn is None:
+                    fn = basestring.strip
+                ret.append((label.lower(), slice(col, endcol), fn))
+            return ret
+
+        self._slices = parse_spec(slice_spec)
+        self._src_file = src_file
+
+    def __iter__(self):
+        if isinstance(self._src_file, basestring):
+            _srciter = open(self._src_file)
+            close_on_exit = True
+        else:
+            _srciter = self._src_file
+            close_on_exit = False
+
+        try:
+            for line in _srciter:
+                if not line.strip():
+                    continue
+                yield dict((label, fn(line[slc])) for label, slc, fn in self._slices)
+        finally:
+            if close_on_exit:
+                _srciter.close()
+
+
 class Table(object):
     """Table is the main class in C{littletable}, for representing a collection of DataObjects or
        user-defined objects with publicly accessible attributes or properties.  Tables can be:
@@ -407,14 +472,13 @@ class Table(object):
         self.obs = []
         self._indexes = {}
         self._uniqueIndexes = []
-        self.by = _IndexAccessor(self)
         """
         C{'by'} is added as a pseudo-attribute on tables, to provide
         dict-like access to the underlying records in the table by index key, as in::
-           
+
             employees.by.socsecnum["000-00-0000"]
             customers.by.zipcode["12345"]
-              
+
         The behavior differs slightly for unique and non-unique indexes:
          - if the index is unique, then retrieving a matching object, will return just the object;
            if there is no matching object, C{KeyError} is raised (making a table with a unique
@@ -424,8 +488,23 @@ class Table(object):
            Table is returned and no exception is raised.
 
         If there is no index defined for the given attribute, then C{AttributeError} is raised.
+
+        C{'all'} is added as a pseudo-attribute to tables, to provide access to the
+        values of a particular table column as a sequence. This is useful if passing the
+        values on to another function that works with sequences of values.
+
+            sum(customers.by.zipcode["12345"].all.order_total)
+
         """
-        
+
+    @property
+    def all(self):
+        return _TableAttributeValueLister(self)
+
+    @property
+    def by(self):
+        return _IndexAccessor(self)
+
     def __len__(self):
         """Return the number of objects in the Table."""
         return len(self.obs)
@@ -1206,6 +1285,8 @@ class Table(object):
         @type key: callable, takes the record as an argument, and returns the key value or tuple to be used
         to represent uniqueness.
         """
+        if isinstance(key, basestring):
+            key = lambda r, attr=key: getattr(r, attr, None)
         ret = self.copy_template()
         seen = set()
         for ob in self:
@@ -1384,11 +1465,15 @@ class PivotTable(Table):
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
 
-    def summary_counts(self, fn=None, col=None, summarycolname=None):
+    def summary_counts(self, fn=None, col=None, col_label=None):
         """Dump out the summary counts of this pivot table as a Table.
         """
-        if summarycolname is None:
-            summarycolname = col
+        if col_label is None:
+            col_label = col
+        if fn is None:
+            fn = len
+            if col_label is None:
+                col_label = 'count'
         ret = Table()
         # topattr = self._pivot_attrs[0]
         do_all(ret.create_index(attr) for attr in self._pivot_attrs)
@@ -1396,29 +1481,29 @@ class PivotTable(Table):
             for sub in self.subtables:
                 subattr, subval = sub._attr_path[-1]
                 attrdict = {subattr: subval}
-                if fn is None:
-                    attrdict['Count'] = len(sub)
+                if col is None or fn is len:
+                    attrdict[col_label] = fn(sub)
                 else:
-                    attrdict[summarycolname] = fn(s[col] for s in sub)
+                    attrdict[col_label] = fn(s[col] for s in sub)
                 ret.insert(DataObject(**attrdict))
         elif len(self._pivot_attrs) == 2:
             for sub in self.subtables:
                 for ssub in sub.subtables:
                     attrdict = dict(ssub._attr_path)
-                    if fn is None:
-                        attrdict['Count'] = len(ssub)
+                    if col is None or fn is len:
+                        attrdict[col_label] = fn(ssub)
                     else:
-                        attrdict[summarycolname] = fn(s[col] for s in ssub)
+                        attrdict[col_label] = fn(s[col] for s in ssub)
                     ret.insert(DataObject(**attrdict))
         elif len(self._pivot_attrs) == 3:
             for sub in self.subtables:
                 for ssub in sub.subtables:
                     for sssub in ssub.subtables:
                         attrdict = dict(sssub._attr_path)
-                        if fn is None:
-                            attrdict['Count'] = len(sssub)
+                        if col is None or fn is len:
+                            attrdict[col_label] = fn(sssub)
                         else:
-                            attrdict[summarycolname] = fn(s[col] for s in sssub)
+                            attrdict[col_label] = fn(s[col] for s in sssub)
                         ret.insert(DataObject(**attrdict))
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
@@ -1583,12 +1668,12 @@ if __name__ == "__main__":
         print(len(result))
         for rec in result:
             print(rec)
-        print('')
+        print()
 
     # print stations.delete(city="Phoenix")
     # print stations.delete(city="Boston")
     print(list(stations.where()))
-    print('')
+    print()
 
     amfm = Table()
     amfm.create_index("stn", unique=True)
@@ -1604,44 +1689,54 @@ if __name__ == "__main__":
     except KeyError:
         print("duplicate key not allowed")
 
-    print('')
+    print()
     for rec in (stations.join_on("stn") + amfm.join_on("stn")
                 )(["stn", "city", (amfm, "band", "AMFM"),
                    (stations, "state", "st")]).sort("AMFM"):
         print(repr(rec))
 
-    print('')
+    print()
     for rec in (stations.join_on("stn") + amfm.join_on("stn")
                 )(["stn", "city", (amfm, "band"), (stations, "state", "st")]):
         print(json_dumps(vars(rec)))
 
-    print('')
+    print()
     for rec in (stations.join_on("stn") + amfm.join_on("stn"))():
         print(json_dumps(vars(rec)))
 
-    print('')
+    print()
     stations.create_index("state")
     for az_stn in stations.by.state['AZ']:
         print(az_stn)
 
-    print('')
+    print()
     pivot = stations.pivot("state")
     pivot.dump_counts()
 
-    print('')
+    print()
     amfm.create_index("band")
     pivot = (stations.join_on("stn") + amfm)().pivot("state band")
     pivot.dump_counts()
     
-    print('')
+    print()
     for rec in amfm:
         print(rec)
-    print('')
-    del amfm[0:-1:2]
-    for i in amfm:
-        print(i)
+    print()
 
-    print('')
+    print(list(amfm.all.stn))
+    print(list(amfm.all.band))
+    print(list(amfm.unique('band').all.band))
+    print()
+    
+    del amfm[0:-1:2]
+    for stn in amfm:
+        print(stn)
+    
+    print()
     print(amfm.pop(-1))
     print(len(amfm))
-    print(amfm.by.stn['KPHY'])
+    print(amfm.by.stn['KPHX'])
+    try:
+        print(amfm.by.stn['KPHY'])
+    except KeyError:
+        print("no station 'KPHY' in table")
