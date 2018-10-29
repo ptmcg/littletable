@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python
 
 """Setup script for the littletable module distribution."""
