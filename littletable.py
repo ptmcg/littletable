@@ -113,7 +113,7 @@ import sys
 from operator import attrgetter, ne
 import csv
 from collections import defaultdict, deque
-from itertools import starmap, repeat, islice
+from itertools import starmap, repeat, islice, takewhile
 from functools import partial
 
 PY_2 = sys.version_info[0] == 2
@@ -847,8 +847,7 @@ class Table(object):
         as a source of interpolation values.  For instance, C{fullName = '%(lastName)s, %(firstName)s'}
         
         """
-        if isinstance(fields, basestring):
-            fields = fields.split()
+        fields = self._parse_fields_string(fields)
 
         def _make_string_callable(expr):
             if isinstance(expr, basestring):
@@ -866,7 +865,9 @@ class Table(object):
             raw_tuples.append(attrvalues)
         
         all_names = tuple(fields) + tuple(exprs.keys())
-        return Table().insert_many(DataObject(**dict(zip(all_names, outtuple))) for outtuple in raw_tuples)
+        ret = Table()
+        ret._indexes.update(dict((k, v.copy_template()) for k, v in self._indexes.items() if k in all_names))
+        return ret().insert_many(DataObject(**dict(zip(all_names, outtuple))) for outtuple in raw_tuples)
 
     def format(self, *fields, **exprs):
         """
@@ -1316,15 +1317,41 @@ class Table(object):
             'indexes': [(iname, self._indexes[iname] in unique_indexes) for iname in self._indexes],
         }
 
-    def as_html(self, fields):
+    def _parse_fields_string(self, field_names):
+        """
+        Convert raw string or list of names to actual column names:
+        - names starting with '-' indicate to suppress that field
+        - '*' means include all other field names
+        - if no fields are specifically included, then all fields are used
+        :param field_names: str or list
+        :return: expanded list of field names
+        """
+        if isinstance(field_names, basestring):
+            field_names = field_names.split()
+        if not self.obs:
+            return field_names
+
+        suppress_names = [nm[1:] for nm in field_names if nm.startswith('-')]
+        field_names = [nm for nm in field_names if not nm.startswith('-')]
+        if not field_names:
+            field_names = ['*']
+        if '*' in field_names:
+            star_fields = [name for name in _object_attrnames(self[0]) if name not in field_names]
+            fn_iter = iter(field_names)
+            field_names = list(takewhile(lambda x: x != '*', fn_iter)) + star_fields + list(fn_iter)
+        field_names = [nm for nm in field_names if nm not in suppress_names]
+        return field_names
+
+    def as_html(self, fields='*'):
         """
         Output the table as a rudimentary HTML table.
         @param fields: fields in the table to be shown in the table
+                       - listing '*' as a field will add all unnamed fields
+                       - starting a field name with '-' will suppress that name
         @type fields: list of strings or a single space-delimited string
         @return: string of generated HTML representing the selected table row attributes
         """
-        if isinstance(fields, str):
-            fields = fields.split()
+        fields = self._parse_fields_string(fields)
         def td_value(v):
             return '<td><div align="{}">{}</div></td>'.format(('left','right')[isinstance(v, (int, float))], str(v))
         def row_to_tr(r):
@@ -1465,7 +1492,7 @@ class PivotTable(Table):
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
 
-    def summary_counts(self, fn=None, col=None, col_label=None):
+    def as_table(self, fn=None, col=None, col_label=None):
         """Dump out the summary counts of this pivot table as a Table.
         """
         if col_label is None:
@@ -1508,6 +1535,7 @@ class PivotTable(Table):
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
         return ret
+    summary_counts = as_table
 
     def summarize(self, count_fn=len, col_label=None):
         if col_label is None:

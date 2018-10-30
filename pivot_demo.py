@@ -25,7 +25,7 @@ places.create_index('elev2')
 
 print("summarize population by state")
 piv = places.pivot('state')
-pplByState = piv.summary_counts(sum, 'pop').sort('pop desc')
+pplByState = piv.as_table(sum, 'pop').sort('pop desc')
 for rec in pplByState:
     print(rec.state, rec.pop)
 piv.dump_counts(count_fn=lambda recs:sum(r.pop for r in recs))
@@ -33,7 +33,7 @@ piv.dump_counts(count_fn=lambda recs:sum(r.pop for r in recs))
 print('')
 print("summarize population by elevation")
 piv = places.pivot('elev2')
-pplByElev = piv.summary_counts(sum, 'pop')
+pplByElev = piv.as_table(sum, 'pop')
 for rec in pplByElev:
     print(rec.elev2, rec.pop)
 piv.dump_counts(count_fn=lambda recs:sum(r.pop for r in recs))
@@ -49,7 +49,7 @@ print('')
 piv.dump_counts(count_fn=lambda recs:sum(r.pop for r in recs))
 print('')
 
-pplByElev = piv.summary_counts(sum, 'pop')
+pplByElev = piv.as_table(sum, 'pop')
 for rec in pplByElev[:100]:
     print(rec.state, rec.elev2, rec.pop)
 

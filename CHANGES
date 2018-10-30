@@ -3,9 +3,18 @@ Change History
 
 Version 0.12.0 -
 ---------------
-- Added Table.as_html() and PivotTable.summarize().as_html() methods
+- Modified Table.select() to accept '*' and '-xxx'-style names, to
+  indicate '*' as 'all fields', and '-xxx' as "not including xxx". This
+  simplifies selecting "all fields except xxx".
+
+- PivotTable.summary_counts() is renamed to as_table(). summary_counts()
+  is deprecated and will be dropped in a future release.
+
+- Added Table.as_html() and PivotTable.as_table().as_html() methods
   to support integration with Jupyter Notebook. Also included sample ipynb
-  file. This API is still experimental, and may change before 1.0.0 release.
+  file. as_html() takes a list of fields to be included in the table,
+  following the same syntax as Table.select(). This API is still
+  experimental, and may change before 1.0.0 release.
 
 - Added Table.all.xxx attribute accessor, to yield out all the values of a
   particular attribute in the table as a sequence.
