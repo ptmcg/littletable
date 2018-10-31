@@ -44,15 +44,15 @@ Here is a simple littletable data storage/retrieval example:
     # print a particular customer name 
     # (unique indexes will return a single item; non-unique
     # indexes will return a list of all matching items)
-    print customers.by.id["0030"].name
+    print(customers.by.id["0030"].name)
 
     # print all items sold by the pound
     for item in catalog.where(unitofmeas="LB"):
-        print item.sku, item.descr
+        print(item.sku, item.descr)
 
     # print all items that cost more than 10
     for item in catalog.where(lambda o: o.unitprice>10):
-        print item.sku, item.descr, item.unitprice
+        print(item.sku, item.descr, item.unitprice)
 
     # join tables to create queryable wishlists collection
     wishlists = customers.join_on("id") + wishitems.join_on("custid") + catalog.join_on("sku")
@@ -60,8 +60,8 @@ Here is a simple littletable data storage/retrieval example:
     # print all wishlist items with price > 10
     bigticketitems = wishlists().where(lambda ob: ob.unitprice > 10)
     for item in bigticketitems:
-        print item
+        print(item)
 
     # list all wishlist items in descending order by price
     for item in wishlists().sort("unitprice desc"):
-        print item
+        print(item)
