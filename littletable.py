@@ -106,7 +106,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.13.0"
-__versionTime__ = "31 Oct 2018 22:23 UTC"
+__versionTime__ = "1 Nov 2018 22:54 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -1255,7 +1255,10 @@ class Table(object):
                 rec_.__dict__[attrname] = val
             else:
                 setattr(rec_, attrname, val)
-        do_all(_add_field_to_rec(r) for r in self)
+        try:
+            do_all(_add_field_to_rec(r) for r in self)
+        except AttributeError:
+            raise AttributeError("cannot add/modify attribute {!r} in table records".format(attrname))
         return self
 
     def groupby(self, keyexpr, **outexprs):
@@ -1565,7 +1568,7 @@ class _PivotTableSummary(object):
         self._fn = count_fn
         self._label = col_label
 
-    def as_html(self):
+    def as_html(self, *args, **kwargs):
         if len(self._pivot_attrs) == 1:
             col = self._pivot_attrs[0]
             col_label = self._label
