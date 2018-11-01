@@ -122,6 +122,9 @@ PY_3 = sys.version_info[0] == 3
 
 if PY_2:
     from itertools import ifilter as filter
+    str_strip = lambda s: type(s).strip(s)
+else:
+    str_strip = str.strip
 
 try:
     from collections import OrderedDict as ODict
@@ -445,7 +448,7 @@ class FixedWidthReader(object):
                 if endcol is None:
                     endcol = next_[1]
                 if fn is None:
-                    fn = basestring.strip
+                    fn = str_strip
                 ret.append((label.lower(), slice(col, endcol), fn))
             return ret
 
