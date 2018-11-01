@@ -11,19 +11,25 @@ CatalogItem = namedtuple("CatalogItem", "sku descr unitofmeas unitprice")
 
 customers = Table("customers")
 customers.create_index("id", unique=True)
-customers.insert(Customer(id="0010", name="George Jetson"))
-customers.insert(Customer(id="0020", name="Wile E. Coyote"))
-customers.insert(Customer(id="0030", name="Jonny Quest"))
+customer_data = """\
+id,name
+0010,George Jetson
+0020,Wile E. Coyote
+0030,Jonny Quest"""
+customers.csv_import(customer_data, row_class=Customer)
 
 catalog = Table("catalog")
 catalog.create_index("sku", unique=True)
-catalog.insert(CatalogItem(sku="BRDSD-001", descr="Bird seed", unitofmeas="LB",unitprice=3))
-catalog.insert(CatalogItem(sku="BBS-001", descr="Steel BB's", unitofmeas="LB",unitprice=5))
-catalog.insert(CatalogItem(sku="MAGNT-001", descr="Magnet", unitofmeas="EA",unitprice=8))
-catalog.insert(CatalogItem(sku="MAGLS-001", descr="Magnifying glass", unitofmeas="EA",unitprice=12))
-catalog.insert(CatalogItem(sku="ANVIL-001", descr="1000lb anvil", unitofmeas="EA",unitprice=100))
-catalog.insert(CatalogItem(sku="ROPE-001", descr="1 in. heavy rope", unitofmeas="100FT",unitprice=10))
-catalog.insert(CatalogItem(sku="ROBOT-001", descr="Domestic robot", unitofmeas="EA",unitprice=5000))
+catalog_data = """\
+sku,descr,unitofmeas,unitprice
+BRDSD-001,Bird seed,LB,3
+BBS-001,Steel BB's,LB,5
+MGNT-001,Magnet,EA,8
+MAGLS-001,Magnifying glass,EA,12
+ANVIL-001,1000lb anvil,EA,100
+ROPE-001,1 in. heavy rope,100FT,10
+ROBOT-001,Domestic robot,EA,5000"""
+catalog.csv_import(catalog_data, row_class=CatalogItem, transforms={'unitprice':int})
 
 wishitems = Table("wishitems")
 wishitems.create_index("custid")

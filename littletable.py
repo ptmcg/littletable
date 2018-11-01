@@ -105,8 +105,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "0.13.0"
-__versionTime__ = "1 Nov 2018 22:54 UTC"
+__version__ = "0.13.1"
+__versionTime__ = "1 Nov 2018 23:43 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -701,7 +701,7 @@ class Table(object):
         if unique_indexes:
             for ind in unique_indexes:
                 ind_attr = ind.attr
-                new_keys = dict((getattr(obj, ind_attr, NO_SUCH_ATTR), obj) for obj in it)
+                new_keys = dict((getattr(obj, ind_attr, NO_SUCH_ATTR), obj) for obj in new_objs)
                 if not ind.accept_none and (None in new_keys or NO_SUCH_ATTR in new_keys):
                     raise KeyError("unique key cannot be None or blank for index %s" % ind_attr, 
                                     [ob for ob in new_objs if getattr(ob, ind_attr, NO_SUCH_ATTR) is None])
