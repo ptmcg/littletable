@@ -105,8 +105,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "0.12.0"
-__versionTime__ = "29 Oct 2018 02:09 UTC"
+__version__ = "0.13.0"
+__versionTime__ = "31 Oct 2018 22:23 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -115,6 +115,7 @@ import csv
 from collections import defaultdict, deque
 from itertools import starmap, repeat, islice, takewhile
 from functools import partial
+from contextlib import closing
 
 PY_2 = sys.version_info[0] == 2
 PY_3 = sys.version_info[0] == 3
@@ -172,6 +173,9 @@ except ImportError:
 
 if PY_3:
     basestring = str
+    from io import StringIO
+else:
+    from StringIO import StringIO
 
 __all__ = ["DataObject", "Table", "JoinTerm", "PivotTable"]
 
@@ -187,18 +191,20 @@ def _object_attrnames(obj):
     else:
         raise ValueError("object with unknown attributes")
 
-def _to_json(obj):
+def _to_dict(obj):
     if hasattr(obj, "__dict__"):
         # normal object
-        return json.dumps(obj.__dict__)
+        return obj.__dict__
     elif isinstance(obj, tuple) and hasattr(obj, "_fields"):
         # namedtuple
-        return json.dumps(ODict(zip(obj._fields, obj)))
+        return ODict(zip(obj._fields, obj))
     elif hasattr(obj, "__slots__"):
-        return json.dumps(ODict((k, v) for k, v in zip(obj.__slots__, (getattr(obj, a) for a in obj.__slots__))))
+        return ODict((k, v) for k, v in zip(obj.__slots__, (getattr(obj, a) for a in obj.__slots__)))
     else:
         raise ValueError("object with unknown attributes")
 
+def _to_json(obj):
+    return json.dumps(_to_dict(obj))
 
 class DataObject(object):
     """A generic semi-mutable object for storing data values in a table. Attributes
@@ -389,6 +395,26 @@ class _IndexAccessor(object):
             return ret
         raise AttributeError("Table %r has no index %r" % (self.table.table_name, attr))
 
+class _multi_iterator(object):
+    def __init__(self, seqobj):
+        if isinstance(seqobj, basestring):
+            if '\n' in seqobj:
+                self._iterobj = iter(StringIO(seqobj))
+            else:
+                if PY_3:
+                    self._iterobj = open(seqobj, encoding='utf-8')
+                else:
+                    self._iterobj = open(seqobj)
+        else:
+            self._iterobj = iter(seqobj)
+
+    def __iter__(self):
+        return self._iterobj
+
+    def close(self):
+        if hasattr(self._iterobj, 'close'):
+            self._iterobj.close()
+
 
 class FixedWidthReader(object):
     """
@@ -427,21 +453,11 @@ class FixedWidthReader(object):
         self._src_file = src_file
 
     def __iter__(self):
-        if isinstance(self._src_file, basestring):
-            _srciter = open(self._src_file)
-            close_on_exit = True
-        else:
-            _srciter = self._src_file
-            close_on_exit = False
-
-        try:
+        with closing(_multi_iterator(self._src_file)) as _srciter:
             for line in _srciter:
                 if not line.strip():
                     continue
                 yield dict((label, fn(line[slc])) for label, slc, fn in self._slices)
-        finally:
-            if close_on_exit:
-                _srciter.close()
 
 
 class Table(object):
@@ -550,7 +566,7 @@ class Table(object):
     
     __nonzero__ = __bool__
     def __reversed__(self):
-        return islice(self.obs, -1, -1, -1)
+        return reversed(self.obs)
     def __contains__(self, item):
         return item in self.obs
     def index(self, item):
@@ -869,7 +885,7 @@ class Table(object):
         ret._indexes.update(dict((k, v.copy_template()) for k, v in self._indexes.items() if k in all_names))
         return ret().insert_many(DataObject(**dict(zip(all_names, outtuple))) for outtuple in raw_tuples)
 
-    def format(self, *fields, **exprs):
+    def formatted_table(self, *fields, **exprs):
         """
         Create a new table with all string formatted attribute values, typically in preparation for
         formatted output.
@@ -895,6 +911,14 @@ class Table(object):
                         select_exprs[ename] = lambda r: expr % getattr(r, ename, "None")
         
         return self.select(**select_exprs)
+
+    def format(self, fmt):
+        """
+        Generates a list of strings, one for each row in the table, using the input string
+        as a format template for printing out a single row.
+        """
+        for line in self:
+            yield fmt.format_map(_to_dict(line))
 
     def join(self, other, attrlist=None, auto_create_indexes=True, **kwargs):
         """
@@ -1028,15 +1052,8 @@ class Table(object):
             raise ValueError("pivot can only be called using indexed attributes")
 
     def _import(self, source, encoding, transforms=None, reader=csv.DictReader, row_class=DataObject):
-        close_on_exit = False
-        if isinstance(source, basestring):
-            if PY_3:
-                source = open(source, encoding=encoding)
-            else:
-                source = open(source)
-            close_on_exit = True
-        try:
-            csvdata = reader(source)
+        with closing(_multi_iterator(source)) as _srciter:
+            csvdata = reader(_srciter)
             if transforms:
                 def slices(seq, slice_size=128):
                     seq_iter = iter(seq)
@@ -1069,9 +1086,6 @@ class Table(object):
                         self.insert_many(make_row(rec) for rec in scratch)
             else:
                 self.insert_many(row_class(**s) for s in csvdata)
-        finally:
-            if close_on_exit:
-                source.close()
         return self
 
     def csv_import(self, csv_source, encoding='UTF-8', transforms=None, row_class=DataObject, **kwargs):
@@ -1569,7 +1583,9 @@ class _PivotTableSummary(object):
 
             keytally = dict((k, 0) for k in self._pt.subtables[0].keys())
             hdgs = sorted(keytally)
-            ret += "<tr><th/>" + "".join(map('<th><div align="center">{}</div></th>'.format, hdgs)) + "<th>Total</th></tr>\n"
+            ret += ("<tr><th/>"
+                    + "".join(map('<th><div align="center">{}</div></th>'.format, hdgs))
+                    + '<th><div align="center">Total</div></th></tr>\n')
             for k, sub in self._pt.items():
                 row = [k,]
                 ssub_v_accum = 0

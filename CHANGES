@@ -1,6 +1,24 @@
 Change History
 ==============
 
+Version 0.13.0 -
+---------------
+- Modified all Table import methods to directly accept a string containing
+  the data to be imported. If the input is a multiline string, then it
+  is assumed to contain the actual data to be imported. If the input is a
+  string with no newlines, then it is treated as a filename, and the file
+  is opened for reading. The input can also still be specified as a
+  file-like object, such as would be the case if reading a file with
+  an encoding other than the default 'UTF-8'. This capability further
+  simplifies notebook integration and test and experimentation.
+
+- Renamed format() to formatted_table().
+
+- Introduced new format() method to generate a list of strings, one per
+  row in the table. format() is called passing a single string as an
+  argument, to be used as a str.format() template for converting each
+  row to a string.
+
 Version 0.12.0 -
 ---------------
 - Modified Table.select() to accept '*' and '-xxx'-style names, to
