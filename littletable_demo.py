@@ -3,6 +3,7 @@
 #
 # Copyright 2010, Paul T. McGuire
 #
+from __future__ import print_function
 
 from littletable import Table, DataObject
 from collections import namedtuple
@@ -35,36 +36,39 @@ wishitems = Table("wishitems")
 wishitems.create_index("custid")
 wishitems.create_index("sku")
 # there is no user-defined type for these items, just use DataObjects
-wishitems.insert(DataObject(custid="0030", sku="MAGLS-001"))
-wishitems.insert(DataObject(custid="0020", sku="MAGLS-001"))
-wishitems.insert(DataObject(custid="0020", sku="ANVIL-001"))
-wishitems.insert(DataObject(custid="0020", sku="ROPE-001"))
-wishitems.insert(DataObject(custid="0020", sku="BRDSD-001"))
-wishitems.insert(DataObject(custid="0020", sku="BBS-001"))
-wishitems.insert(DataObject(custid="0020", sku="MAGNT-001"))
-wishitems.insert(DataObject(custid="0030", sku="MAGNT-001"))
-wishitems.insert(DataObject(custid="0030", sku="ROBOT-001"))
-wishitems.insert(DataObject(custid="0010", sku="ROBOT-001"))
+wishlist_data = """\
+custid,sku
+0030,MAGLS-001
+0020,MAGLS-001
+0020,ANVIL-001
+0020,ROPE-001
+0020,BRDSD-001
+0020,BBS-001
+0020,MAGNT-001
+0030,MAGNT-001
+0030,ROBOT-001
+0010,ROBOT-001"""
+wishitems.csv_import(wishlist_data)
 
 # print a particular customer name
 print(customers.by.id["0030"].name)
-print('')
+print()
 
 # print all items sold by the pound
 for item in catalog.where(unitofmeas="LB"):
     print(item.sku, item.descr)
-print('')
+print()
 
 # if querying on an indexed item, use ".by.attribute-name[key]"
 catalog.create_index("unitofmeas")
 for item in catalog.by.unitofmeas["LB"]:
     print(item.sku, item.descr)
-print('')
+print()
 
 # print all items that cost more than 10
 for item in catalog.where(lambda ob : ob.unitprice > 10):
     print(item.sku, item.descr, item.unitprice)
-print('')
+print()
 
 # join tables to create queryable wishlists collection - the following are all equivalent
 wishlists = (customers.join_on("id") + wishitems.join_on("custid")).join_on("sku") + catalog.join_on("sku")
@@ -79,26 +83,26 @@ print(wishlists()("wishlists").table_name)
 bigticketitems = wishlists().where(lambda ob : ob.unitprice > 10)
 for bti in bigticketitems:
     print(bti)
-print('')
+print()
 
 # list all wishlist items by customer, then in descending order by unit price
 for item in wishlists().sort("custid, unitprice desc"):
     print(item)
-print('')
+print()
 
 # create simple pivot table, grouping wishlist data by customer name
 wishlistsdata = wishlists()
 wishlistsdata.create_index("name")
 pivot = wishlistsdata.pivot("name")
 pivot.dump(row_fn=lambda o:"%s %s" % (o.sku,o.descr))
-print('')
+print()
 
 # pivot on both sku number and customer name, giving tabular output
 piv2 = wishlistsdata.pivot("sku name")
 piv2.dump_counts()
-print('')
+print()
 
 # pivot on both sku number and customer name, giving tabular output
 # tabulate by sum(unitprice) for all items in each pivot table cell
 piv2.dump_counts(count_fn=lambda recs:sum(r.unitprice for r in recs))
-print('')
+print()

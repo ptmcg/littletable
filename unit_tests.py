@@ -445,27 +445,8 @@ class TableTransformTests_SimpleNamespace(unittest.TestCase, TableTransformTests
     pass
 
 
-class TableImportExportTests:
-    def test_csv_export(self):
-        from itertools import permutations
-        test_size = 3
-        t1 = make_test_table(self.make_data_object, test_size)
-        for fieldnames in permutations(list('abc')):
-            out = io.StringIO()
-            t1.csv_export(out, fieldnames)
-            out.seek(0)
-            outlines = out.read().splitlines()
-            out.close()
-            self.assertEqual(','.join(fieldnames), outlines[0])
-            self.assertEqual(len(outlines), test_size**3+1)
-            for ob, line in zip(t1, outlines[1:]):
-                csv_vals = line.split(',')
-                self.assertTrue(all(
-                    int(csv_vals[i]) == getattr(ob, fld) for i, fld in enumerate(fieldnames)
-                ))
-
-    def test_csv_import(self):
-        data = """\
+# sample import data sets
+csv_data = """\
 a,b,c
 0,0,0
 0,0,1
@@ -493,287 +474,42 @@ a,b,c
 2,1,2
 2,2,0
 2,2,1
-2,2,2"""
-        incsv = io.StringIO(data)
-        csvtable = lt.Table().csv_import(incsv, transforms={'a': int, 'b': int, 'c': int})
+2,2,2
 
-        test_size = 3
-        t1 = make_test_table(self.make_data_object, test_size)
+"""
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
-        self.assertEqual(len(data.splitlines())-1, len(csvtable))
+json_data = """\
+    {"a": 0, "b": 0, "c": 0}
+    {"a": 0, "b": 0, "c": 1}
+    {"a": 0, "b": 0, "c": 2}
+    {"a": 0, "b": 1, "c": 0}
+    {"a": 0, "b": 1, "c": 1}
+    {"a": 0, "b": 1, "c": 2}
+    {"a": 0, "b": 2, "c": 0}
+    {"a": 0, "b": 2, "c": 1}
+    {"a": 0, "b": 2, "c": 2}
+    {"a": 1, "b": 0, "c": 0}
+    {"a": 1, "b": 0, "c": 1}
+    {"a": 1, "b": 0, "c": 2}
+    {"a": 1, "b": 1, "c": 0}
+    {"a": 1, "b": 1, "c": 1}
+    {"a": 1, "b": 1, "c": 2}
+    {"a": 1, "b": 2, "c": 0}
+    {"a": 1, "b": 2, "c": 1}
+    {"a": 1, "b": 2, "c": 2}
+    {"a": 2, "b": 0, "c": 0}
+    {"a": 2, "b": 0, "c": 1}
+    {"a": 2, "b": 0, "c": 2}
+    {"a": 2, "b": 1, "c": 0}
+    {"a": 2, "b": 1, "c": 1}
+    {"a": 2, "b": 1, "c": 2}
+    {"a": 2, "b": 2, "c": 0}
+    {"a": 2, "b": 2, "c": 1}
+    {"a": 2, "b": 2, "c": 2}
 
-        incsv = io.StringIO(data)
-        row_prototype = self.make_data_object(0, 0, 0)
-        csvtable2 = lt.Table().csv_import(incsv, transforms={'a': int, 'b': int, 'c': int}, row_class=type(row_prototype))[:3]
-        
-        print(type(t1[0]).__name__, t1[0])
-        print(type(csvtable2[0]).__name__, csvtable2[0])
-        self.assertEqual(type(t1[0]), type(csvtable2[0]))
+"""
 
-    def test_csv_string_import(self):
-        data = """\
-a,b,c
-0,0,0
-0,0,1
-0,0,2
-0,1,0
-0,1,1
-0,1,2
-0,2,0
-0,2,1
-0,2,2
-1,0,0
-1,0,1
-1,0,2
-1,1,0
-1,1,1
-1,1,2
-1,2,0
-1,2,1
-1,2,2
-2,0,0
-2,0,1
-2,0,2
-2,1,0
-2,1,1
-2,1,2
-2,2,0
-2,2,1
-2,2,2"""
-        csvtable = lt.Table().csv_import(csv_source=data, transforms={'a': int, 'b': int, 'c': int})
-
-        test_size = 3
-        t1 = make_test_table(self.make_data_object, test_size)
-
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
-        self.assertEqual(len(data.splitlines()) - 1, len(csvtable))
-
-        row_prototype = self.make_data_object(0, 0, 0)
-        csvtable2 = lt.Table().csv_import(data, transforms={'a': int, 'b': int, 'c': int},
-                                          row_class=type(row_prototype))[:3]
-
-        print(type(t1[0]).__name__, t1[0])
-        print(type(csvtable2[0]).__name__, csvtable2[0])
-        self.assertEqual(type(t1[0]), type(csvtable2[0]))
-
-    def test_csv_string_list_import(self):
-        data = """\
-a,b,c
-0,0,0
-0,0,1
-0,0,2
-0,1,0
-0,1,1
-0,1,2
-0,2,0
-0,2,1
-0,2,2
-1,0,0
-1,0,1
-1,0,2
-1,1,0
-1,1,1
-1,1,2
-1,2,0
-1,2,1
-1,2,2
-2,0,0
-2,0,1
-2,0,2
-2,1,0
-2,1,1
-2,1,2
-2,2,0
-2,2,1
-2,2,2"""
-        csvtable = lt.Table().csv_import(csv_source=data.splitlines(), transforms={'a': int, 'b': int, 'c': int})
-
-        test_size = 3
-        t1 = make_test_table(self.make_data_object, test_size)
-
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
-        self.assertEqual(len(data.splitlines()) - 1, len(csvtable))
-
-        row_prototype = self.make_data_object(0, 0, 0)
-        csvtable2 = lt.Table().csv_import(data, transforms={'a': int, 'b': int, 'c': int},
-                                          row_class=type(row_prototype))[:3]
-
-        print(type(t1[0]).__name__, t1[0])
-        print(type(csvtable2[0]).__name__, csvtable2[0])
-        self.assertEqual(type(t1[0]), type(csvtable2[0]))
-
-    def test_json_export(self):
-        from itertools import permutations
-        test_size = 3
-        t1 = make_test_table(self.make_data_object, test_size)
-        for fieldnames in permutations(list('abc')):
-            out = io.StringIO()
-            t1.json_export(out, fieldnames)
-            out.seek(0)
-            outlines = out.read().splitlines()
-            out.close()
-
-            self.assertEqual(len(outlines), test_size**3)
-
-            for ob, line in zip(t1, outlines):
-                json_dict = json.loads(line)
-                t1_dataobj = make_dataobject_from_ob(ob)
-                self.assertEqual(lt.DataObject(**json_dict), t1_dataobj)
-
-    def test_json_import(self):
-        data = """\
-            {"a": 0, "b": 0, "c": 0}
-            {"a": 0, "b": 0, "c": 1}
-            {"a": 0, "b": 0, "c": 2}
-            {"a": 0, "b": 1, "c": 0}
-            {"a": 0, "b": 1, "c": 1}
-            {"a": 0, "b": 1, "c": 2}
-            {"a": 0, "b": 2, "c": 0}
-            {"a": 0, "b": 2, "c": 1}
-            {"a": 0, "b": 2, "c": 2}
-            {"a": 1, "b": 0, "c": 0}
-            {"a": 1, "b": 0, "c": 1}
-            {"a": 1, "b": 0, "c": 2}
-            {"a": 1, "b": 1, "c": 0}
-            {"a": 1, "b": 1, "c": 1}
-            {"a": 1, "b": 1, "c": 2}
-            {"a": 1, "b": 2, "c": 0}
-            {"a": 1, "b": 2, "c": 1}
-            {"a": 1, "b": 2, "c": 2}
-            {"a": 2, "b": 0, "c": 0}
-            {"a": 2, "b": 0, "c": 1}
-            {"a": 2, "b": 0, "c": 2}
-            {"a": 2, "b": 1, "c": 0}
-            {"a": 2, "b": 1, "c": 1}
-            {"a": 2, "b": 1, "c": 2}
-            {"a": 2, "b": 2, "c": 0}
-            {"a": 2, "b": 2, "c": 1}
-            {"a": 2, "b": 2, "c": 2}"""
-        injson = io.StringIO(data)
-        jsontable = lt.Table().json_import(injson, transforms={'a': int, 'b': int, 'c': int})
-
-        test_size = 3
-        t1 = make_test_table(self.make_data_object, test_size)
-
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
-        self.assertEqual(len(data.splitlines()), len(jsontable))
-
-    def test_json_string_import(self):
-        data = """\
-            {"a": 0, "b": 0, "c": 0}
-            {"a": 0, "b": 0, "c": 1}
-            {"a": 0, "b": 0, "c": 2}
-            {"a": 0, "b": 1, "c": 0}
-            {"a": 0, "b": 1, "c": 1}
-            {"a": 0, "b": 1, "c": 2}
-            {"a": 0, "b": 2, "c": 0}
-            {"a": 0, "b": 2, "c": 1}
-            {"a": 0, "b": 2, "c": 2}
-            {"a": 1, "b": 0, "c": 0}
-            {"a": 1, "b": 0, "c": 1}
-            {"a": 1, "b": 0, "c": 2}
-            {"a": 1, "b": 1, "c": 0}
-            {"a": 1, "b": 1, "c": 1}
-            {"a": 1, "b": 1, "c": 2}
-            {"a": 1, "b": 2, "c": 0}
-            {"a": 1, "b": 2, "c": 1}
-            {"a": 1, "b": 2, "c": 2}
-            {"a": 2, "b": 0, "c": 0}
-            {"a": 2, "b": 0, "c": 1}
-            {"a": 2, "b": 0, "c": 2}
-            {"a": 2, "b": 1, "c": 0}
-            {"a": 2, "b": 1, "c": 1}
-            {"a": 2, "b": 1, "c": 2}
-            {"a": 2, "b": 2, "c": 0}
-            {"a": 2, "b": 2, "c": 1}
-            {"a": 2, "b": 2, "c": 2}"""
-        jsontable = lt.Table().json_import(data, transforms={'a': int, 'b': int, 'c': int})
-
-        test_size = 3
-        t1 = make_test_table(self.make_data_object, test_size)
-
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
-        self.assertEqual(len(data.splitlines()), len(jsontable))
-
-    def test_json_string_list_import(self):
-        data = """\
-            {"a": 0, "b": 0, "c": 0}
-            {"a": 0, "b": 0, "c": 1}
-            {"a": 0, "b": 0, "c": 2}
-            {"a": 0, "b": 1, "c": 0}
-            {"a": 0, "b": 1, "c": 1}
-            {"a": 0, "b": 1, "c": 2}
-            {"a": 0, "b": 2, "c": 0}
-            {"a": 0, "b": 2, "c": 1}
-            {"a": 0, "b": 2, "c": 2}
-            {"a": 1, "b": 0, "c": 0}
-            {"a": 1, "b": 0, "c": 1}
-            {"a": 1, "b": 0, "c": 2}
-            {"a": 1, "b": 1, "c": 0}
-            {"a": 1, "b": 1, "c": 1}
-            {"a": 1, "b": 1, "c": 2}
-            {"a": 1, "b": 2, "c": 0}
-            {"a": 1, "b": 2, "c": 1}
-            {"a": 1, "b": 2, "c": 2}
-            {"a": 2, "b": 0, "c": 0}
-            {"a": 2, "b": 0, "c": 1}
-            {"a": 2, "b": 0, "c": 2}
-            {"a": 2, "b": 1, "c": 0}
-            {"a": 2, "b": 1, "c": 1}
-            {"a": 2, "b": 1, "c": 2}
-            {"a": 2, "b": 2, "c": 0}
-            {"a": 2, "b": 2, "c": 1}
-            {"a": 2, "b": 2, "c": 2}"""
-        jsontable = lt.Table().json_import(data.splitlines(), transforms={'a': int, 'b': int, 'c': int})
-
-        test_size = 3
-        t1 = make_test_table(self.make_data_object, test_size)
-
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
-        self.assertEqual(len(data.splitlines()), len(jsontable))
-
-    def test_fixed_width_import(self):
-        data = """\
-0 0 0
-0 0 1
-0 0 2
-0 1 0
-0 1 1
-0 1 2
-0 2 0
-0 2 1
-0 2 2
-1 0 0
-1 0 1
-1 0 2
-1 1 0
-1 1 1
-1 1 2
-1 2 0
-1 2 1
-1 2 2
-2 0 0
-2 0 1
-2 0 2
-2 1 0
-2 1 1
-2 1 2
-2 2 0
-2 2 1
-2 2 2"""
-        data_file = io.StringIO(data)
-        fw_spec = [('a', 0, None, int), ('b', 2, None, int), ('c', 4, None, int), ]
-        tt = lt.Table().insert_many(lt.DataObject(**rec) for rec in lt.FixedWidthReader(fw_spec, data_file))
-
-        test_size = 3
-        t1 = make_test_table(self.make_data_object, test_size)
-
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
-        self.assertEqual(len(data.splitlines()), len(tt))
-
-    def test_fixed_width_string_import(self):
-        data = """\
+fixed_width_data = """\
 0 0 0
 0 0 1
 0 0 2
@@ -803,6 +539,144 @@ a,b,c
 2 2 2
 
 """
+
+class TableImportExportTests:
+    def test_csv_export(self):
+        from itertools import permutations
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+        for fieldnames in permutations(list('abc')):
+            out = io.StringIO()
+            t1.csv_export(out, fieldnames)
+            out.seek(0)
+            outlines = out.read().splitlines()
+            out.close()
+            self.assertEqual(','.join(fieldnames), outlines[0])
+            self.assertEqual(len(outlines), test_size**3+1)
+            for ob, line in zip(t1, outlines[1:]):
+                csv_vals = line.split(',')
+                self.assertTrue(all(
+                    int(csv_vals[i]) == getattr(ob, fld) for i, fld in enumerate(fieldnames)
+                ))
+
+    def test_csv_import(self):
+        data = csv_data
+        incsv = io.StringIO(data)
+        csvtable = lt.Table().csv_import(incsv, transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
+        self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
+
+        incsv = io.StringIO(data)
+        row_prototype = self.make_data_object(0, 0, 0)
+        csvtable2 = lt.Table().csv_import(incsv, transforms={'a': int, 'b': int, 'c': int}, row_class=type(row_prototype))[:3]
+        
+        print(type(t1[0]).__name__, t1[0])
+        print(type(csvtable2[0]).__name__, csvtable2[0])
+        self.assertEqual(type(t1[0]), type(csvtable2[0]))
+
+    def test_csv_string_import(self):
+        data = csv_data
+        csvtable = lt.Table().csv_import(csv_source=data, transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
+        self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
+
+        row_prototype = self.make_data_object(0, 0, 0)
+        csvtable2 = lt.Table().csv_import(data, transforms={'a': int, 'b': int, 'c': int},
+                                          row_class=type(row_prototype))[:3]
+
+        print(type(t1[0]).__name__, t1[0])
+        print(type(csvtable2[0]).__name__, csvtable2[0])
+        self.assertEqual(type(t1[0]), type(csvtable2[0]))
+
+    def test_csv_string_list_import(self):
+        data = csv_data
+        csvtable = lt.Table().csv_import(csv_source=data.splitlines(), transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
+        self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
+
+        row_prototype = self.make_data_object(0, 0, 0)
+        csvtable2 = lt.Table().csv_import(data, transforms={'a': int, 'b': int, 'c': int},
+                                          row_class=type(row_prototype))[:3]
+
+        print(type(t1[0]).__name__, t1[0])
+        print(type(csvtable2[0]).__name__, csvtable2[0])
+        self.assertEqual(type(t1[0]), type(csvtable2[0]))
+
+    def test_json_export(self):
+        from itertools import permutations
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+        for fieldnames in permutations(list('abc')):
+            out = io.StringIO()
+            t1.json_export(out, fieldnames)
+            out.seek(0)
+            outlines = out.read().splitlines()
+            out.close()
+
+            self.assertEqual(len(outlines), test_size**3)
+
+            for ob, line in zip(t1, outlines):
+                json_dict = json.loads(line)
+                t1_dataobj = make_dataobject_from_ob(ob)
+                self.assertEqual(lt.DataObject(**json_dict), t1_dataobj)
+
+    def test_json_import(self):
+        data = json_data
+        injson = io.StringIO(data)
+        jsontable = lt.Table().json_import(injson, transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
+        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
+
+    def test_json_string_import(self):
+        data = json_data
+        jsontable = lt.Table().json_import(data, transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
+        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
+
+    def test_json_string_list_import(self):
+        data = json_data
+        jsontable = lt.Table().json_import(data.splitlines(), transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
+        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
+
+    def test_fixed_width_import(self):
+        data = fixed_width_data
+        data_file = io.StringIO(data)
+        fw_spec = [('a', 0, None, int), ('b', 2, None, int), ('c', 4, None, int), ]
+        tt = lt.Table().insert_many(lt.DataObject(**rec) for rec in lt.FixedWidthReader(fw_spec, data_file))
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
+        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
+
+    def test_fixed_width_string_import(self):
+        data = fixed_width_data
         fw_spec = [('a', 0, None, int), ('b', 2, None, int), ('c', 4, None, int), ]
         tt = lt.Table().insert_many(lt.DataObject(**rec) for rec in lt.FixedWidthReader(fw_spec, data))
 
@@ -810,37 +684,10 @@ a,b,c
         t1 = make_test_table(self.make_data_object, test_size)
 
         self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
-        self.assertEqual(len(list(filter(None, data.splitlines()))), len(tt))
+        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
 
     def test_fixed_width_string_list_import(self):
-        data = """\
-0 0 0
-0 0 1
-0 0 2
-0 1 0
-0 1 1
-0 1 2
-0 2 0
-0 2 1
-0 2 2
-1 0 0
-1 0 1
-1 0 2
-1 1 0
-1 1 1
-1 1 2
-1 2 0
-1 2 1
-1 2 2
-2 0 0
-2 0 1
-2 0 2
-2 1 0
-2 1 1
-2 1 2
-2 2 0
-2 2 1
-2 2 2"""
+        data = fixed_width_data
         fw_spec = [('a', 0, None, int), ('b', 2, None, int), ('c', 4, None, int),]
         tt = lt.Table().insert_many(lt.DataObject(**rec) for rec in lt.FixedWidthReader(fw_spec, data.splitlines()))
 
@@ -848,7 +695,7 @@ a,b,c
         t1 = make_test_table(self.make_data_object, test_size)
 
         self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
-        self.assertEqual(len(data.splitlines()), len(tt))
+        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
 
 class TableImportExportTests_DataObjects(unittest.TestCase, TableImportExportTests, UsingDataObjects):
     pass
