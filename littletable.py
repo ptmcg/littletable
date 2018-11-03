@@ -30,7 +30,7 @@
 #
 from __future__ import print_function
 
-__doc__ = """\
+__doc__ = r"""
 
 C{littletable} - a Python module to give ORM-like access to a collection of objects
 
@@ -56,20 +56,31 @@ Here is a simple C{littletable} data storage/retrieval example::
 
     from littletable import Table, DataObject
 
+    # create table of customers
     customers = Table('customers')
     customers.create_index("id", unique=True)
     customers.insert(DataObject(id="0010", name="George Jetson"))
     customers.insert(DataObject(id="0020", name="Wile E. Coyote"))
     customers.insert(DataObject(id="0030", name="Jonny Quest"))
 
-    catalog = Table('catalog')
+    # create table of product catalog (load from CSV data)
+    catalog_data = '''\
+    sku,descr,unitofmeas,unitprice
+    BRDSD-001,Bird seed,LB,3
+    BBS-001,Steel BB's,LB,5
+    MAGNT-001,Magnet,EA,8
+    MAGLS-001,Magnifying glass,EA,12
+    ANVIL-001,1000lb anvil,EA,100
+    ROPE-001,1 in. heavy rope,100FT,10
+    ROBOT-001,Domestic robot,EA,5000'''
+    
+    catalog = lt.Table("catalog")
     catalog.create_index("sku", unique=True)
-    catalog.insert(DataObject(sku="ANVIL-001", descr="1000lb anvil", unitofmeas="EA",unitprice=100))
-    catalog.insert(DataObject(sku="BRDSD-001", descr="Bird seed", unitofmeas="LB",unitprice=3))
-    catalog.insert(DataObject(sku="MAGNT-001", descr="Magnet", unitofmeas="EA",unitprice=8))
-    catalog.insert(DataObject(sku="MAGLS-001", descr="Magnifying glass", unitofmeas="EA",unitprice=12))
+    catalog.csv_import(catalog_data, transforms={'unitprice':int})
+
     print(catalog.by.sku["ANVIL-001"].descr)
 
+    # create many-to-many link table of wishlist items
     wishitems = Table('wishitems')
     wishitems.create_index("custid")
     wishitems.create_index("sku")
@@ -105,8 +116,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "0.13.1"
-__versionTime__ = "1 Nov 2018 23:43 UTC"
+__version__ = "0.13.2"
+__versionTime__ = "3 Nov 2018 00:00 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -1111,15 +1122,22 @@ class Table(object):
                or C{fieldnames}; these are passed directly through to the csv C{DictReader} constructor
            @type kwargs: named arguments (optional)
         """
-        reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding', 'csv_source', 'transforms'])
+        reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
+                                                                          'csv_source',
+                                                                          'transforms',
+                                                                          'row_class'])
         reader = lambda src: csv.DictReader(src, **reader_args)
         return self._import(csv_source, encoding, transforms, reader=reader, row_class=row_class)
 
-    def _xsv_import(self, xsv_source, encoding, transforms=None, splitstr="\t", row_class=DataObject):
-        xsv_reader = lambda src: csv.DictReader(src, delimiter=splitstr)
+    def _xsv_import(self, xsv_source, encoding, transforms=None, row_class=DataObject, **kwargs):
+        reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
+                                                                          'xsv_source',
+                                                                          'transforms',
+                                                                          'row_class'])
+        xsv_reader = lambda src: csv.DictReader(src, **reader_args)
         return self._import(xsv_source, encoding, transforms, reader=xsv_reader, row_class=row_class)
 
-    def tsv_import(self, xsv_source, encoding="UTF-8", transforms=None, row_class=DataObject):
+    def tsv_import(self, xsv_source, encoding="UTF-8", transforms=None, row_class=DataObject, **kwargs):
         """Imports the contents of a tab-separated data file into this table.
            @param xsv_source: tab-separated data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1133,7 +1151,7 @@ class Table(object):
                be set to the given default value
            @type transforms: dict (optional)
         """
-        return self._xsv_import(xsv_source, encoding, transforms=transforms, splitstr="\t", row_class=row_class)
+        return self._xsv_import(xsv_source, encoding, transforms=transforms, delimiter="\t", row_class=row_class, **kwargs)
 
     def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8"):
         """Exports the contents of the table to a CSV-formatted file.
