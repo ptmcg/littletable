@@ -117,7 +117,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.13.2"
-__versionTime__ = "3 Nov 2018 00:00 UTC"
+__versionTime__ = "6 Nov 2018 23:02 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -1704,24 +1704,17 @@ class JoinTerm(object):
         
 
 if __name__ == "__main__":
-
-    rawdata = """\
+    import textwrap
+    rawdata = textwrap.dedent("""\
     Phoenix:AZ:85001:KPHX
     Phoenix:AZ:85001:KPHY
     Phoenix:AZ:85001:KPHA
-    Dallas:TX:75201:KDFW""".splitlines()
+    Dallas:TX:75201:KDFW""")
 
     # load miniDB
-    stations = Table()
+    stations = Table().csv_import(rawdata, delimiter=':', fieldnames=['city', 'state', 'zip', 'stn'])
     # stations.create_index("city")
     stations.create_index("stn", unique=True)
-
-    data_fields = "city state zip stn".split()
-    for d in rawdata:
-        rec = DataObject()
-        for kk, vv in zip(data_fields, d.split(':')):
-            setattr(rec, kk, vv.strip())
-        stations.insert(rec)
 
     # perform some queries and deletes
     for queryargs in [
@@ -1808,3 +1801,5 @@ if __name__ == "__main__":
         print(amfm.by.stn['KPHY'])
     except KeyError:
         print("no station 'KPHY' in table")
+
+    print(list(stations.all.stn))
