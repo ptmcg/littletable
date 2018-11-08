@@ -117,7 +117,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.13.2"
-__versionTime__ = "6 Nov 2018 23:02 UTC"
+__versionTime__ = "8 Nov 2018 01:18 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import sys
@@ -929,7 +929,7 @@ class Table(object):
         as a format template for printing out a single row.
         """
         for line in self:
-            yield fmt.format_map(_to_dict(line))
+            yield fmt.format(**_to_dict(line))
 
     def join(self, other, attrlist=None, auto_create_indexes=True, **kwargs):
         """
