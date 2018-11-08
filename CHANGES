@@ -1,7 +1,18 @@
 Change History
 ==============
 
-Version 0.13.0 -
+Version 0.13.2 -
+----------------
+- Fixed bug when deleting a slice containing None values from a table.
+  Special thanks to Chat Room 6 on StackOverflow.
+
+- Fixed bug in insert_many when validating unique index keys.
+
+- Fixed bugs in csv_import and tsv_import when named args were not
+  passed through to the internal csv DictReader.
+
+
+Version 0.13.1 -
 ---------------
 - Modified all Table import methods to directly accept a string containing
   the data to be imported. If the input is a multiline string, then it
@@ -18,6 +29,7 @@ Version 0.13.0 -
   row in the table. format() is called passing a single string as an
   argument, to be used as a str.format() template for converting each
   row to a string.
+
 
 Version 0.12.0 -
 ---------------

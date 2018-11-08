@@ -288,6 +288,20 @@ class TableCreateTests:
         t3 = t1 + (self.make_data_object(rec.a+offset, rec.b, rec.c) for rec in t2)
         self.assertEqual(len(t3), test_size * test_size * test_size * 3)
 
+    def test_table_info(self):
+        test_size = 10
+        t1 = make_test_table(self.make_data_object, test_size)('info_test')
+        t1.create_index('b')
+        t1_info = t1.info()
+        # must sort fields and indexes values, for test comparisons
+        t1_info['fields'].sort()
+        t1_info['indexes'].sort()
+        self.assertEqual(t1_info, {'fields': ['a', 'b', 'c'],
+                                     'indexes': [('b', False)],
+                                     'len': 1000,
+                                     'name': 'info_test'}, "invalid info results")
+
+
 class TableCreateTests_DataObjects(unittest.TestCase, TableCreateTests, UsingDataObjects):
     pass
 
@@ -303,8 +317,8 @@ class TableCreateTests_SimpleNamespace(unittest.TestCase, TableCreateTests, Usin
 
 class TableListTests:
     def _test_init(self):
-        test_size = 3
-        self.t1 = make_test_table(self.make_data_object, test_size)
+        self.test_size = 3
+        self.t1 = make_test_table(self.make_data_object, self.test_size)
         self.test_rec = self.make_data_object(1,1,1)
 
     def test_contains(self):
@@ -314,6 +328,14 @@ class TableListTests:
     def test_index_find(self):
         self._test_init()
         self.assertEqual(self.t1.index(self.test_rec), 13, "failed 'in' (contains) test")
+
+    def test_remove(self):
+        self._test_init()
+        rec = self.make_data_object(1, 1, 1)
+        prev_len = len(self.t1)
+        self.t1.remove(rec)
+        self.assertFalse(rec in self.t1, "failed to remove record from table (contains)")
+        self.assertEqual(prev_len-1, len(self.t1), "failed to remove record from table (len)")
 
     def test_index_access(self):
         self._test_init()
@@ -330,6 +352,59 @@ class TableListTests:
     def test_iter(self):
         self._test_init()
         self.assertTrue(self.test_rec in self.t1, "failed 'in' (contains) test")
+
+    def test_unique(self):
+        self._test_init()
+        self.assertEqual(sorted([row.a for row in self.t1.unique('a')]), [0, 1, 2], "failed call to unique")
+
+    def test_all_accessor(self):
+        self._test_init()
+        self.assertEqual(list(self.t1.all.a),
+                         sum(([i]*self.test_size**2 for i in range(self.test_size)), []),
+                         "failed to successfully get all values in 'a'")
+
+    def test_format(self):
+        self._test_init()
+        self.assertEqual(list(self.t1.format("{a:02d} {b} {c}"))[:3],
+                         ['00 0 0', '00 0 1', '00 0 2'],
+                         "failed to create formatted rows")
+
+    def test_delete_slices(self):
+        compare_list = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz")
+        t1 = lt.Table().insert_many(lt.DataObject(A=c) for c in compare_list)
+
+        def mini_test(slc_tuple):
+            if isinstance(slc_tuple, tuple):
+                label = "[{}:{}:{}]".format(*(i if i is not None else '' for i in slc_tuple))
+                slc = slice(*slc_tuple)
+            else:
+                label = str(slc_tuple)
+                slc = slc_tuple
+            del compare_list[slc]
+            print(label)
+            print('Expected', compare_list)
+            del t1[slc]
+            print('Observed', list(t1.all.A))
+            print()
+            self.assertEqual(''.join(compare_list), ''.join(t1.all.A), "failed " + label)
+
+        mini_test(5)
+        mini_test(-5)
+        mini_test((-5, None, None))
+        mini_test((None, 3, None))
+        mini_test((None, -len(compare_list)+3, None))
+        mini_test((None, None, 5))
+        mini_test((None, None, -5))
+        mini_test((-5, -2, None))
+        mini_test((-2, -5, -1))
+        mini_test((5, 20, 2))
+        mini_test((len(compare_list), 5, -3))
+        mini_test((20, 11, -7))
+        mini_test((5, 5, None))
+        mini_test((None, -10, 5))
+        mini_test((None, -10, -10))
+        mini_test((1000, 2000, None))
+        mini_test((None, None, -1))
 
 class TableListTests_DataObjects(unittest.TestCase, TableListTests, UsingDataObjects):
     pass

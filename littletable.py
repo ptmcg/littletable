@@ -557,10 +557,7 @@ class Table(object):
             delidxs = [i]
         elif isinstance(i, slice):
             obs_len = len(self.obs)
-            norm_slice = slice(i.start if i.start >= 0 else i.start+obs_len, 
-                               i.stop if i.stop >= 0 else i.stop+obs_len, 
-                               i.step)
-            delidxs = sorted(range(norm_slice.start, norm_slice.stop, norm_slice.step), reverse=True)
+            delidxs = sorted(list(range(*i.indices(obs_len))), reverse=True)
         else:
             raise TypeError("Table index must be int or slice")
 
