@@ -125,7 +125,7 @@ import sys
 from operator import attrgetter, ne
 import csv
 from collections import defaultdict, deque
-from itertools import repeat, islice, takewhile
+from itertools import starmap, repeat, islice, takewhile
 from functools import partial
 from contextlib import closing
 
@@ -1182,8 +1182,8 @@ class Table(object):
             if hasattr(self.obs[0], "__dict__"):
                 csvout.writerows(o.__dict__ for o in self.obs)
             else:
-                do_all(csvout.writerow(dict(map(lambda obj, fld: (fld, getattr(obj, fld, '')), repeat(o), fieldnames)))
-                       for o in self.obs)
+                do_all(csvout.writerow(ODict(starmap(lambda obj, fld: (fld, getattr(obj, fld)),
+                                                     zip(repeat(o), fieldnames)))) for o in self.obs)
         finally:
             if close_on_exit:
                 csv_dest.close()
