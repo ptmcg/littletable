@@ -120,11 +120,12 @@ __version__ = "0.13.2"
 __versionTime__ = "8 Nov 2018 01:18 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
+import os
 import sys
 from operator import attrgetter, ne
 import csv
 from collections import defaultdict, deque
-from itertools import starmap, repeat, islice, takewhile
+from itertools import repeat, islice, takewhile
 from functools import partial
 from contextlib import closing
 
@@ -1152,8 +1153,8 @@ class Table(object):
 
     def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8"):
         """Exports the contents of the table to a CSV-formatted file.
-           @param csv_dest: CSV file - if a string is given, the file with that name will be 
-               opened, written, and closed; if a file object is given, then that object 
+           @param csv_dest: CSV file - if a string is given, the file with that name will be
+               opened, written, and closed; if a file object is given, then that object
                will be written as-is, and left for the caller to be closed.
            @type csv_dest: string or file
            @param fieldnames: attribute names to be exported; can be given as a single
@@ -1166,23 +1167,23 @@ class Table(object):
         close_on_exit = False
         if isinstance(csv_dest, basestring):
             if PY_3:
-                csv_dest = open(csv_dest, 'w', encoding=encoding)
+                csv_dest = open(csv_dest, 'w', newline='', encoding=encoding)
             else:
-                csv_dest = open(csv_dest, 'w')
+                csv_dest = open(csv_dest, 'wb')
             close_on_exit = True
         try:
             if fieldnames is None:
                 fieldnames = list(_object_attrnames(self.obs[0]))
             if isinstance(fieldnames, basestring):
                 fieldnames = fieldnames.split()
-                
+
             csv_dest.write(','.join(fieldnames) + '\n')
-            csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore')
+            csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore', lineterminator=os.linesep)
             if hasattr(self.obs[0], "__dict__"):
-                do_all(csvout.writerow(o.__dict__) for o in self.obs)
+                csvout.writerows(o.__dict__ for o in self.obs)
             else:
-                do_all(csvout.writerow(ODict(starmap(lambda obj, fld: (fld, getattr(obj, fld)),
-                                       zip(repeat(o), fieldnames)))) for o in self.obs)
+                do_all(csvout.writerow(dict(map(lambda obj, fld: (fld, getattr(obj, fld, '')), repeat(o), fieldnames)))
+                       for o in self.obs)
         finally:
             if close_on_exit:
                 csv_dest.close()
