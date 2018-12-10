@@ -11,6 +11,9 @@ Version 0.13.2 -
 - Fixed bugs in csv_import and tsv_import when named args were not
   passed through to the internal csv DictReader.
 
+- Fixed bug in csv_export where blank lines were included in the
+  exported CSV.
+
 
 Version 0.13.1 -
 ---------------

@@ -117,7 +117,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.13.2"
-__versionTime__ = "8 Nov 2018 01:18 UTC"
+__versionTime__ = "4 Dec 2018 22:17 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import os
