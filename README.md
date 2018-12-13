@@ -35,11 +35,15 @@ Here is a simple littletable data storage/retrieval example:
     wishitems = Table('wishitems')
     wishitems.create_index("custid")
     wishitems.create_index("sku")
-    wishitems.insert(DataObject(custid="0020", sku="ANVIL-001"))
-    wishitems.insert(DataObject(custid="0020", sku="BRDSD-001"))
-    wishitems.insert(DataObject(custid="0020", sku="MAGNT-001"))
-    wishitems.insert(DataObject(custid="0030", sku="MAGNT-001"))
-    wishitems.insert(DataObject(custid="0030", sku="MAGLS-001"))
+    # easy to import CSV data from a string or file
+    wishitems.csv_import("""\
+    custid,sku
+    0020,ANVIL-001
+    0020,BRDSD-001
+    0020,MAGNT-001
+    0030,MAGNT-001
+    0030,MAGLS-001
+    """)
 
     # print a particular customer name 
     # (unique indexes will return a single item; non-unique
