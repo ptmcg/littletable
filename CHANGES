@@ -14,6 +14,11 @@ Version 0.13.2 -
 - Fixed bug in csv_export where blank lines were included in the
   exported CSV.
 
+- Added Table.shuffle(), for randomizing the items in a table in place.
+  Can be useful for some games or simulations, also in internal testing.
+
+- Fixed bug in Table.sort() when sorting on multiple attributes.
+
 
 Version 0.13.1 -
 ---------------

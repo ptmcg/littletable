@@ -117,13 +117,14 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.13.2"
-__versionTime__ = "4 Dec 2018 22:17 UTC"
+__versionTime__ = "13 Dec 2018 05:13 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import os
 import sys
 from operator import attrgetter, ne
 import csv
+import random
 from collections import defaultdict, deque
 from itertools import starmap, repeat, islice, takewhile
 from functools import partial
@@ -197,7 +198,7 @@ __all__ = ["DataObject", "Table", "JoinTerm", "PivotTable"]
 def _object_attrnames(obj):
     if hasattr(obj, "__dict__"):
         # normal object
-        return obj.__dict__.keys()
+        return sorted(obj.__dict__.keys())
     elif isinstance(obj, tuple) and hasattr(obj, "_fields"):
         # namedtuple
         return obj._fields
@@ -824,7 +825,14 @@ class Table(object):
         affected = self.where(**kwargs)
         self.remove_many(affected)
         return len(affected)
-    
+
+    def shuffle(self):
+        """
+        In-place random shuffle of the records in the table.
+        """
+        random.shuffle(self.obs)
+        return self
+
     def sort(self, key, reverse=False):
         """Sort Table in place, using given fields as sort key.
            @param key: if this is a string, it is a comma-separated list of field names,
@@ -839,12 +847,13 @@ class Table(object):
         if isinstance(key, (basestring, list, tuple)):
             if isinstance(key, basestring):
                 attrdefs = [s.strip() for s in key.split(',')]
-                # leftmost attr is the most primary sort key, so do succession of 
-                # sorts from right to left
-                attr_orders = [(a.split()+['asc', ])[:2] for a in attrdefs][::-1]
+                attr_orders = [(a.split()+['asc', ])[:2] for a in attrdefs]
             else:
                 # attr definitions were already resolved to a sequence by the caller
-                attr_orders = key
+                if isinstance(key[0], basestring):
+                    attr_orders = [(a.split()+['asc', ])[:2] for a in key]
+                else:
+                    attr_orders = key
             attrs = [attr for attr, order in attr_orders]
 
             # special optimization if all orders are ascending or descending
@@ -854,9 +863,12 @@ class Table(object):
                 self.obs.sort(key=attrgetter(*attrs), reverse=not reverse)
             else:
                 # mix of ascending and descending sorts, have to do succession of sorts
+                # leftmost attr is the most primary sort key, so reverse attr_orders to do
+                # succession of sorts from right to left
                 do_all(self.obs.sort(key=attrgetter(attr), reverse=(order == "desc"))
-                       for attr, order in attr_orders)
+                       for attr, order in reversed(attr_orders))
         else:
+            # sorting given a sort key function
             keyfn = key
             self.obs.sort(key=keyfn, reverse=reverse)
         return self

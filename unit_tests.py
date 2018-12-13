@@ -3,6 +3,8 @@ import littletable as lt
 import itertools
 import json
 from collections import namedtuple
+from operator import attrgetter
+import textwrap
 try:
     from types import SimpleNamespace
 except ImportError:
@@ -496,6 +498,79 @@ class TableTransformTests:
 
         t1.sort('c desc')
         self.assertEqual(t1[0].c, test_size-1)
+
+    def test_sort2(self):
+
+        row_type = type(self.make_data_object(0,0,0))
+        tt = lt.Table().csv_import(textwrap.dedent("""\
+        a,c,b
+        1,2,1
+        2,3,0
+        5,5,-1
+        3,4,-1
+        2,4,-3"""), row_class=row_type, transforms=dict.fromkeys("a b c".split(), int))
+
+        def to_tuples(t):
+            return list(map(attrgetter(*t.info()['fields']), t))
+
+        print(tt.info()['fields'])
+
+        sort_arg = "c b".split()
+        print("Sorting by {!r}".format(sort_arg))
+        tt.shuffle()
+        tt.sort(sort_arg)
+        t1_tuples = to_tuples(tt)
+        for t in t1_tuples:
+            print(t)
+        print()
+
+        tt.shuffle()
+        tt.sort("b")
+        tt.sort("c")
+        t2_tuples = to_tuples(tt)
+        for t in t2_tuples:
+            print(t)
+        print()
+
+        self.assertEqual(t1_tuples, t2_tuples, "failed multi-attribute sort, given list of attributes")
+
+        sort_arg = "c,b"
+        print("Sorting by {!r}".format(sort_arg))
+        tt.shuffle()
+        tt.sort(sort_arg)
+        t1_tuples = to_tuples(tt)
+        for t in t1_tuples:
+            print(t)
+        print()
+
+        tt.shuffle()
+        tt.sort("b")
+        tt.sort("c")
+        t2_tuples = to_tuples(tt)
+        for t in t2_tuples:
+            print(t)
+        print()
+
+        self.assertEqual(t1_tuples, t2_tuples, "failed multi-attribute sort, given comma-separated attributes string")
+
+        sort_arg = "c,b desc"
+        print("Sorting by {!r}".format(sort_arg))
+        tt.shuffle()
+        tt.sort(sort_arg)
+        t1_tuples = to_tuples(tt)
+        for t in t1_tuples:
+            print(t)
+        print()
+
+        tt.shuffle()
+        tt.sort("b desc")
+        tt.sort("c")
+        t2_tuples = to_tuples(tt)
+        for t in t2_tuples:
+            print(t)
+        print()
+
+        self.assertEqual(t1_tuples, t2_tuples, "failed mixed ascending/descending multi-attribute sort")
 
     def test_unique(self):
         test_size = 10
