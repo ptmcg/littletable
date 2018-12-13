@@ -117,7 +117,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "0.13.2"
-__versionTime__ = "13 Dec 2018 05:13 UTC"
+__versionTime__ = "13 Dec 2018 06:15 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import os
@@ -232,7 +232,7 @@ class DataObject(object):
         if kwargs:
             self.__dict__.update(kwargs)
     def __repr__(self):
-        return '{' + ', '.join(("%r: %r" % k_v) for k_v in self.__dict__.items()) + '}'
+        return '{' + ', '.join(("%r: %r" % k_v) for k_v in sorted(self.__dict__.items())) + '}'
     def __setattr__(self, attr, val):
         # make all attributes write-once
         if attr not in self.__dict__:
@@ -735,22 +735,29 @@ class Table(object):
     def remove(self, ob):
         """Removes an object from the table. If object is not in the table, then
            no action is taken and no exception is raised."""
-        try:
-            ob_ind = self.obs.index(ob)
-        except ValueError:
-            pass
-        else:
-            # remove from indexes
-            do_all(ind.remove(ob) for attr, ind in self._indexes.items())
-
-            # remove from main object list
-            self.obs.pop(ob_ind)
-        
-        return self
+        return self.remove_many([ob])
 
     def remove_many(self, it):
         """Removes a collection of objects from the table."""
-        do_all(self.remove(ob) for ob in it)
+        # find indicies of objects in iterable
+        to_be_deleted = list(it)
+        del_indices = []
+        for i, ob in enumerate(self.obs):
+            try:
+                tbd_index = to_be_deleted.index(ob)
+            except ValueError:
+                continue
+            else:
+                del_indices.append(i)
+                to_be_deleted.pop(tbd_index)
+
+            # quit early if we have found them all
+            if not to_be_deleted:
+                break
+
+        for i in sorted(del_indices, reverse=True):
+            self.pop(i)
+
         return self
 
     def _query_attr_sort_fn(self, attr_val):
