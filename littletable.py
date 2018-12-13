@@ -130,6 +130,7 @@ from itertools import starmap, repeat, islice, takewhile
 from functools import partial
 from contextlib import closing
 
+NL = os.linesep
 PY_2 = sys.version_info[0] == 2
 PY_3 = sys.version_info[0] == 3
 
@@ -1189,8 +1190,8 @@ class Table(object):
             if isinstance(fieldnames, basestring):
                 fieldnames = fieldnames.split()
 
-            csv_dest.write(','.join(fieldnames) + '\n')
-            csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore', lineterminator=os.linesep)
+            csv_dest.write(','.join(fieldnames) + NL)
+            csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore', lineterminator=NL)
             if hasattr(self.obs[0], "__dict__"):
                 csvout.writerows(o.__dict__ for o in self.obs)
             else:
