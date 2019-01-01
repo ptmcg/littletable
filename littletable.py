@@ -129,7 +129,6 @@ from collections import defaultdict, deque
 from itertools import starmap, repeat, islice, takewhile
 from functools import partial
 from contextlib import closing
-import urllib
 
 NL = os.linesep
 PY_2 = sys.version_info[0] == 2
@@ -138,8 +137,12 @@ PY_3 = sys.version_info[0] == 3
 if PY_2:
     from itertools import ifilter as filter
     str_strip = lambda s: type(s).strip(s)
+    import urllib2
+    urlopen = urllib2.urlopen
 else:
     str_strip = str.strip
+    import urllib.request
+    urlopen = urllib.request.urlopen
 
 try:
     from collections import OrderedDict as ODict
@@ -423,10 +426,9 @@ class _multi_iterator(object):
                     def _decoder(seq):
                         for line in seq:
                             yield line.decode(encoding)
-                if hasattr(urllib, 'request'):
-                    self._iterobj = _decoder(urllib.request.urlopen(seqobj))
+                    self._iterobj = _decoder(urlopen(seqobj))
                 else:
-                    self._iterobj = urllib.urlopen(seqobj)
+                    self._iterobj = urlopen(seqobj)
             else:
                 if PY_3:
                     self._iterobj = open(seqobj, encoding=encoding)
