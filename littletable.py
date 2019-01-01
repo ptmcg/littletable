@@ -423,6 +423,7 @@ class _multi_iterator(object):
                     def _decoder(seq):
                         for line in seq:
                             yield line.decode(encoding)
+                if hasattr(urllib, 'request'):
                     self._iterobj = _decoder(urllib.request.urlopen(seqobj))
                 else:
                     self._iterobj = urllib.urlopen(seqobj)
@@ -1384,7 +1385,7 @@ class Table(object):
         }
 
     def stats(self, field_names, by_field=True):
-        accum = {name: [0, 0, 0, 1e300, -1e300] for name in field_names}
+        accum = dict((name, [0, 0, 0, 1e300, -1e300]) for name in field_names)
         for rec in self:
             for name in field_names:
                 value = getattr(rec, name, None)
@@ -1409,11 +1410,13 @@ class Table(object):
         ]
         if by_field:
             ret.insert_many(DataObject(name=fname,
-                                      **{stat_name: stat_fn(accum[fname]) for stat_name, stat_fn in stats})
+                                      **dict((stat_name, stat_fn(accum[fname]))
+                                             for stat_name, stat_fn in stats))
                             for fname in field_names)
         else:
             ret.insert_many(DataObject(stat=stat_name,
-                                      **{fname: stat_fn(accum[fname]) for fname in field_names})
+                                      **dict((fname, stat_fn(accum[fname]))
+                                             for fname in field_names))
                             for stat_name, stat_fn in stats)
         return ret
 
@@ -1766,20 +1769,6 @@ class JoinTerm(object):
         
 
 if __name__ == "__main__":
-    url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
-    names = ['sepal-length', 'sepal-width', 'petal-length', 'petal-width', 'class']
-    transforms = dict.fromkeys(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'], float)
-    table = Table('iris').csv_import(url, fieldnames=names, transforms=transforms)
-
-    print(table.info())
-    for rec in table[:5]:
-        print(rec)
-
-    stats = table.stats(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'])
-    for rec in stats:
-        print(rec)
-
-    import sys; sys.exit(0)
     import textwrap
     rawdata = textwrap.dedent("""\
     Phoenix:AZ:85001:KPHX
@@ -1879,3 +1868,18 @@ if __name__ == "__main__":
         print("no station 'KPHY' in table")
 
     print(list(stations.all.stn))
+
+    # do some simple stats with common ML data set
+    url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
+    names = ['sepal-length', 'sepal-width', 'petal-length', 'petal-width', 'class']
+    transforms = dict.fromkeys(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'], float)
+    table = Table('iris').csv_import(url, fieldnames=names, transforms=transforms)
+
+    print(table.info())
+    for rec in table[:5]:
+        print(rec)
+
+    stats = table.stats(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'])
+    for rec in stats:
+        print(rec)
+
