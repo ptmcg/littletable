@@ -116,8 +116,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "0.13.2"
-__versionTime__ = "13 Dec 2018 06:15 UTC"
+__version__ = "0.13.3"
+__versionTime__ = "31 Dec 2018 23:16 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import os
@@ -129,6 +129,7 @@ from collections import defaultdict, deque
 from itertools import starmap, repeat, islice, takewhile
 from functools import partial
 from contextlib import closing
+import urllib
 
 NL = os.linesep
 PY_2 = sys.version_info[0] == 2
@@ -413,13 +414,21 @@ class _IndexAccessor(object):
         raise AttributeError("Table %r has no index %r" % (self.table.table_name, attr))
 
 class _multi_iterator(object):
-    def __init__(self, seqobj):
+    def __init__(self, seqobj, encoding='utf-8'):
         if isinstance(seqobj, basestring):
             if '\n' in seqobj:
                 self._iterobj = iter(StringIO(seqobj))
+            elif seqobj.startswith("http"):
+                if PY_3:
+                    def _decoder(seq):
+                        for line in seq:
+                            yield line.decode(encoding)
+                    self._iterobj = _decoder(urllib.request.urlopen(seqobj))
+                else:
+                    self._iterobj = urllib.urlopen(seqobj)
             else:
                 if PY_3:
-                    self._iterobj = open(seqobj, encoding='utf-8')
+                    self._iterobj = open(seqobj, encoding=encoding)
                 else:
                     self._iterobj = open(seqobj)
         else:
@@ -452,7 +461,7 @@ class FixedWidthReader(object):
     - src_file: a string filename or a file-like object containing the
         fixed-width data to be loaded
     """
-    def __init__(self, slice_spec, src_file):
+    def __init__(self, slice_spec, src_file, encoding='utf-8'):
         def parse_spec(spec):
             ret = []
             for cur, next_ in zip(spec, spec[1:]+[("", None, None, None)]):
@@ -468,9 +477,10 @@ class FixedWidthReader(object):
 
         self._slices = parse_spec(slice_spec)
         self._src_file = src_file
+        self._encoding = encoding
 
     def __iter__(self):
-        with closing(_multi_iterator(self._src_file)) as _srciter:
+        with closing(_multi_iterator(self._src_file, self._encoding)) as _srciter:
             for line in _srciter:
                 if not line.strip():
                     continue
@@ -1084,7 +1094,7 @@ class Table(object):
             raise ValueError("pivot can only be called using indexed attributes")
 
     def _import(self, source, encoding, transforms=None, reader=csv.DictReader, row_class=DataObject):
-        with closing(_multi_iterator(source)) as _srciter:
+        with closing(_multi_iterator(source, encoding)) as _srciter:
             csvdata = reader(_srciter)
             if transforms:
                 def slices(seq, slice_size=128):
@@ -1120,7 +1130,7 @@ class Table(object):
                 self.insert_many(row_class(**s) for s in csvdata)
         return self
 
-    def csv_import(self, csv_source, encoding='UTF-8', transforms=None, row_class=DataObject, **kwargs):
+    def csv_import(self, csv_source, encoding='utf-8', transforms=None, row_class=DataObject, **kwargs):
         """Imports the contents of a CSV-formatted file into this table.
            @param csv_source: CSV file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1372,6 +1382,40 @@ class Table(object):
             'fields': list(_object_attrnames(self[0])) if self else [],
             'indexes': [(iname, self._indexes[iname] in unique_indexes) for iname in self._indexes],
         }
+
+    def stats(self, field_names, by_field=True):
+        accum = {name: [0, 0, 0, 1e300, -1e300] for name in field_names}
+        for rec in self:
+            for name in field_names:
+                value = getattr(rec, name, None)
+                if value is not None:
+                    acc = accum[name]
+                    acc[0] += 1
+                    acc[1] += value
+                    acc[2] += value*value
+                    if value < acc[3]:
+                        acc[3] = value
+                    if value > acc[4]:
+                        acc[4] = value
+
+        ret = Table()
+        stats = [
+            ('count', lambda x: x[0]),
+            ('min', lambda x: x[3]),
+            ('max', lambda x: x[4]),
+            ('mean', lambda x: x[1] / x[0] if x[0] != 0 else None),
+            ('variance', lambda x: (x[2] - x[1]**2/x[0]) / x[0] if x[0] != 0 else None),
+            ('std_dev', lambda x: (x[0]*x[2] - x[1]*x[1])**0.5 / x[0] if x[0] != 0 else None),
+        ]
+        if by_field:
+            ret.insert_many(DataObject(name=fname,
+                                      **{stat_name: stat_fn(accum[fname]) for stat_name, stat_fn in stats})
+                            for fname in field_names)
+        else:
+            ret.insert_many(DataObject(stat=stat_name,
+                                      **{fname: stat_fn(accum[fname]) for fname in field_names})
+                            for stat_name, stat_fn in stats)
+        return ret
 
     def _parse_fields_string(self, field_names):
         """
@@ -1722,6 +1766,20 @@ class JoinTerm(object):
         
 
 if __name__ == "__main__":
+    url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
+    names = ['sepal-length', 'sepal-width', 'petal-length', 'petal-width', 'class']
+    transforms = dict.fromkeys(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'], float)
+    table = Table('iris').csv_import(url, fieldnames=names, transforms=transforms)
+
+    print(table.info())
+    for rec in table[:5]:
+        print(rec)
+
+    stats = table.stats(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'])
+    for rec in stats:
+        print(rec)
+
+    import sys; sys.exit(0)
     import textwrap
     rawdata = textwrap.dedent("""\
     Phoenix:AZ:85001:KPHX

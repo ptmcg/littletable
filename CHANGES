@@ -1,6 +1,14 @@
 Change History
 ==============
 
+Version 0.13.3 -
+----------------
+- Add import directly from an HTTP/HTTPS url.
+
+- Add Table.stats() method to return a table of common statistics for
+  selected numeric fields.
+
+
 Version 0.13.2 -
 ----------------
 - Fixed bug when deleting a slice containing None values from a table.
