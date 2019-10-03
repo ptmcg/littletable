@@ -124,8 +124,9 @@ class UsingSlottedObjects(AbstractContentTypeFactory):
 class UsingSimpleNamespace(AbstractContentTypeFactory):
     data_object_type = SimpleNamespace
 
-class UsingDataclasses(AbstractContentTypeFactory):
-    data_object_type = DataDataclass
+if dataclasses is not None:
+    class UsingDataclasses(AbstractContentTypeFactory):
+        data_object_type = DataDataclass
 
 
 def load_table(table, rec_factory_fn, table_size):
@@ -341,8 +342,9 @@ class TableCreateTests_Slotted(unittest.TestCase, TableCreateTests, UsingSlotted
 class TableCreateTests_SimpleNamespace(unittest.TestCase, TableCreateTests, UsingSimpleNamespace):
     pass
 
-class TableCreateTests_Dataclasses(unittest.TestCase, TableCreateTests, UsingDataclasses):
-    pass
+if dataclasses is not None:
+    class TableCreateTests_Dataclasses(unittest.TestCase, TableCreateTests, UsingDataclasses):
+        pass
 
 
 class TableListTests:
@@ -448,8 +450,9 @@ class TableListTests_Slotted(unittest.TestCase, TableListTests, UsingSlottedObje
 class TableListTests_SimpleNamespace(unittest.TestCase, TableListTests, UsingSimpleNamespace):
     pass
 
-class TableListTests_Dataclasses(unittest.TestCase, TableListTests, UsingDataclasses):
-    pass
+if dataclasses is not None:
+    class TableListTests_Dataclasses(unittest.TestCase, TableListTests, UsingDataclasses):
+        pass
 
 
 class TableJoinTests:
@@ -507,8 +510,9 @@ class TableJoinTests_Slotted(unittest.TestCase, TableJoinTests, UsingSlottedObje
 class TableJoinTests_SimpleNamespace(unittest.TestCase, TableJoinTests, UsingSimpleNamespace):
     pass
 
-class TableJoinTests_Dataclasses(unittest.TestCase, TableJoinTests, UsingDataclasses):
-    pass
+if dataclasses is not None:
+    class TableJoinTests_Dataclasses(unittest.TestCase, TableJoinTests, UsingDataclasses):
+        pass
 
 
 class TableTransformTests:
@@ -628,8 +632,9 @@ class TableTransformTests_Slotted(unittest.TestCase, TableTransformTests, UsingS
 class TableTransformTests_SimpleNamespace(unittest.TestCase, TableTransformTests, UsingSimpleNamespace):
     pass
 
-class TableTransformTests_Dataclasses(unittest.TestCase, TableTransformTests, UsingDataclasses):
-    pass
+if dataclasses is not None:
+    class TableTransformTests_Dataclasses(unittest.TestCase, TableTransformTests, UsingDataclasses):
+        pass
 
 
 # sample import data sets
@@ -896,8 +901,9 @@ class TableImportExportTests_Slotted(unittest.TestCase, TableImportExportTests, 
 class TableImportExportTests_SimpleNamespace(unittest.TestCase, TableImportExportTests, UsingSimpleNamespace):
     pass
 
-class TableImportExportTests_Dataclasses(unittest.TestCase, TableImportExportTests, UsingDataclasses):
-    pass
+if dataclasses is not None:
+    class TableImportExportTests_Dataclasses(unittest.TestCase, TableImportExportTests, UsingDataclasses):
+        pass
 
 
 class TablePivotTests:
@@ -930,8 +936,9 @@ class TablePivotTests_Slotted(unittest.TestCase, TablePivotTests, UsingSlottedOb
 class TablePivotTests_SimpleNamespace(unittest.TestCase, TablePivotTests, UsingSimpleNamespace):
     pass
 
-class TablePivotTests_Dataclasses(unittest.TestCase, TablePivotTests, UsingDataclasses):
-    pass
+if dataclasses is not None:
+    class TablePivotTests_Dataclasses(unittest.TestCase, TablePivotTests, UsingDataclasses):
+        pass
 
 
 if __name__ == '__main__':
