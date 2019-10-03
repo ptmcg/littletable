@@ -23,11 +23,14 @@ try:
 except ImportError:
     dataclasses = None
 else:
-    @dataclasses.dataclass
-    class DataDataclass:
-        a: int
-        b: int
-        c: int
+    # must be wrapped in exec, since this syntax is not legal in earlier Pythons
+    exec("""\
+@dataclasses.dataclass
+class DataDataclass:
+    a: int
+    b: int
+    c: int
+""")
 
 DataTuple = namedtuple("DataTuple", "a b c")
 
