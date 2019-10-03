@@ -1,12 +1,23 @@
 Change History
 ==============
 
-Version 0.13.3 -
+Version 1.0.0 -
 ----------------
 - Add import directly from an HTTP/HTTPS url.
 
 - Add Table.stats() method to return a table of common statistics for
   selected numeric fields.
+
+- Added methods Table.le, Table.lt, Table.ge, Table.gt, Table,ne, and
+  Table.eq as helpers for calling Table.where:
+
+      ret = table.where(lambda rec: rec.x > 100)
+
+  can now be written:
+
+      ret = table.where(x=Table.gt(100))
+
+- Added unit tests to support using dataclasses as Table contents.
 
 
 Version 0.13.2 -

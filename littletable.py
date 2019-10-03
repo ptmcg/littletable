@@ -7,7 +7,7 @@
 # to a collection of data objects, without dealing with SQL
 #
 #
-# Copyright (c) 2010-2018  Paul T. McGuire
+# Copyright (c) 2010-2019  Paul T. McGuire
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -38,7 +38,8 @@ The C{littletable} module provides a low-overhead, schema-less, in-memory databa
 collection of user objects.  C{littletable} provides a L{DataObject} class for ad hoc creation
 of semi-immutable objects that can be stored in a C{littletable} L{Table}. C{Table}s can also
 contain user-defined objects, using those objects' C{__dict__}, C{__slots__}, or C{_fields}
-mappings to access object attributes.
+mappings to access object attributes. Table contents can thus also include namedtuples, 
+SimpleNamespaces, or dataclasses.
 
 In addition to basic insert/remove/query/delete access to the contents of a 
 Table, C{littletable} offers:
@@ -116,13 +117,13 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "0.13.3"
-__versionTime__ = "31 Dec 2018 23:16 UTC"
+__version__ = "1.0.0"
+__versionTime__ = "4 Oct 2019 05:09 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import os
 import sys
-from operator import attrgetter, ne
+import operator
 import csv
 import random
 from collections import defaultdict, deque
@@ -276,7 +277,7 @@ class _ObjIndex(object):
         return iter(self.obs.keys())
 
     def keys(self):
-        return sorted(filter(partial(ne, None), self.obs.keys()))
+        return sorted(filter(partial(operator.ne, None), self.obs.keys()))
     def items(self):
         return self.obs.items()
     def remove(self, obj):
@@ -490,6 +491,17 @@ class FixedWidthReader(object):
                 yield dict((label, fn(line[slc])) for label, slc, fn in self._slices)
 
 
+def _make_comparator(cmp_fn):
+    """
+    Internal function to help define Table.le, Table.lt, etc.
+    """
+    def comparator_with_value(value):
+        def _Table_comparator_fn(attr):
+            return lambda rec: cmp_fn(getattr(rec, attr), value)
+        return _Table_comparator_fn
+    return comparator_with_value
+
+
 class Table(object):
     """Table is the main class in C{littletable}, for representing a collection of DataObjects or
        user-defined objects with publicly accessible attributes or properties.  Tables can be:
@@ -509,6 +521,13 @@ class Table(object):
        Queries and joins return their results as new Table objects, so that queries and joins can
        be easily performed as a succession of operations.
     """
+    lt = staticmethod(_make_comparator(operator.lt))
+    le = staticmethod(_make_comparator(operator.le))
+    gt = staticmethod(_make_comparator(operator.gt))
+    ge = staticmethod(_make_comparator(operator.ge))
+    ne = staticmethod(_make_comparator(operator.ne))
+    eq = staticmethod(_make_comparator(operator.eq))
+
     def __init__(self, table_name=''):
         """Create a new, empty Table.
            @param table_name: name for Table
@@ -798,7 +817,10 @@ class Table(object):
         @type wherefn: callable(object) returning boolean
 
         @param kwargs: attributes for selecting records, given as additional 
-          named arguments of the form C{attrname="attrvalue"}.
+          named arguments of the form C{attrname="value"}, or C{Table.le(value)}
+          using any of the methods C{Table.le}, C{Table.lt}, C{Table.ge}, C{Table.gt},
+          C{Table.ne}, or C{Table.eq}, corresponding to the same methods defined
+          in the stdlib C{operator} module.
 
         @return: a new Table containing the matching objects
         """
@@ -814,11 +836,16 @@ class Table(object):
             ret = self
             NO_SUCH_ATTR = object()
             for k, v in kwargs:
-                newret = ret.copy_template()
-                if k in ret._indexes:
-                    newret.insert_many(ret._indexes[k][v])
+                if callable(v) and v.__name__ == '_Table_comparator_fn':
+                    wherefn_k = v(k)
+                    newret = ret.where(wherefn_k)
                 else:
-                    newret.insert_many(r for r in ret.obs if getattr(r, k, NO_SUCH_ATTR) == v)
+                    newret = ret.copy_template()
+                    if k in ret._indexes:
+                        newret.insert_many(ret._indexes[k][v])
+                    else:
+                        newret.insert_many(r for r in ret.obs if getattr(r, k, NO_SUCH_ATTR) == v)
+
                 ret = newret
                 if not ret:
                     break
@@ -837,7 +864,8 @@ class Table(object):
            named parameters.  If multiple named parameters are given, then
            only objects that satisfy all of the query criteria will be removed.
            @param kwargs: attributes for selecting records, given as additional 
-              named arguments of the form C{attrname="attrvalue"}.
+              named arguments of the form C{attrname="attrvalue"}, or 
+              C{attrname=Table.lt(value)} (see doc for L{Table.where}).
            @return: the number of objects removed from the table
         """
         if not kwargs:
@@ -879,14 +907,14 @@ class Table(object):
 
             # special optimization if all orders are ascending or descending
             if all(order == 'asc' for attr, order in attr_orders):
-                self.obs.sort(key=attrgetter(*attrs), reverse=reverse)
+                self.obs.sort(key=operator.attrgetter(*attrs), reverse=reverse)
             elif all(order == 'desc' for attr, order in attr_orders):
-                self.obs.sort(key=attrgetter(*attrs), reverse=not reverse)
+                self.obs.sort(key=operator.attrgetter(*attrs), reverse=not reverse)
             else:
                 # mix of ascending and descending sorts, have to do succession of sorts
                 # leftmost attr is the most primary sort key, so reverse attr_orders to do
                 # succession of sorts from right to left
-                do_all(self.obs.sort(key=attrgetter(attr), reverse=(order == "desc"))
+                do_all(self.obs.sort(key=operator.attrgetter(attr), reverse=(order == "desc"))
                        for attr, order in reversed(attr_orders))
         else:
             # sorting given a sort key function
@@ -1133,7 +1161,7 @@ class Table(object):
                 self.insert_many(row_class(**s) for s in csvdata)
         return self
 
-    def csv_import(self, csv_source, encoding='utf-8', transforms=None, row_class=DataObject, **kwargs):
+    def csv_import(self, csv_source, encoding='utf-8', transforms=None, row_class=DataObject, limit=None, **kwargs):
         """Imports the contents of a CSV-formatted file into this table.
            @param csv_source: CSV file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1149,6 +1177,8 @@ class Table(object):
                there is an Exception raised by the transform function, then the attribute will
                be set to the given default value
            @type transforms: dict (optional)
+           @param limit: number of records to stop
+           @type limit: int (optional)
            @param kwargs: additional constructor arguments for csv C{DictReader} objects, such as C{delimiter}
                or C{fieldnames}; these are passed directly through to the csv C{DictReader} constructor
            @type kwargs: named arguments (optional)

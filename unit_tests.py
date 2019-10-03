@@ -18,6 +18,17 @@ except ImportError:
         def __eq__(self, other):
             return vars(self) == vars(other)
 
+try:
+    import dataclasses
+except ImportError:
+    dataclasses = None
+else:
+    @dataclasses.dataclass
+    class DataDataclass:
+        a: int
+        b: int
+        c: int
+
 DataTuple = namedtuple("DataTuple", "a b c")
 
 import sys
@@ -94,26 +105,28 @@ class TestTableTypes(unittest.TestCase):
             t.get_index("x")['a'] = 100
 
 
-class UsingDataObjects:
-    @staticmethod
-    def make_data_object(a, b, c):
-        return lt.DataObject(a=a, b=b, c=c)
+class AbstractContentTypeFactory:
+    data_object_type = None
 
-class UsingNamedtuples:
-    @staticmethod
-    def make_data_object(a, b, c):
-        return DataTuple(a=a, b=b, c=c)
+    @classmethod
+    def make_data_object(cls, a, b, c):
+        return cls.data_object_type(a=a, b=b, c=c)
 
-class UsingSlottedObjects:
-    @staticmethod
-    def make_data_object(a, b, c):
-        return Slotted(a=a, b=b, c=c)
+class UsingDataObjects(AbstractContentTypeFactory):
+    data_object_type = lt.DataObject
 
-class UsingSimpleNamespace:
-    @staticmethod
-    def make_data_object(a, b, c):
-        return SimpleNamespace(a=a, b=b, c=c)
-    
+class UsingNamedtuples(AbstractContentTypeFactory):
+    data_object_type = DataTuple
+
+class UsingSlottedObjects(AbstractContentTypeFactory):
+    data_object_type = Slotted
+
+class UsingSimpleNamespace(AbstractContentTypeFactory):
+    data_object_type = SimpleNamespace
+
+class UsingDataclasses(AbstractContentTypeFactory):
+    data_object_type = DataDataclass
+
 
 def load_table(table, rec_factory_fn, table_size):
     test_size = table_size
@@ -179,6 +192,18 @@ class TableCreateTests:
         table = make_test_table(self.make_data_object, test_size)
 
         self.assertEqual(len(table.where(lambda rec: rec.a == rec.b)), test_size*test_size)
+
+    def test_where_comparator(self):
+        test_size = 10
+        table = make_test_table(self.make_data_object, test_size)
+
+        self.assertEqual(len(table.where(a=lt.Table.lt(4))), test_size*test_size*4)
+        self.assertEqual(len(table.where(a=lt.Table.le(4))), test_size*test_size*(4+1))
+        self.assertEqual(len(table.where(a=lt.Table.gt(4))), test_size*test_size*(test_size-4-1))
+        self.assertEqual(len(table.where(a=lt.Table.ge(4))), test_size*test_size*(test_size-4))
+        self.assertEqual(len(table.where(a=lt.Table.ne(4))), test_size*test_size*(test_size-1))
+        self.assertEqual(len(table.where(a=lt.Table.eq(4))), test_size*test_size)
+        self.assertEqual(len(table.where(a=lt.Table.eq(4), b=lt.Table.eq(4))), test_size)
 
     def test_get_slice(self):
         test_size = 10
@@ -316,6 +341,9 @@ class TableCreateTests_Slotted(unittest.TestCase, TableCreateTests, UsingSlotted
 class TableCreateTests_SimpleNamespace(unittest.TestCase, TableCreateTests, UsingSimpleNamespace):
     pass
 
+class TableCreateTests_Dataclasses(unittest.TestCase, TableCreateTests, UsingDataclasses):
+    pass
+
 
 class TableListTests:
     def _test_init(self):
@@ -420,6 +448,9 @@ class TableListTests_Slotted(unittest.TestCase, TableListTests, UsingSlottedObje
 class TableListTests_SimpleNamespace(unittest.TestCase, TableListTests, UsingSimpleNamespace):
     pass
 
+class TableListTests_Dataclasses(unittest.TestCase, TableListTests, UsingDataclasses):
+    pass
+
 
 class TableJoinTests:
     def test_simple_join(self):
@@ -474,6 +505,9 @@ class TableJoinTests_Slotted(unittest.TestCase, TableJoinTests, UsingSlottedObje
     pass
 
 class TableJoinTests_SimpleNamespace(unittest.TestCase, TableJoinTests, UsingSimpleNamespace):
+    pass
+
+class TableJoinTests_Dataclasses(unittest.TestCase, TableJoinTests, UsingDataclasses):
     pass
 
 
@@ -592,6 +626,9 @@ class TableTransformTests_Slotted(unittest.TestCase, TableTransformTests, UsingS
     pass
 
 class TableTransformTests_SimpleNamespace(unittest.TestCase, TableTransformTests, UsingSimpleNamespace):
+    pass
+
+class TableTransformTests_Dataclasses(unittest.TestCase, TableTransformTests, UsingDataclasses):
     pass
 
 
@@ -859,6 +896,9 @@ class TableImportExportTests_Slotted(unittest.TestCase, TableImportExportTests, 
 class TableImportExportTests_SimpleNamespace(unittest.TestCase, TableImportExportTests, UsingSimpleNamespace):
     pass
 
+class TableImportExportTests_Dataclasses(unittest.TestCase, TableImportExportTests, UsingDataclasses):
+    pass
+
 
 class TablePivotTests:
     def test_pivot(self):
@@ -890,9 +930,12 @@ class TablePivotTests_Slotted(unittest.TestCase, TablePivotTests, UsingSlottedOb
 class TablePivotTests_SimpleNamespace(unittest.TestCase, TablePivotTests, UsingSimpleNamespace):
     pass
 
+class TablePivotTests_Dataclasses(unittest.TestCase, TablePivotTests, UsingDataclasses):
+    pass
+
 
 if __name__ == '__main__':
-    if sys.version_info[:2] == (2, 6):
+    if sys.version_info[:2] <= (2, 6):
         print('unit_tests.py only runs on Python 2.7 or later')
         sys.exit(0)
 

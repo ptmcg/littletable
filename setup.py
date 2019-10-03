@@ -23,7 +23,7 @@ setup(# Distribution meta-data
     download_url = "https://pypi.org/project/littletable/",
     py_modules = modules,
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Intended Audience :: Information Technology',
         'License :: OSI Approved :: MIT License',
@@ -37,5 +37,6 @@ setup(# Distribution meta-data
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         ]
     )
