@@ -17,6 +17,22 @@ Version 1.0.0 -
 
       ret = table.where(x=Table.gt(100))
 
+- Fixed bug when chaining multiple ".by" accesses:
+
+      data = lt.Table()
+      data.create_index("email", unique=True)
+      data.create_index("name")
+      data.create_index("city")
+      data.create_index("state")
+
+      for user in data.by.city['Springfield'].by.state['MO']:
+          print(user)
+
+  would formerly complain that the table has no index 'state'.
+
+- `dir(table.by)` will now include the index names that can be used
+  as "by" attributes.
+
 - Added unit tests to support using dataclasses as Table contents.
 
 

@@ -21,6 +21,7 @@ except ImportError:
 try:
     import dataclasses
 except ImportError:
+    # pre Py3.7 (or 3.6 with backported dataclasses)
     dataclasses = None
 else:
     # must be wrapped in exec, since this syntax is not legal in earlier Pythons
@@ -271,6 +272,38 @@ class TableCreateTests:
         self.assertEqual(list(sorted(info['fields'])), list('abc'))
         self.assertEqual(list(sorted(info['indexes'])), [('a', True), ('c', False)])
         self.assertEqual(info['len'], 1001)
+
+    def test_chained_indexing(self):
+        chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        make_rec = lambda aa, bb, cc: self.make_data_object(chars[aa % len(chars)],
+                                                            chars[bb % len(chars)],
+                                                            chars[cc % len(chars)])
+        test_size = 10
+        table = make_test_table(make_rec, test_size)
+        table.create_index('a')
+        table.create_index('b')
+        table.create_index('c')
+
+        chained_table = table.by.b['A'].by.c['C']
+        for rec in chained_table:
+            print(rec)
+
+        self.assertEqual(test_size, len(chained_table))
+
+    def test_index_dir(self):
+        chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        make_rec = lambda aa, bb, cc: self.make_data_object(chars[aa % len(chars)],
+                                                            chars[bb % len(chars)],
+                                                            chars[cc % len(chars)])
+        test_size = 10
+        table = make_test_table(make_rec, test_size)
+        table.create_index('a')
+        table.create_index('b')
+
+        dir_list = dir(table.by)
+        print([attr for attr in dir_list if not attr.startswith("_")])
+
+        self.assertTrue(('a' in dir_list) and ('b' in dir_list) and ('c' not in dir_list))
 
     def test_delete_by_filter(self):
         test_size = 10

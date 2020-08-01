@@ -118,7 +118,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 __version__ = "1.0.0"
-__versionTime__ = "4 Oct 2019 05:09 UTC"
+__versionTime__ = "1 Aug 2020 15:38 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import os
@@ -178,6 +178,7 @@ do_all = _consumer.extend
 try:
     from itertools import product
 except ImportError:
+    # Py2 emulation
     def product(*seqs):
         tupleseqs = [[(x,) for x in s] for s in seqs]
 
@@ -199,7 +200,7 @@ if PY_3:
 else:
     from StringIO import StringIO
 
-__all__ = ["DataObject", "Table", "JoinTerm", "PivotTable"]
+__all__ = ["DataObject", "Table", "FixedWidthReader"]
 
 def _object_attrnames(obj):
     if hasattr(obj, "__dict__"):
@@ -344,12 +345,13 @@ class _UniqueObjIndex(_ObjIndex):
                 pass
 
 class _ObjIndexWrapper(object):
-    def __init__(self, ind):
+    def __init__(self, ind, table_template):
         self._index = ind
+        self._table_template = table_template
     def __getattr__(self, attr):
         return getattr(self._index, attr)
     def __getitem__(self, k):
-        ret = Table()
+        ret = self._table_template.copy_template()
         if k in self._index:
             ret.insert_many(self._index[k])
         return ret
@@ -385,8 +387,13 @@ class _TableAttributeValueLister(object):
 
 class _IndexAccessor(object):
     def __init__(self, table):
-        self.table = table
-        
+        self._table = table
+
+    def __dir__(self):
+        ret = list(self._table._indexes) + object.__dir__(self)
+        ret.remove("_table")
+        return ret
+
     def __getattr__(self, attr):
         """A quick way to query for matching records using their indexed attributes. The attribute
            name is used to locate the index, and returns a wrapper on the index.  This wrapper provides
@@ -408,14 +415,14 @@ class _IndexAccessor(object):
                
            If there is no index defined for the given attribute, then C{AttributeError} is raised.
         """
-        if attr in self.table._indexes:
-            ret = self.table._indexes[attr]
+        if attr in self._table._indexes:
+            ret = self._table._indexes[attr]
             if isinstance(ret, _UniqueObjIndex):
-                ret = _UniqueObjIndexWrapper(ret)
+                ret = _UniqueObjIndexWrapper(ret, self._table.copy_template())
             if isinstance(ret, _ObjIndex):
-                ret = _ObjIndexWrapper(ret)
+                ret = _ObjIndexWrapper(ret, self._table.copy_template())
             return ret
-        raise AttributeError("Table %r has no index %r" % (self.table.table_name, attr))
+        raise AttributeError("Table %r has no index %r" % (self._table.table_name, attr))
 
 class _multi_iterator(object):
     def __init__(self, seqobj, encoding='utf-8'):
@@ -621,7 +628,7 @@ class Table(object):
         return self.obs.count(item)
     def __add__(self, other):
         """Support UNION of 2 tables using "+" operator."""
-        if isinstance(other, JoinTerm):
+        if isinstance(other, _JoinTerm):
             # special case if added to a JoinTerm, do join, not union
             return other + self
         elif isinstance(other, Table):
@@ -717,7 +724,7 @@ class Table(object):
         return self
             
     def get_index(self, attr):
-        return _ReadonlyObjIndexWrapper(self._indexes[attr])
+        return _ReadonlyObjIndexWrapper(self._indexes[attr], self.copy_template())
 
     def insert(self, obj):
         """Insert a new object into this Table.
@@ -1110,7 +1117,7 @@ class Table(object):
            @returns: L{JoinTerm}"""
         if attr not in self._indexes:
             raise ValueError("can only join on indexed attributes")
-        return JoinTerm(self, attr)
+        return _JoinTerm(self, attr)
         
     def pivot(self, attrlist):
         """Pivots the data using the given attributes, returning a L{PivotTable}.
@@ -1120,7 +1127,7 @@ class Table(object):
         if isinstance(attrlist, basestring):
             attrlist = attrlist.split()
         if all(a in self._indexes for a in attrlist):
-            return PivotTable(self, [], attrlist)
+            return _PivotTable(self, [], attrlist)
         else:
             raise ValueError("pivot can only be called using indexed attributes")
 
@@ -1500,14 +1507,14 @@ class Table(object):
 
 Sequence.register(Table)
 
-class PivotTable(Table):
+class _PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot().
     """
     def __init__(self, parent, attr_val_path, attrlist):
         """PivotTable initializer - do not create these directly, use
            L{Table.pivot}.
         """
-        super(PivotTable, self).__init__()
+        super(_PivotTable, self).__init__()
         self._attr_path = attr_val_path[:]
         self._pivot_attrs = attrlist[:]
         self._subtable_dict = {}
@@ -1526,7 +1533,7 @@ class PivotTable(Table):
             this_attr = attrlist[0]
             sub_attrlist = attrlist[1:]
             ind = parent._indexes[this_attr]
-            self.subtables = [PivotTable(self, attr_val_path + [(this_attr, k)], sub_attrlist)
+            self.subtables = [_PivotTable(self, attr_val_path + [(this_attr, k)], sub_attrlist)
                               for k in sorted(ind.keys())]
         else:
             self.subtables = []
@@ -1535,7 +1542,7 @@ class PivotTable(Table):
         if self._subtable_dict:
             return self._subtable_dict[val]
         else:
-            return super(PivotTable, self).__getitem__(val)
+            return super(_PivotTable, self).__getitem__(val)
 
     def keys(self):
         return sorted(self._subtable_dict.keys())
@@ -1730,7 +1737,7 @@ class _PivotTableSummary(object):
             raise Exception("no HTML output format for 3-attribute pivot tables at this time")
 
 
-class JoinTerm(object):
+class _JoinTerm(object):
     """Temporary object created while composing a join across tables using 
        L{Table.join_on} and '+' addition. JoinTerm's are usually created by 
        calling join_on on a Table object, as in::
@@ -1766,7 +1773,7 @@ class JoinTerm(object):
     def __add__(self, other):
         if isinstance(other, Table):
             other = other.join_on(self.joinfield)
-        if isinstance(other, JoinTerm):
+        if isinstance(other, _JoinTerm):
             if self.jointo is None:
                 if other.jointo is None:
                     self.jointo = other
