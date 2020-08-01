@@ -390,8 +390,7 @@ class _IndexAccessor(object):
         self._table = table
 
     def __dir__(self):
-        ret = list(self._table._indexes) + object.__dir__(self)
-        ret.remove("_table")
+        ret = dir(type(self)) + list(self._table._indexes)
         return ret
 
     def __getattr__(self, attr):
