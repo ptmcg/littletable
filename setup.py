@@ -9,13 +9,18 @@ import os
 from littletable import __version__ as littletable_version
 
 _PY3 = sys.version_info[0] > 2
-    
+
+with open('README.md') as readme:
+    long_description_text = readme.read()
+
 modules = ["littletable",]
 
 setup(# Distribution meta-data
     name = "littletable",
     version = littletable_version,
     description = "Python in-memory ORM database",
+    long_description = long_description_text,
+    long_description_content_type = 'text/markdown',
     author = "Paul McGuire",
     author_email = "ptmcg@austin.rr.com",
     license = "MIT License",
