@@ -1748,9 +1748,10 @@ class _PivotTable(Table):
 
     def summarize(self, count_fn=len, col_label=None):
         if col_label is None:
-            col_label = 'value'
-        if len(self._pivot_attrs) == 1:
-            col = self._pivot_attrs[0]
+            if len(self._pivot_attrs) == 1:
+                col_label = self._pivot_attrs[0]
+            else:
+                col_label = 'value'
         return _PivotTableSummary(self, self._pivot_attrs, count_fn, col_label)
 
 
