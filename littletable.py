@@ -117,8 +117,8 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "1.0.0"
-__versionTime__ = "1 Aug 2020 15:38 UTC"
+__version__ = "1.0.1"
+__versionTime__ = "5 Aug 2020 5:48 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 import os
@@ -150,7 +150,7 @@ try:
 except ImportError:
     # try importing ordereddict backport to Py2
     try:
-         from ordereddict import OrderedDict as ODict
+        from ordereddict import OrderedDict as ODict
     except ImportError:
         # best effort, just use dict, but won't preserve ordering of fields
         # in tables or output files
@@ -202,6 +202,7 @@ else:
 
 __all__ = ["DataObject", "Table", "FixedWidthReader"]
 
+
 def _object_attrnames(obj):
     if hasattr(obj, "__dict__"):
         # normal object
@@ -213,6 +214,7 @@ def _object_attrnames(obj):
         return obj.__slots__
     else:
         raise ValueError("object with unknown attributes")
+
 
 def _to_dict(obj):
     if hasattr(obj, "__dict__"):
@@ -226,8 +228,10 @@ def _to_dict(obj):
     else:
         raise ValueError("object with unknown attributes")
 
+
 def _to_json(obj):
     return json.dumps(_to_dict(obj))
+
 
 class DataObject(object):
     """A generic semi-mutable object for storing data values in a table. Attributes
@@ -237,66 +241,84 @@ class DataObject(object):
     def __init__(self, **kwargs):
         if kwargs:
             self.__dict__.update(kwargs)
+
     def __repr__(self):
-        return '{' + ', '.join(("%r: %r" % k_v) for k_v in sorted(self.__dict__.items())) + '}'
+        return '{' + ', '.join(("{!r}: {!r}".format(k, v)) for k, v in sorted(self.__dict__.items())) + '}'
+
     def __setattr__(self, attr, val):
         # make all attributes write-once
         if attr not in self.__dict__:
             super(DataObject, self).__setattr__(attr, val)
         else:
             raise AttributeError("can't set existing attribute")
+
     def __hasattr__(self, key):
         return key in self.__dict__
+
     def __getitem__(self, k):
         if hasattr(self, k):
             return getattr(self, k)
         else:
             raise KeyError("object has no such attribute " + k)
+
     def __setitem__(self, k, v):
         if k not in self.__dict__:
             self.__dict__[k] = v
         else:
             raise KeyError("attribute already exists")
+
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
+
     def __ne__(self, other):
         return not (self == other)
+
 
 class _ObjIndex(object):
     def __init__(self, attr):
         self.attr = attr
         self.obs = defaultdict(list)
         self.is_unique = False
+
     def __setitem__(self, k, v):
         self.obs[k].append(v)
+
     def __getitem__(self, k):
         return self.obs.get(k, [])
 
     def __len__(self):
         return len(self.obs)
+
     def __iter__(self):
         return iter(self.obs.keys())
 
     def keys(self):
         return sorted(filter(partial(operator.ne, None), self.obs.keys()))
+
     def items(self):
         return self.obs.items()
+
     def remove(self, obj):
         try:
             k = getattr(obj, self.attr)
             self.obs[k].remove(obj)
         except (ValueError, AttributeError, KeyError):
             pass
+
     def __contains__(self, key):
         return key in self.obs
+
     def copy_template(self):
         return self.__class__(self.attr)
+
     def get(self, key, default=None):
         if key in self:
             return self[key]
         else:
             return default
+
 Mapping.register(_ObjIndex)
+
 
 class _UniqueObjIndex(_ObjIndex):
     def __init__(self, attr, accept_none=False):
@@ -311,7 +333,7 @@ class _UniqueObjIndex(_ObjIndex):
             if k not in self.obs:
                 self.obs[k] = v
             else:
-                raise KeyError("duplicate key value %s" % k)
+                raise KeyError("duplicate key value {!r}".format(k))
         else:
             if self.accept_none:
                 self.none_values.append(v)
@@ -323,11 +345,13 @@ class _UniqueObjIndex(_ObjIndex):
             return [self.obs.get(k)] if k in self.obs else []
         else:
             return list(self.none_values)
+
     def __contains__(self, k):
         if k is not None:
             return k in self.obs
         else:
             return self.accept_none and self.none_values
+
     def keys(self):
         return sorted(self.obs.keys()) + ([None, ] if self.none_values else [])
 
@@ -344,19 +368,24 @@ class _UniqueObjIndex(_ObjIndex):
             except ValueError:
                 pass
 
+
 class _ObjIndexWrapper(object):
     def __init__(self, ind, table_template):
         self._index = ind
         self._table_template = table_template
+
     def __getattr__(self, attr):
         return getattr(self._index, attr)
+
     def __getitem__(self, k):
         ret = self._table_template.copy_template()
         if k in self._index:
             ret.insert_many(self._index[k])
         return ret
+
     def __contains__(self, k):
         return k in self._index
+
 Mapping.register(_ObjIndexWrapper)
 
 
@@ -366,24 +395,45 @@ class _UniqueObjIndexWrapper(_ObjIndexWrapper):
             try:
                 return self._index[k][0]
             except IndexError:
-                raise KeyError("no such value %r in index %r" % (k, self._index.attr))
+                raise KeyError("no such value {!r} in index {!r}".format(k, self._index.attr))
         else:
-            ret = Table()
+            ret = self._table_template.copy_template()
             if k in self._index:
                 ret.insert_many(self._index[k])
             return ret
 
+
 class _ReadonlyObjIndexWrapper(_ObjIndexWrapper):
     def __setitem__(self, k, value):
-        raise Exception("no update access to index %r" % (self.attr, ))
+        raise Exception("no update access to index {!r}".format(self.attr))
+
 
 class _TableAttributeValueLister(object):
+    class UniquableIterator(object):
+        def __init__(self, seq):
+            self._seq = seq
+            self._iter = iter(seq)
+
+        def __iter__(self):
+            return self._iter
+
+        def __getattr__(self, attr):
+            if attr == 'unique':
+                self._iter = filter(lambda x, seen=set(): x not in seen and not seen.add(x), self._iter)
+                return self
+            raise AttributeError("no such attribute {!r} defined".format(attr))
+
     def __init__(self, table, default=None):
         self.table = table
         self.default = default
 
     def __getattr__(self, attr):
-        return (getattr(row, attr, self.default) for row in self.table)
+        if attr not in self.table._indexes:
+            vals = (getattr(row, attr, self.default) for row in self.table)
+        else:
+            vals = self.table._indexes[attr].keys()
+        return _TableAttributeValueLister.UniquableIterator(vals)
+
 
 class _IndexAccessor(object):
     def __init__(self, table):
@@ -421,7 +471,8 @@ class _IndexAccessor(object):
             if isinstance(ret, _ObjIndex):
                 ret = _ObjIndexWrapper(ret, self._table.copy_template())
             return ret
-        raise AttributeError("Table %r has no index %r" % (self._table.table_name, attr))
+        raise AttributeError("Table {!r} has no index {!r}".format(self._table.table_name, attr))
+
 
 class _multi_iterator(object):
     def __init__(self, seqobj, encoding='utf-8'):
@@ -503,7 +554,7 @@ def _make_comparator(cmp_fn):
     """
     def comparator_with_value(value):
         def _Table_comparator_fn(attr):
-            return lambda rec: cmp_fn(getattr(rec, attr), value)
+            return lambda table_rec: cmp_fn(getattr(table_rec, attr), value)
         return _Table_comparator_fn
     return comparator_with_value
 
@@ -609,22 +660,28 @@ class Table(object):
         ret = self.obs.pop(i)
 
         # remove from indexes
-        do_all(ind.remove(ret) for attr,ind in self._indexes.items())
+        do_all(ind.remove(ret) for attr, ind in self._indexes.items())
         
         return ret
 
     def __bool__(self):
         return bool(self.obs)
-    
+
+    # Py2 compat
     __nonzero__ = __bool__
+
     def __reversed__(self):
         return reversed(self.obs)
+
     def __contains__(self, item):
         return item in self.obs
+
     def index(self, item):
         return self.obs.index(item)
+
     def count(self, item):
         return self.obs.count(item)
+
     def __add__(self, other):
         """Support UNION of 2 tables using "+" operator."""
         if isinstance(other, _JoinTerm):
@@ -688,7 +745,7 @@ class Table(object):
            @type accept_none: boolean
         """
         if attr in self._indexes:
-            raise ValueError('index %r already defined for table' % attr)
+            raise ValueError('index {!r} already defined for table'.format(attr))
 
         if unique:
             self._indexes[attr] = _UniqueObjIndex(attr, accept_none)
@@ -744,7 +801,7 @@ class Table(object):
             
     def insert_many(self, it):
         """Inserts a collection of objects into the table."""
-        unique_indexes = self._uniqueIndexes  # [ind for ind in self._indexes.values() if ind.is_unique]
+        unique_indexes = self._uniqueIndexes
         NO_SUCH_ATTR = object()
         new_objs = list(it)
         if unique_indexes:
@@ -752,14 +809,15 @@ class Table(object):
                 ind_attr = ind.attr
                 new_keys = dict((getattr(obj, ind_attr, NO_SUCH_ATTR), obj) for obj in new_objs)
                 if not ind.accept_none and (None in new_keys or NO_SUCH_ATTR in new_keys):
-                    raise KeyError("unique key cannot be None or blank for index %s" % ind_attr, 
-                                    [ob for ob in new_objs if getattr(ob, ind_attr, NO_SUCH_ATTR) is None])
+                    raise KeyError("unique key cannot be None or blank for index {}".format(ind_attr),
+                                   [ob for ob in new_objs if getattr(ob, ind_attr, NO_SUCH_ATTR) is None])
                 if len(new_keys) < len(new_objs):
-                    raise KeyError("given sequence contains duplicate keys for index %s" % ind_attr)
+                    raise KeyError("given sequence contains duplicate keys for index {!r}".format(ind_attr))
                 for key in new_keys:
                     if key in ind:
                         obj = new_keys[key]
-                        raise KeyError("duplicate unique key value '%s' for index %s" % (getattr(obj, ind_attr), ind_attr), 
+                        raise KeyError("duplicate unique key value {!r} for index {!r}".format(getattr(obj, ind_attr),
+                                                                                               ind_attr),
                                        new_keys[key])
                     
         for obj in new_objs:
@@ -946,7 +1004,7 @@ class Table(object):
 
         def _make_string_callable(expr):
             if isinstance(expr, basestring):
-                return lambda r: expr % r
+                return lambda r: expr.format(r) if not isinstance(r, (list, tuple)) else expr.format(*r)
             else:
                 return expr
 
@@ -954,7 +1012,7 @@ class Table(object):
             
         raw_tuples = []
         for ob in self.obs:
-            attrvalues = tuple(getattr(ob, fieldname, None) for fieldname in fields)
+            attrvalues = tuple(getattr(ob, field_name, None) for field_name in fields)
             if exprs:
                 attrvalues += tuple(expr(ob) for expr in exprs.values())
             raw_tuples.append(attrvalues)
@@ -962,7 +1020,7 @@ class Table(object):
         all_names = tuple(fields) + tuple(exprs.keys())
         ret = Table()
         ret._indexes.update(dict((k, v.copy_template()) for k, v in self._indexes.items() if k in all_names))
-        return ret().insert_many(DataObject(**dict(zip(all_names, outtuple))) for outtuple in raw_tuples)
+        return ret().insert_many(DataObject(**dict(zip(all_names, out_tuple))) for out_tuple in raw_tuples)
 
     def formatted_table(self, *fields, **exprs):
         """
@@ -973,21 +1031,20 @@ class Table(object):
         @param exprs: one or more named string arguments, to format the given attribute with a formatting string 
         @type exprs: name=string
         """
-        # select_exprs = {}
-        # for f in fields:
-        #     select_exprs[f] = lambda r : str(getattr,f,None)
-        fields = set(fields)
-        select_exprs = ODict((f, lambda r, f=f: str(getattr, f, None)) for f in fields)
+        select_exprs = ODict()
+        for fld in fields:
+            if fld not in select_exprs:
+                select_exprs[fld] = lambda r, f=fld: str(getattr(r, f, "None"))
 
         for ename, expr in exprs.items():
             if isinstance(expr, basestring):
-                if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', expr):
-                    select_exprs[ename] = lambda r: str(getattr(r, expr, None))
+                if re.match(r'[a-zA-Z_][a-zA-Z0-9_]*$', expr):
+                    select_exprs[ename] = lambda r: str(getattr(r, expr, "None"))
                 else:
                     if "{}" in expr or "{0}" or "{0:" in expr:
                         select_exprs[ename] = lambda r: expr.format(r)
                     else:
-                        select_exprs[ename] = lambda r: expr % getattr(r, ename, "None")
+                        select_exprs[ename] = lambda r: expr.format(getattr(r, ename, "None"))
         
         return self.select(**select_exprs)
 
@@ -1030,7 +1087,7 @@ class Table(object):
             raise TypeError("must specify at least one join attribute as a named argument")
         thiscol, othercol = next(iter(kwargs.items()))
 
-        retname = ("(%s:%s^%s:%s)" % (self.table_name, thiscol, other.table_name, othercol))
+        retname = ("({}:{}^{}:{})".format(self.table_name, thiscol, other.table_name, othercol))
         # make sure both tables contain records to join - if not, just return empty list
         if not (self.obs and other.obs):
             return Table(retname)
@@ -1149,8 +1206,8 @@ class Table(object):
                     def make_row(do, cls=row_class, cls_slots=row_class.__slots__, getattr=getattr):
                         return cls(*(getattr(do, attr, None) for attr in cls_slots))
 
-                for slice in slices(csvdata):
-                    scratch = Table().insert_many(DataObject(**s) for s in slice)
+                for slc in slices(csvdata):
+                    scratch = Table().insert_many(DataObject(**s) for s in slc)
                     if not scratch:
                         continue
                     for attr, fn in transforms.items():
@@ -1160,7 +1217,7 @@ class Table(object):
                         objfn = lambda obj: fn(getattr(obj, attr))
                         scratch.add_field(attr, objfn, default)
                     if row_class is DataObject:
-                        self += scratch
+                        self.insert_many(scratch)
                     else:
                         self.insert_many(make_row(rec) for rec in scratch)
             else:
@@ -1218,7 +1275,12 @@ class Table(object):
                be set to the given default value
            @type transforms: dict (optional)
         """
-        return self._xsv_import(xsv_source, encoding, transforms=transforms, delimiter="\t", row_class=row_class, **kwargs)
+        return self._xsv_import(xsv_source,
+                                encoding,
+                                transforms=transforms,
+                                delimiter="\t",
+                                row_class=row_class,
+                                **kwargs)
 
     def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8"):
         """Exports the contents of the table to a CSV-formatted file.
@@ -1274,6 +1336,7 @@ class Table(object):
         class _JsonFileReader(object):
             def __init__(self, src):
                 self.source = src
+
             def __iter__(self):
                 current = ''
                 for line in self.source:
@@ -1285,6 +1348,7 @@ class Table(object):
                         current = ''
                     except Exception:
                         pass
+
         return self._import(source, encoding, transforms=transforms, reader=_JsonFileReader, row_class=row_class)
 
     def json_export(self, dest, fieldnames=None, encoding="UTF-8"):
@@ -1371,15 +1435,15 @@ class Table(object):
         else:
             raise TypeError("keyexpr must be string or tuple")
 
-        groupedobs = defaultdict(list)
-        do_all(groupedobs[keyfn(ob)].append(ob) for ob in self.obs)
+        grouped_obs = defaultdict(list)
+        do_all(grouped_obs[keyfn(ob)].append(ob) for ob in self.obs)
 
         tbl = Table()
         do_all(tbl.create_index(k, unique=(len(keyattrs) == 1)) for k in keyattrs)
-        for key, recs in sorted(groupedobs.items()):
-            groupobj = DataObject(**dict(zip(keyattrs, key)))
-            do_all(setattr(groupobj, subkey, expr(recs)) for subkey, expr in outexprs.items())
-            tbl.insert(groupobj)
+        for key, recs in sorted(grouped_obs.items()):
+            group_obj = DataObject(**dict(zip(keyattrs, key)))
+            do_all(setattr(group_obj, subkey, expr(recs)) for subkey, expr in outexprs.items())
+            tbl.insert(group_obj)
         return tbl
 
     def unique(self, key=None):
@@ -1419,7 +1483,7 @@ class Table(object):
             'len': len(self),
             'name': self.table_name,
             'fields': list(_object_attrnames(self[0])) if self else [],
-            'indexes': [(iname, self._indexes[iname] in unique_indexes) for iname in self._indexes],
+            'indexes': [(idx_name, self._indexes[idx_name] in unique_indexes) for idx_name in self._indexes],
         }
 
     def stats(self, field_names, by_field=True):
@@ -1448,13 +1512,13 @@ class Table(object):
         ]
         if by_field:
             ret.insert_many(DataObject(name=fname,
-                                      **dict((stat_name, stat_fn(accum[fname]))
-                                             for stat_name, stat_fn in stats))
+                                       **dict((stat_name, stat_fn(accum[fname]))
+                                              for stat_name, stat_fn in stats))
                             for fname in field_names)
         else:
             ret.insert_many(DataObject(stat=stat_name,
-                                      **dict((fname, stat_fn(accum[fname]))
-                                             for fname in field_names))
+                                       **dict((fname, stat_fn(accum[fname]))
+                                              for fname in field_names))
                             for stat_name, stat_fn in stats)
         return ret
 
@@ -1493,10 +1557,13 @@ class Table(object):
         @return: string of generated HTML representing the selected table row attributes
         """
         fields = self._parse_fields_string(fields)
+
         def td_value(v):
-            return '<td><div align="{}">{}</div></td>'.format(('left','right')[isinstance(v, (int, float))], str(v))
+            return '<td><div align="{}">{}</div></td>'.format(('left', 'right')[isinstance(v, (int, float))], str(v))
+
         def row_to_tr(r):
             return "<tr>" + "".join(td_value(getattr(r, fld)) for fld in fields) + "</tr>\n"
+
         ret = ""
         ret += "<table>\n"
         ret += "<tr>" + "".join(map('<th><div align="center">{}</div></th>'.format, fields)) + "</tr>\n"
@@ -1505,6 +1572,7 @@ class Table(object):
         return ret
 
 Sequence.register(Table)
+
 
 class _PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot().
@@ -1561,7 +1629,7 @@ class _PivotTable(Table):
     def pivot_key_str(self):
         """Return the pivot_key as a displayable string.
         """
-        return '/'.join("%s:%s" % (attr, key) for attr, key in self._attr_path)
+        return '/'.join("{}:{}".format(attr, key) for attr, key in self._attr_path)
 
     def has_subtables(self):
         """Return whether this table has further subtables.
@@ -1575,11 +1643,10 @@ class _PivotTable(Table):
            @param limit: number of records to show at deepest level of pivot (-1=show all)
            @param indent: current nesting level
         """
-        NL = '\n'
         if indent:
             out.write("  "*indent + self.pivot_key_str())
         else:
-            out.write("Pivot: %s" % ','.join(self._pivot_attrs))
+            out.write("Pivot: {}".format(','.join(self._pivot_attrs)))
         out.write(NL)
         if self.has_subtables():
             do_all(sub.dump(out, row_fn, limit, indent+1) for sub in self.subtables if sub)
@@ -1598,7 +1665,7 @@ class _PivotTable(Table):
            @param colwidth: (default=10)
         """
         if len(self._pivot_attrs) == 1:
-            out.write("Pivot: %s\n" % ','.join(self._pivot_attrs))
+            out.write("Pivot: {}\n".format(','.join(self._pivot_attrs)))
             maxkeylen = max(len(str(k)) for k in self.keys())
             maxvallen = colwidth
             keytally = {}
@@ -1607,29 +1674,30 @@ class _PivotTable(Table):
                 maxvallen = max(maxvallen, len(str(sub_v)))
                 keytally[k] = sub_v
             for k, sub in self.items():
-                out.write("%-*.*s " % (maxkeylen, maxkeylen, k))
-                out.write("%*s\n" % (maxvallen, keytally[k]))
+                out.write("{:<{}.{}s} ".format(str(k), maxkeylen, maxkeylen))
+                out.write("{:{}}\n".format(keytally[k], maxvallen))
         elif len(self._pivot_attrs) == 2:
-            out.write("Pivot: %s\n" % ','.join(self._pivot_attrs))
+            out.write("Pivot: {}\n".format(','.join(self._pivot_attrs)))
             maxkeylen = max(max(len(str(k)) for k in self.keys()), 5)
             maxvallen = max(max(len(str(k)) for k in self.subtables[0].keys()), colwidth)
             keytally = dict((k, 0) for k in self.subtables[0].keys())
-            out.write("%*s " % (maxkeylen, ''))
-            out.write(' '.join("%*.*s" % (maxvallen, maxvallen, k) for k in self.subtables[0].keys()))
-            out.write(' %*s\n' % (maxvallen, 'Total'))
+            out.write("{:{}s} ".format("", maxkeylen))
+            out.write(' '.join("{:{}.{}s}".format(str(k), maxvallen, maxvallen)
+                               for k in self.subtables[0].keys()))
+            out.write(' {:{}s}\n'.format("Total", maxvallen))
             for k, sub in self.items():
-                out.write("%-*.*s " % (maxkeylen, maxkeylen, k))
+                out.write("{:<{}.{}s} ".format(str(k), maxkeylen, maxkeylen))
                 for kk, ssub in sub.items():
                     ssub_v = count_fn(ssub)
-                    out.write("%*d " % (maxvallen, ssub_v))
+                    out.write("{:{}d} ".format(ssub_v, maxvallen))
                     keytally[kk] += ssub_v
                     maxvallen = max(maxvallen, len(str(ssub_v)))
                 sub_v = count_fn(sub)
                 maxvallen = max(maxvallen, len(str(sub_v)))
-                out.write("%*d\n" % (maxvallen, sub_v))
-            out.write('%-*.*s ' % (maxkeylen, maxkeylen, "Total"))
-            out.write(' '.join("%*d" % (maxvallen, tally) for k, tally in sorted(keytally.items())))
-            out.write(" %*d\n" % (maxvallen, sum(tally for k, tally in keytally.items())))
+                out.write("{:{}d}\n".format(sub_v, maxvallen))
+            out.write('{:{}.{}s} '.format("Total", maxkeylen, maxkeylen))
+            out.write(' '.join("{:{}d}".format(tally, maxvallen) for k, tally in sorted(keytally.items())))
+            out.write(" {:{}d}\n".format(sum(tally for k, tally in keytally.items()), maxvallen))
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
 
@@ -1643,7 +1711,7 @@ class _PivotTable(Table):
             if col_label is None:
                 col_label = 'count'
         ret = Table()
-        # topattr = self._pivot_attrs[0]
+
         do_all(ret.create_index(attr) for attr in self._pivot_attrs)
         if len(self._pivot_attrs) == 1:
             for sub in self.subtables:
@@ -1652,7 +1720,7 @@ class _PivotTable(Table):
                 if col is None or fn is len:
                     attrdict[col_label] = fn(sub)
                 else:
-                    attrdict[col_label] = fn(s[col] for s in sub)
+                    attrdict[col_label] = fn([s[col] for s in sub])
                 ret.insert(DataObject(**attrdict))
         elif len(self._pivot_attrs) == 2:
             for sub in self.subtables:
@@ -1661,7 +1729,7 @@ class _PivotTable(Table):
                     if col is None or fn is len:
                         attrdict[col_label] = fn(ssub)
                     else:
-                        attrdict[col_label] = fn(s[col] for s in ssub)
+                        attrdict[col_label] = fn([s[col] for s in ssub])
                     ret.insert(DataObject(**attrdict))
         elif len(self._pivot_attrs) == 3:
             for sub in self.subtables:
@@ -1671,7 +1739,7 @@ class _PivotTable(Table):
                         if col is None or fn is len:
                             attrdict[col_label] = fn(sssub)
                         else:
-                            attrdict[col_label] = fn(s[col] for s in sssub)
+                            attrdict[col_label] = fn([s[col] for s in sssub])
                         ret.insert(DataObject(**attrdict))
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
@@ -1684,6 +1752,7 @@ class _PivotTable(Table):
         if len(self._pivot_attrs) == 1:
             col = self._pivot_attrs[0]
         return _PivotTableSummary(self, self._pivot_attrs, count_fn, col_label)
+
 
 class _PivotTableSummary(object):
     def __init__(self, pivot_table, pivot_attrs, count_fn=len, col_label=None):
@@ -1714,18 +1783,18 @@ class _PivotTableSummary(object):
                     + "".join(map('<th><div align="center">{}</div></th>'.format, hdgs))
                     + '<th><div align="center">Total</div></th></tr>\n')
             for k, sub in self._pt.items():
-                row = [k,]
+                row = [k]
                 ssub_v_accum = 0
                 for kk, ssub in sub.items():
                     ssub_v = self._fn(ssub)
                     row.append(ssub_v)
                     keytally[kk] += ssub_v
                     ssub_v_accum += ssub_v
-                sub_v = ssub_v_accum # count_fn(sub)
+                sub_v = ssub_v_accum  # count_fn(sub)
                 row.append(sub_v)
                 ret += row_to_tr(row)
-            row = ['Total',]
-            row.extend(v for k,v in sorted(keytally.items()))
+            row = ['Total']
+            row.extend(v for k, v in sorted(keytally.items()))
             row.append(sum(keytally.values()))
             ret += row_to_tr(row)
 
@@ -1764,43 +1833,43 @@ class _JoinTerm(object):
        When calling the join expression, you can optionally specify a
        list of attributes as defined in L{Table.join}.
     """
-    def __init__(self, sourcetable, joinfield):
-        self.sourcetable = sourcetable
-        self.joinfield = joinfield
-        self.jointo = None
+    def __init__(self, source_table, join_field):
+        self.source_table = source_table
+        self.join_field = join_field
+        self.join_to = None
 
     def __add__(self, other):
         if isinstance(other, Table):
-            other = other.join_on(self.joinfield)
+            other = other.join_on(self.join_field)
         if isinstance(other, _JoinTerm):
-            if self.jointo is None:
-                if other.jointo is None:
-                    self.jointo = other
+            if self.join_to is None:
+                if other.join_to is None:
+                    self.join_to = other
                 else:
-                    self.jointo = other()
+                    self.join_to = other()
                 return self
             else:
-                if other.jointo is None:
+                if other.join_to is None:
                     return self() + other
                 else:
                     return self() + other()
-        raise ValueError("cannot add object of type %r to JoinTerm" % other.__class__.__name__)
+        raise ValueError("cannot add object of type {!r} to JoinTerm".format(other.__class__.__name__))
 
     def __radd__(self, other):
         if isinstance(other, Table):
-            return other.join_on(self.joinfield) + self
-        raise ValueError("cannot add object of type %r to JoinTerm" % other.__class__.__name__)
+            return other.join_on(self.join_field) + self
+        raise ValueError("cannot add object of type {!r} to JoinTerm".format(other.__class__.__name__))
             
     def __call__(self, attrs=None):
-        if self.jointo:
-            other = self.jointo
+        if self.join_to:
+            other = self.join_to
             if isinstance(other, Table):
-                other = other.join_on(self.joinfield)
-            ret = self.sourcetable.join(other.sourcetable, attrs, 
-                                        **{self.joinfield: other.joinfield})
+                other = other.join_on(self.join_field)
+            ret = self.source_table.join(other.source_table, attrs,
+                                         **{self.join_field: other.join_field})
             return ret
         else:
-            return self.sourcetable.query()
+            return self.source_table.query()
 
     def join_on(self, col):
         return self().join_on(col)
@@ -1890,8 +1959,9 @@ if __name__ == "__main__":
     print(list(amfm.all.stn))
     print(list(amfm.all.band))
     print(list(amfm.unique('band').all.band))
+    print(list(amfm.all.band.unique))
     print()
-    
+
     del amfm[0:-1:2]
     for stn in amfm:
         print(stn)
@@ -1911,13 +1981,12 @@ if __name__ == "__main__":
     url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
     names = ['sepal-length', 'sepal-width', 'petal-length', 'petal-width', 'class']
     transforms = dict.fromkeys(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'], float)
-    table = Table('iris').csv_import(url, fieldnames=names, transforms=transforms)
+    iris_table = Table('iris').csv_import(url, fieldnames=names, transforms=transforms)
 
-    print(table.info())
-    for rec in table[:5]:
+    print(iris_table.info())
+    for rec in iris_table[:5]:
         print(rec)
 
-    stats = table.stats(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'])
+    stats = iris_table.stats(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'])
     for rec in stats:
         print(rec)
-

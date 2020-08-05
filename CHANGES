@@ -1,6 +1,16 @@
 Change History
 ==============
 
+Version 1.0.1 -
+---------------
+- Add support for optional .unique modifier for .all.<attr> value accessor.
+
+    for postal_code in customers.all.postal_code.unique:
+        ...
+
+- Added .all optimization when getting values for an indexed attribute.
+
+
 Version 1.0.0 -
 ----------------
 - Add import directly from an HTTP/HTTPS url.
