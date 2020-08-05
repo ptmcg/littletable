@@ -1,12 +1,12 @@
 # littletable - a Python module to give ORM-like access to a collection of objects
 [![Build Status](https://travis-ci.org/ptmcg/littletable.svg?branch=master)](https://travis-ci.org/ptmcg/littletable) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ptmcg/littletable/master)
 
-The littletable module provides a low-overhead, schema-less, in-memory database access to a collection 
-of user objects. littletable provides a DataObject class for ad hoc creation of semi-immutable objects 
-that can be stored in a littletable Table. Tables can also contain user-defined objects, using those 
+The `littletable` module provides a low-overhead, schema-less, in-memory database access to a collection 
+of user objects. `littletable` provides a `DataObject` class for ad hoc creation of semi-immutable objects 
+that can be stored in a `littletable` `Table`. Tables can also contain user-defined objects, using those 
 objects' `__dict__`, `__slots__`, or `_fields` mappings to access object attributes.
 
-In addition to basic ORM-style insert/remove/query/delete access to the contents of a Table, littletable offers:
+In addition to basic ORM-style insert/remove/query/delete access to the contents of a `Table`, `littletable` offers:
 * simple indexing for improved retrieval performance, and optional enforcing key uniqueness 
 * access to objects using indexed attributes 
 * simplified joins using '+' operator syntax between annotated Tables 
@@ -50,6 +50,10 @@ Here is a simple littletable data storage/retrieval example:
     # indexes will return a list of all matching items)
     print(customers.by.id["0030"].name)
 
+    # see all customer names
+    for name in customers.all.name:
+        print(name)
+
     # print all items sold by the pound
     for item in catalog.where(unitofmeas="LB"):
         print(item.sku, item.descr)
@@ -61,8 +65,8 @@ Here is a simple littletable data storage/retrieval example:
     # join tables to create queryable wishlists collection
     wishlists = customers.join_on("id") + wishitems.join_on("custid") + catalog.join_on("sku")
 
-    # print all wishlist items with price > 10
-    bigticketitems = wishlists().where(lambda ob: ob.unitprice > 10)
+    # print all wishlist items with price > 10 (can use Table.gt comparator instead of lambda)
+    bigticketitems = wishlists().where(unitprice=Table.gt(10))
     for item in bigticketitems:
         print(item)
 
