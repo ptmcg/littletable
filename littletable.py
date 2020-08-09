@@ -127,7 +127,7 @@ import operator
 import csv
 import random
 from collections import defaultdict, deque
-from itertools import starmap, repeat, islice, takewhile
+from itertools import starmap, repeat, islice, takewhile, chain
 from functools import partial
 from contextlib import closing
 
@@ -431,7 +431,8 @@ class _TableAttributeValueLister(object):
         if attr not in self.table._indexes:
             vals = (getattr(row, attr, self.default) for row in self.table)
         else:
-            vals = self.table._indexes[attr].keys()
+            table_index = self.table._indexes[attr]
+            vals = chain.from_iterable(repeat(k, len(table_index[k])) for k in table_index.keys())
         return _TableAttributeValueLister.UniquableIterator(vals)
 
 
