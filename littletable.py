@@ -807,8 +807,9 @@ class Table(object):
         """Inserts a collection of objects into the table."""
         unique_indexes = self._uniqueIndexes
         NO_SUCH_ATTR = object()
-        new_objs = list(it)
+        new_objs = it
         if unique_indexes:
+            new_objs = list(new_objs)
             for ind in unique_indexes:
                 ind_attr = ind.attr
                 new_keys = dict((getattr(obj, ind_attr, NO_SUCH_ATTR), obj) for obj in new_objs)
@@ -823,12 +824,15 @@ class Table(object):
                         raise KeyError("duplicate unique key value {!r} for index {!r}".format(getattr(obj, ind_attr),
                                                                                                ind_attr),
                                        new_keys[key])
-                    
-        for obj in new_objs:
-            self.obs.append(obj)
-            for attr, ind in self._indexes.items():
-                obval = getattr(obj, attr)
-                ind[obval] = obj
+
+        if self._indexes:
+            for obj in new_objs:
+                self.obs.append(obj)
+                for attr, ind in self._indexes.items():
+                    obval = getattr(obj, attr)
+                    ind[obval] = obj
+        else:
+            self.obs.extend(new_objs)
 
         return self
 
