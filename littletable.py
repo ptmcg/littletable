@@ -432,7 +432,10 @@ class _TableAttributeValueLister(object):
             vals = (getattr(row, attr, self.default) for row in self.table)
         else:
             table_index = self.table._indexes[attr]
-            vals = chain.from_iterable(repeat(k, len(table_index[k])) for k in table_index.keys())
+            if table_index.is_unique:
+                vals = table_index.keys()
+            else:
+                vals = chain.from_iterable(repeat(k, len(table_index[k])) for k in table_index.keys())
         return _TableAttributeValueLister.UniquableIterator(vals)
 
 

@@ -257,6 +257,10 @@ class TableCreateTests:
         table.create_index('a', unique=True, accept_none=True)
         table.insert(self.make_data_object(None, None, 'A'))
 
+        str_none_compare = lambda x: x if isinstance(x, str) else chr(255)*100
+        self.assertEqual(sorted(table.by.a.keys(), key=str_none_compare),
+                         sorted(table.all.a, key=str_none_compare))
+
         # now drop index and recreate not permitting None, should raise exception
         table.delete_index('a')
         with self.assertRaises(KeyError):
