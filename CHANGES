@@ -10,6 +10,13 @@ Version 1.0.1 -
 
 - Added .all optimization when getting values for an indexed attribute.
 
+- Added **kwargs support for csv_export, to permit passing arguments through
+  to the csv.DictWriter (such as `dialect`).
+
+- Implemented `limit` named argument in csv_import.
+
+- Closed issues when importing/exporting empty tables.
+
 
 Version 1.0.0 -
 ----------------

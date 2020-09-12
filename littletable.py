@@ -1195,9 +1195,18 @@ class Table(object):
         else:
             raise ValueError("pivot can only be called using indexed attributes")
 
-    def _import(self, source, encoding, transforms=None, reader=csv.DictReader, row_class=DataObject):
+    def _import(self, source, encoding, transforms=None, reader=csv.DictReader, row_class=DataObject, limit=None):
         with closing(_multi_iterator(source, encoding)) as _srciter:
             csvdata = reader(_srciter)
+
+            if limit is not None:
+                def limiter(n, iter):
+                    for i, obj in enumerate(iter, start=1):
+                        if i > n:
+                            break
+                        yield obj
+                csvdata = limiter(limit, csvdata)
+
             if transforms:
                 def slices(seq, slice_size=128):
                     seq_iter = iter(seq)
@@ -1248,7 +1257,9 @@ class Table(object):
                there is an Exception raised by the transform function, then the attribute will
                be set to the given default value
            @type transforms: dict (optional)
-           @param limit: number of records to stop
+           @param row_class: class to construct for each imported row when populating table (default=DataObject)
+           @type row_class: type
+           @param limit: number of records to import
            @type limit: int (optional)
            @param kwargs: additional constructor arguments for csv C{DictReader} objects, such as C{delimiter}
                or C{fieldnames}; these are passed directly through to the csv C{DictReader} constructor
@@ -1257,19 +1268,23 @@ class Table(object):
         reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
                                                                           'csv_source',
                                                                           'transforms',
-                                                                          'row_class'])
+                                                                          'row_class',
+                                                                          'limit',
+                                                                          ])
         reader = lambda src: csv.DictReader(src, **reader_args)
-        return self._import(csv_source, encoding, transforms, reader=reader, row_class=row_class)
+        return self._import(csv_source, encoding, transforms, reader=reader, row_class=row_class, limit=limit)
 
-    def _xsv_import(self, xsv_source, encoding, transforms=None, row_class=DataObject, **kwargs):
+    def _xsv_import(self, xsv_source, encoding, transforms=None, row_class=DataObject, limit=None, **kwargs):
         reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
                                                                           'xsv_source',
                                                                           'transforms',
-                                                                          'row_class'])
+                                                                          'row_class',
+                                                                          'limit',
+                                                                          ])
         xsv_reader = lambda src: csv.DictReader(src, **reader_args)
-        return self._import(xsv_source, encoding, transforms, reader=xsv_reader, row_class=row_class)
+        return self._import(xsv_source, encoding, transforms, reader=xsv_reader, row_class=row_class, limit=limit)
 
-    def tsv_import(self, xsv_source, encoding="UTF-8", transforms=None, row_class=DataObject, **kwargs):
+    def tsv_import(self, xsv_source, encoding="UTF-8", transforms=None, row_class=DataObject, limit=None, **kwargs):
         """Imports the contents of a tab-separated data file into this table.
            @param xsv_source: tab-separated data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1282,15 +1297,20 @@ class Table(object):
                there is an Exception raised by the transform function, then the attribute will
                be set to the given default value
            @type transforms: dict (optional)
+           @param row_class: class to construct for each imported row when populating table (default=DataObject)
+           @type row_class: type
+           @param limit: number of records to import
+           @type limit: int (optional)
         """
         return self._xsv_import(xsv_source,
                                 encoding,
                                 transforms=transforms,
                                 delimiter="\t",
                                 row_class=row_class,
+                                limit=limit,
                                 **kwargs)
 
-    def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8"):
+    def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8", **kwargs):
         """Exports the contents of the table to a CSV-formatted file.
            @param csv_dest: CSV file - if a string is given, the file with that name will be
                opened, written, and closed; if a file object is given, then that object
@@ -1302,7 +1322,13 @@ class Table(object):
            @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
                representing an output filename, an encoding argument can be provided (Python 3 only)
            @type encoding: string
+           @param kwargs: additional keyword args to pass through to csv.DictWriter
+           @type kwargs: named arguments (optional)
         """
+        writer_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
+                                                                          'csv_dest',
+                                                                          'fieldnames',
+                                                                          ])
         close_on_exit = False
         if isinstance(csv_dest, basestring):
             if PY_3:
@@ -1312,13 +1338,13 @@ class Table(object):
             close_on_exit = True
         try:
             if fieldnames is None:
-                fieldnames = list(_object_attrnames(self.obs[0]))
+                fieldnames = list(_object_attrnames(self.obs[0])) if self.obs else list(self._indexes.keys())
             if isinstance(fieldnames, basestring):
                 fieldnames = fieldnames.split()
 
             csv_dest.write(','.join(fieldnames) + NL)
-            csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore', lineterminator=NL)
-            if hasattr(self.obs[0], "__dict__"):
+            csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore', lineterminator=NL, **writer_args)
+            if self.obs and hasattr(self.obs[0], "__dict__"):
                 csvout.writerows(o.__dict__ for o in self.obs)
             else:
                 do_all(csvout.writerow(ODict(starmap(lambda obj, fld: (fld, getattr(obj, fld)),
@@ -1340,6 +1366,8 @@ class Table(object):
                there is an Exception raised by the transform function, then the attribute will
                be set to the given default value
            @type transforms: dict (optional)
+           @param row_class: class to construct for each imported row when populating table (default=DataObject)
+           @type row_class: type
         """
         class _JsonFileReader(object):
             def __init__(self, src):
@@ -1549,7 +1577,11 @@ class Table(object):
         if not field_names:
             field_names = ['*']
         if '*' in field_names:
-            star_fields = [name for name in _object_attrnames(self[0]) if name not in field_names]
+            if self:
+                star_fields = [name for name in _object_attrnames(self[0]) if name not in field_names]
+            else:
+                # no records to look at, just use names of any defined indexes
+                star_fields = list(self._indexes.keys())
             fn_iter = iter(field_names)
             field_names = list(takewhile(lambda x: x != '*', fn_iter)) + star_fields + list(fn_iter)
         field_names = [nm for nm in field_names if nm not in suppress_names]

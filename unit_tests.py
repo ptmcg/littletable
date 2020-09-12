@@ -791,6 +791,30 @@ class TableImportExportTests:
                     int(csv_vals[i]) == getattr(ob, fld) for i, fld in enumerate(fieldnames)
                 ))
 
+        # rerun using an empty table
+        t1 = lt.Table()
+        for fieldnames in permutations(list('abc')):
+            out = io.StringIO()
+            t1.csv_export(out, fieldnames)
+            out.seek(0)
+            outlines = out.read().splitlines()
+            out.close()
+            self.assertEqual(','.join(fieldnames), outlines[0])
+            self.assertEqual(len(outlines), 1)
+
+        # rerun using an empty table, with indexes to dictate fieldnames
+        for fieldnames in permutations(list('abc')):
+            t1 = lt.Table()
+            for fld in fieldnames:
+                t1.create_index(fld)
+            out = io.StringIO()
+            t1.csv_export(out)
+            out.seek(0)
+            outlines = out.read().splitlines()
+            out.close()
+            self.assertEqual(','.join(fieldnames), outlines[0])
+            self.assertEqual(len(outlines), 1)
+
     def test_csv_import(self):
         data = csv_data
         incsv = io.StringIO(data)
@@ -827,6 +851,19 @@ class TableImportExportTests:
         print(type(t1[0]).__name__, t1[0])
         print(type(csvtable2[0]).__name__, csvtable2[0])
         self.assertEqual(type(t1[0]), type(csvtable2[0]))
+
+    def test_csv_limit_import(self):
+        data = csv_data
+        import_limit = 10
+        csvtable = lt.Table().csv_import(csv_source=data, transforms={'a': int, 'b': int, 'c': int},
+                                         limit=import_limit)
+
+        self.assertEqual(import_limit, len(csvtable))
+
+        csvtable = lt.Table().csv_import(csv_source=data, transforms={'a': int, 'b': int, 'c': int},
+                                         limit=0)
+
+        self.assertEqual(0, len(csvtable))
 
     def test_csv_string_list_import(self):
         data = csv_data
