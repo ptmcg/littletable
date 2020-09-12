@@ -117,19 +117,26 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-__version__ = "1.0.1"
-__versionTime__ = "5 Aug 2020 5:48 UTC"
-__author__ = "Paul McGuire <ptmcg@austin.rr.com>"
-
 import os
 import sys
 import operator
 import csv
 import random
-from collections import defaultdict, deque
+from collections import defaultdict, deque, namedtuple
 from itertools import starmap, repeat, islice, takewhile, chain
 from functools import partial
 from contextlib import closing
+
+version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
+__version_info__ = version_info(1, 0, 1, "final", 0)
+__version__ = (
+    "{}.{}.{}".format(*__version_info__[:3])
+    + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
+        __version_info__.releaseLevel == "final"
+    ]
+)
+__versionTime__ = "12 Sep 2020 4:34 UTC"
+__author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
 PY_2 = sys.version_info[0] == 2

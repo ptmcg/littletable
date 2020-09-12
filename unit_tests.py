@@ -1017,10 +1017,27 @@ if dataclasses is not None:
     class TablePivotTests_Dataclasses(unittest.TestCase, TablePivotTests, UsingDataclasses):
         pass
 
-
-if __name__ == '__main__':
+class InitialTest(unittest.TestCase):
     if sys.version_info[:2] <= (2, 6):
         print('unit_tests.py only runs on Python 2.7 or later')
         sys.exit(0)
+
+    from littletable import (
+        __version__ as littletable_version,
+        __versionTime__ as littletable_version_time,
+        __version_info__ as littletable_version_info,
+    )
+
+    print(
+        "Beginning test of littletable, version",
+        littletable_version,
+        littletable_version_time,
+    )
+    print(littletable_version_info)
+    print("Python version", sys.version)
+    print()
+
+
+if __name__ == '__main__':
 
     unittest.main()
