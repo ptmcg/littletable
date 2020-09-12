@@ -128,14 +128,14 @@ from functools import partial
 from contextlib import closing
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
-__version_info__ = version_info(1, 0, 1, "final", 0)
+__version_info__ = version_info(1, 0, 2, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
         __version_info__.releaseLevel == "final"
     ]
 )
-__versionTime__ = "12 Sep 2020 4:34 UTC"
+__versionTime__ = "12 Sep 2020 5:14 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
