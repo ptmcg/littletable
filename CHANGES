@@ -1,6 +1,13 @@
 Change History
 ==============
 
+Version 1.0.2 -
+---------------
+- Fix unit tests that fail under Python versions pre-3.6 that do not
+  preserve dict insertion order. (This is a bug in the unit test, not in
+  the littletable core code.)
+
+
 Version 1.0.1 -
 ---------------
 - Add support for optional .unique modifier for .all.<attr> value accessor.

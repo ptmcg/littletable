@@ -812,7 +812,7 @@ class TableImportExportTests:
             out.seek(0)
             outlines = out.read().splitlines()
             out.close()
-            self.assertEqual(','.join(fieldnames), outlines[0])
+            self.assertEqual(set(fieldnames), set(outlines[0].split(',')))
             self.assertEqual(len(outlines), 1)
 
     def test_csv_import(self):
