@@ -7,6 +7,10 @@ Version 1.0.2 -
   preserve dict insertion order. (This is a bug in the unit test, not in
   the littletable core code.)
 
+- Proper definition of .all.x iterators so that iter(table.all.x)
+  returns self. (Necessary for modules like statistics that check
+  if an iterator is passed by testing `if iter(data) is data`.)
+
 
 Version 1.0.1 -
 ---------------

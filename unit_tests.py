@@ -435,6 +435,9 @@ class TableListTests:
                          sum(([i]*self.test_size**2 for i in range(self.test_size)), []),
                          "failed to successfully get all values in 'a'")
 
+        all_as = self.t1.all.a
+        self.assertTrue(all_as is iter(all_as), "all iterator fails to identify as iter(self)")
+
     def test_format(self):
         self._test_init()
         self.assertEqual(list(self.t1.format("{a:02d} {b} {c}"))[:3],

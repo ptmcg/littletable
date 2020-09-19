@@ -135,7 +135,7 @@ __version__ = (
         __version_info__.releaseLevel == "final"
     ]
 )
-__versionTime__ = "12 Sep 2020 5:14 UTC"
+__versionTime__ = "19 Sep 2020 20:52 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -422,7 +422,14 @@ class _TableAttributeValueLister(object):
             self._iter = iter(seq)
 
         def __iter__(self):
-            return self._iter
+            return self
+
+        def __next__(self):
+            return next(self._iter)
+
+        if PY_2:
+            def next(self):
+                return self.__next__()
 
         def __getattr__(self, attr):
             if attr == 'unique':
@@ -507,7 +514,14 @@ class _multi_iterator(object):
             self._iterobj = iter(seqobj)
 
     def __iter__(self):
-        return self._iterobj
+        return self
+
+    def __next__(self):
+        return next(self._iterobj)
+
+    if PY_2:
+        def next(self):
+            return self.__next__()
 
     def close(self):
         if hasattr(self._iterobj, 'close'):
@@ -645,7 +659,7 @@ class Table(object):
     def __iter__(self):
         """Create an iterator over the objects in the Table."""
         return iter(self.obs)
-        
+
     def __getitem__(self, i):
         """Provides direct indexed/sliced access to the Table's underlying list of objects."""
         if isinstance(i, slice):
