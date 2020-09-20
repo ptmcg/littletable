@@ -1019,7 +1019,7 @@ class Table(object):
             self.obs.sort(key=keyfn, reverse=reverse)
         return self
 
-    def select(self, fields, **exprs):
+    def select(self, fields=None, **exprs):
         """
         Create a new table containing a subset of attributes, with optionally 
         newly-added fields computed from each rec in the original table.
@@ -1033,7 +1033,10 @@ class Table(object):
         as a source of interpolation values.  For instance, C{fullName = '%(lastName)s, %(firstName)s'}
         
         """
-        fields = self._parse_fields_string(fields)
+        if fields is not None:
+            fields = self._parse_fields_string(fields)
+        else:
+            fields = []
 
         def _make_string_callable(expr):
             if isinstance(expr, basestring):
