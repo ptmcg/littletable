@@ -429,13 +429,13 @@ class TableListTests:
         self._test_init()
         self.t1.create_index("a")
         self.t1.create_index("c")
-        self.assertEqual(["a", "c"], list(self.t1._indexes.keys()), "failed to create indexes")
+        self.assertEqual(set(["a", "c"]), set(self.t1._indexes.keys()), "failed to create indexes")
 
-        self.assertEqual(list(self.t1._indexes.keys()),
-                         list(self.t1.head()._indexes.keys()),
+        self.assertEqual(set(self.t1._indexes.keys()),
+                         set(self.t1.head()._indexes.keys()),
                          "failed to copy indexes to head()")
-        self.assertEqual(list(self.t1._indexes.keys()),
-                         list(self.t1.tail()._indexes.keys()),
+        self.assertEqual(set(self.t1._indexes.keys()),
+                         set(self.t1.tail()._indexes.keys()),
                          "failed to copy indexes to tail()")
 
     def test_unique(self):
@@ -459,7 +459,7 @@ class TableListTests:
 
     def test_as_html(self):
         self._test_init()
-        html_output = self.t1[:10].as_html()
+        html_output = self.t1[:10].as_html(fields="a b c")
         print(html_output)
         self.assertTrue("<thead>" in html_output and "<tbody>" in html_output,
                         "as_html does not include thead and tbody tags")
@@ -472,7 +472,7 @@ class TableListTests:
                          hdr_line,
                          "failed as_html with all fields")
 
-        html_output = self.t1[:10].as_html(fields="-b")
+        html_output = self.t1[:10].as_html(fields="a -b c")
         print(html_output)
         html_lines = html_output.splitlines()
         hdr_line = next(h for h in html_lines if "center" in h)
@@ -481,7 +481,7 @@ class TableListTests:
                          hdr_line,
                          "failed as_html with negated field")
 
-        html_output = self.t1[:10].as_html(formats={"b": "{:03d}"})
+        html_output = self.t1[:10].as_html(fields="a b c", formats={"b": "{:03d}"})
         print(html_output)
         html_lines = html_output.splitlines()
         data_line = next(h for h in html_lines if "<td>" in h)
@@ -491,7 +491,7 @@ class TableListTests:
                          data_line,
                          "failed as_html with named field format")
 
-        html_output = self.t1[:10].as_html(formats={int: "{:03d}"})
+        html_output = self.t1[:10].as_html(fields="a b c", formats={int: "{:03d}"})
         print(html_output)
         html_lines = html_output.splitlines()
         data_line = next(h for h in html_lines if "<td>" in h)
