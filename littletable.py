@@ -1628,23 +1628,20 @@ class Table(object):
         fields = self._parse_fields_string(fields)
         if formats is None:
             formats = {}
-        field_format_map = {**formats}
+        field_format_map = {}
 
         def row_to_tr(r):
-            rettr = "<tr>"
+            ret_tr = ["<tr>"]
             for fld in fields:
                 v = getattr(r, fld, "")
                 align = 'right' if isinstance(v, (int, float)) else 'left'
                 if fld not in field_format_map:
                     field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
                 v_format = field_format_map[fld]
-                if isinstance(v_format, str):
-                    str_v = v_format.format(v)
-                else:
-                    str_v = v_format(v)
-                rettr += '<td><div align="{}">{}</div></td>'.format(align, str_v)
-            rettr += "</tr>\n"
-            return rettr
+                str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
+                ret_tr.append('<td><div align="{}">{}</div></td>'.format(align, str_v))
+            ret_tr.append("</tr>\n")
+            return "".join(ret_tr)
 
         ret = ""
         ret += "<table>\n<thead>\n"
@@ -1859,15 +1856,14 @@ class _PivotTableSummary(object):
             hdgs = [self._pivot_attrs[0]] + sorted(keytally) + ['Total']
 
             def row_to_tr(r):
-                rettr = "<tr>"
+                ret_tr = ["<tr>"]
                 for v, hdg in zip(r, hdgs):
-                    if hdg not in field_format_map:
-                        field_format_map[hdg] = formats.get(hdg, formats.get(type(v), "{}"))
                     v_format = formats.get(hdg, formats.get(type(v), "{}"))
                     v_align = 'right' if isinstance(v, (int, float)) else 'left'
-                    rettr += ('<td><div align="{}">' + v_format + '</div></td>').format(v_align, v)
-                rettr += "</tr>\n"
-                return rettr
+                    str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
+                    ret_tr.append('<td><div align="{}">{}</div></td>'.format(v_align, str_v))
+                ret_tr.append("</tr>\n")
+                return "".join(ret_tr)
 
             ret = ""
             ret += "<table>\n"
