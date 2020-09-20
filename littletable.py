@@ -324,6 +324,7 @@ class _ObjIndex(object):
         else:
             return default
 
+
 Mapping.register(_ObjIndex)
 
 
@@ -392,6 +393,7 @@ class _ObjIndexWrapper(object):
 
     def __contains__(self, k):
         return k in self._index
+
 
 Mapping.register(_ObjIndexWrapper)
 
@@ -1608,29 +1610,50 @@ class Table(object):
         field_names = [nm for nm in field_names if nm not in suppress_names]
         return field_names
 
-    def as_html(self, fields='*'):
+    def as_html(self, fields='*', formats=None):
         """
         Output the table as a rudimentary HTML table.
         @param fields: fields in the table to be shown in the table
                        - listing '*' as a field will add all unnamed fields
                        - starting a field name with '-' will suppress that name
         @type fields: list of strings or a single space-delimited string
+        @param formats: optional dict of str formats to use when converting field values
+                        to strings (usually used for float conversions, but could also be
+                        used for str conversion or text wrapping
+        @type formats: mapping of field names or types to either str formats as used by
+                       the str.format method, or a callable that takes a value and returns
+                       a str
         @return: string of generated HTML representing the selected table row attributes
         """
         fields = self._parse_fields_string(fields)
-
-        def td_value(v):
-            return '<td><div align="{}">{}</div></td>'.format(('left', 'right')[isinstance(v, (int, float))], str(v))
+        if formats is None:
+            formats = {}
+        field_format_map = {**formats}
 
         def row_to_tr(r):
-            return "<tr>" + "".join(td_value(getattr(r, fld)) for fld in fields) + "</tr>\n"
+            rettr = "<tr>"
+            for fld in fields:
+                v = getattr(r, fld, "")
+                align = 'right' if isinstance(v, (int, float)) else 'left'
+                if fld not in field_format_map:
+                    field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
+                v_format = field_format_map[fld]
+                if isinstance(v_format, str):
+                    str_v = v_format.format(v)
+                else:
+                    str_v = v_format(v)
+                rettr += '<td><div align="{}">{}</div></td>'.format(align, str_v)
+            rettr += "</tr>\n"
+            return rettr
 
         ret = ""
-        ret += "<table>\n"
+        ret += "<table>\n<thead>\n"
         ret += "<tr>" + "".join(map('<th><div align="center">{}</div></th>'.format, fields)) + "</tr>\n"
+        ret += "</thead>\n<tbody>"
         ret += "".join(map(row_to_tr, self))
-        ret += "</table>"
+        ret += "</tbody>\n</table>"
         return ret
+
 
 Sequence.register(Table)
 
@@ -1824,26 +1847,38 @@ class _PivotTableSummary(object):
         self._label = col_label
 
     def as_html(self, *args, **kwargs):
+        formats = kwargs.get('formats', {})
         if len(self._pivot_attrs) == 1:
             col = self._pivot_attrs[0]
             col_label = self._label
             data = Table().insert_many(DataObject(**{col: k, col_label: self._fn(sub)}) for k, sub in self._pt.items())
-            return data.as_html((col, col_label))
+            return data.as_html((col, col_label), formats=formats)
 
         elif len(self._pivot_attrs) == 2:
-            def td_value(v):
-                return '<td><div align="{}">{}</div></td>'.format(('left','right')[isinstance(v, (int, float))], str(v))
+            keytally = dict((k, 0) for k in self._pt.subtables[0].keys())
+            hdgs = [self._pivot_attrs[0]] + sorted(keytally) + ['Total']
+
             def row_to_tr(r):
-                return "<tr>" + "".join(td_value(fld) for fld in r) + "</tr>\n"
+                rettr = "<tr>"
+                for v, hdg in zip(r, hdgs):
+                    if hdg not in field_format_map:
+                        field_format_map[hdg] = formats.get(hdg, formats.get(type(v), "{}"))
+                    v_format = formats.get(hdg, formats.get(type(v), "{}"))
+                    v_align = 'right' if isinstance(v, (int, float)) else 'left'
+                    rettr += ('<td><div align="{}">' + v_format + '</div></td>').format(v_align, v)
+                rettr += "</tr>\n"
+                return rettr
 
             ret = ""
             ret += "<table>\n"
-
+            ret += "<thead>\n"
             keytally = dict((k, 0) for k in self._pt.subtables[0].keys())
             hdgs = sorted(keytally)
-            ret += ("<tr><th/>"
+            ret += ("<tr>"
                     + "".join(map('<th><div align="center">{}</div></th>'.format, hdgs))
-                    + '<th><div align="center">Total</div></th></tr>\n')
+                    + '</tr>\n')
+            ret += "</thead>\n<tbody>\n"
+
             for k, sub in self._pt.items():
                 row = [k]
                 ssub_v_accum = 0
@@ -1860,7 +1895,7 @@ class _PivotTableSummary(object):
             row.append(sum(keytally.values()))
             ret += row_to_tr(row)
 
-            ret += "</table>"
+            ret += "</tbody>\n</table>\n"
             return ret
 
         else:  # if len(self._pivot_attrs) >= 3:

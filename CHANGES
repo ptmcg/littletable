@@ -11,6 +11,14 @@ Version 1.0.2 -
   returns self. (Necessary for modules like statistics that check
   if an iterator is passed by testing `if iter(data) is data`.)
 
+- Added support for a `formats` named argument to `Table.as_html()`.
+  `formats` takes a dict that maps field names or field data types to
+  string formats or callables. If a string format, the string should
+  be of the form used to format a placeholder in the str.format method
+  (such as "{:5.2f}" for a real value formatted to two decimal places).
+  If a callable is passed, it should take a single value argument and
+  return a str.
+
 
 Version 1.0.1 -
 ---------------

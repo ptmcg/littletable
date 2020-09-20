@@ -444,6 +444,50 @@ class TableListTests:
                          ['00 0 0', '00 0 1', '00 0 2'],
                          "failed to create formatted rows")
 
+    def test_as_html(self):
+        self._test_init()
+        html_output = self.t1[:10].as_html()
+        print(html_output)
+        self.assertTrue("<thead>" in html_output and "<tbody>" in html_output,
+                        "as_html does not include thead and tbody tags")
+
+        html_lines = html_output.splitlines()
+        hdr_line = next(h for h in html_lines if "center" in h)
+        self.assertEqual('<tr><th><div align="center">a</div></th>'
+                         '<th><div align="center">b</div></th>'
+                         '<th><div align="center">c</div></th></tr>',
+                         hdr_line,
+                         "failed as_html with all fields")
+
+        html_output = self.t1[:10].as_html(fields="-b")
+        print(html_output)
+        html_lines = html_output.splitlines()
+        hdr_line = next(h for h in html_lines if "center" in h)
+        self.assertEqual('<tr><th><div align="center">a</div></th>'
+                         '<th><div align="center">c</div></th></tr>',
+                         hdr_line,
+                         "failed as_html with negated field")
+
+        html_output = self.t1[:10].as_html(formats={"b": "{:03d}"})
+        print(html_output)
+        html_lines = html_output.splitlines()
+        data_line = next(h for h in html_lines if "<td>" in h)
+        self.assertEqual('<tbody><tr><td><div align="right">0</div></td>'
+                         '<td><div align="right">000</div></td>'
+                         '<td><div align="right">0</div></td></tr>',
+                         data_line,
+                         "failed as_html with named field format")
+
+        html_output = self.t1[:10].as_html(formats={int: "{:03d}"})
+        print(html_output)
+        html_lines = html_output.splitlines()
+        data_line = next(h for h in html_lines if "<td>" in h)
+        self.assertEqual('<tbody><tr><td><div align="right">000</div></td>'
+                         '<td><div align="right">000</div></td>'
+                         '<td><div align="right">000</div></td></tr>',
+                         data_line,
+                         "failed as_html with data type format")
+
     def test_delete_slices(self):
         compare_list = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz")
         t1 = lt.Table().insert_many(lt.DataObject(A=c) for c in compare_list)
