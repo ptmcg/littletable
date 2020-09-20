@@ -79,8 +79,9 @@ wishlists = customers.join_on("id") + wishitems.join_on("custid") + catalog.join
 print(wishlists().table_name)
 print(wishlists()("wishlists").table_name)
 
-# print all wishlist items with price > 10
-bigticketitems = wishlists().where(lambda ob : ob.unitprice > 10)
+# print all wishlist items with price > 10 (use Tabe.gt instead of lambda)
+# bigticketitems = wishlists().where(lambda ob : ob.unitprice > 10)
+bigticketitems = wishlists().where(unitprice=Table.gt(10))
 for bti in bigticketitems:
     print(bti)
 print()
