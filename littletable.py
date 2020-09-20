@@ -7,7 +7,7 @@
 # to a collection of data objects, without dealing with SQL
 #
 #
-# Copyright (c) 2010-2019  Paul T. McGuire
+# Copyright (c) 2010-2020  Paul T. McGuire
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -135,7 +135,7 @@ __version__ = (
         __version_info__.releaseLevel == "final"
     ]
 )
-__versionTime__ = "19 Sep 2020 20:52 UTC"
+__versionTime__ = "20 Sep 2020 14:39 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -207,13 +207,15 @@ if PY_3:
 else:
     from StringIO import StringIO
 
+_numeric_type = (int, float)
+
 __all__ = ["DataObject", "Table", "FixedWidthReader"]
 
 
 def _object_attrnames(obj):
     if hasattr(obj, "__dict__"):
         # normal object
-        return sorted(obj.__dict__.keys())
+        return list(obj.__dict__.keys())
     elif isinstance(obj, tuple) and hasattr(obj, "_fields"):
         # namedtuple
         return obj._fields
@@ -1541,16 +1543,46 @@ class Table(object):
         return {
             'len': len(self),
             'name': self.table_name,
-            'fields': list(_object_attrnames(self[0])) if self else [],
+            'fields': sorted(_object_attrnames(self[0])) if self else [],
             'indexes': [(idx_name, self._indexes[idx_name] in unique_indexes) for idx_name in self._indexes],
         }
 
-    def stats(self, field_names, by_field=True):
+    def head(self, n=10):
+        """
+        Return a table of the first 'n' records in a table.
+        :param n: (int, default=10) number of records to return
+        :return: Table
+        """
+        return self[:n]
+
+    def tail(self, n=10):
+        """
+        Return a table of the last 'n' records in a table.
+        :param n: (int, default=10) number of records to return
+        :return: Table
+        """
+        return self[-n:]
+
+    def stats(self, field_names=None, by_field=True):
+        """
+        Return a summary Table of statistics for numeric data in a Table.
+        For each field in the source table, returns:
+        - count
+        - min
+        - max
+        - mean
+        - variance
+        - standard deviation
+        :param field_names:
+        :param by_field:
+        :return:
+        """
+        field_names = self._parse_fields_string("*" if field_names is None else field_names)
         accum = dict((name, [0, 0, 0, 1e300, -1e300]) for name in field_names)
         for rec in self:
             for name in field_names:
                 value = getattr(rec, name, None)
-                if value is not None:
+                if value is not None and isinstance(value, _numeric_type):
                     acc = accum[name]
                     acc[0] += 1
                     acc[1] += value
@@ -1634,7 +1666,7 @@ class Table(object):
             ret_tr = ["<tr>"]
             for fld in fields:
                 v = getattr(r, fld, "")
-                align = 'right' if isinstance(v, (int, float)) else 'left'
+                align = 'right' if isinstance(v, _numeric_type) else 'left'
                 if fld not in field_format_map:
                     field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
                 v_format = field_format_map[fld]
@@ -1859,7 +1891,7 @@ class _PivotTableSummary(object):
                 ret_tr = ["<tr>"]
                 for v, hdg in zip(r, hdgs):
                     v_format = formats.get(hdg, formats.get(type(v), "{}"))
-                    v_align = 'right' if isinstance(v, (int, float)) else 'left'
+                    v_align = 'right' if isinstance(v, _numeric_type) else 'left'
                     str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
                     ret_tr.append('<td><div align="{}">{}</div></td>'.format(v_align, str_v))
                 ret_tr.append("</tr>\n")

@@ -7,7 +7,15 @@ Version 1.0.2 -
   preserve dict insertion order. (This is a bug in the unit test, not in
   the littletable core code.)
 
-- Proper definition of .all.x iterators so that iter(table.all.x)
+- Added `head(n)` and `tail(n)` methods for easy slicing of the first
+  or last `n` items in a Table (`n` defaults to 10).
+
+- Fixed `Table.stats()`` to return `None` for `min` and `max` values if
+  source table is empty. `Table.stats()` also defaults to using all
+  field names if a list is not given, and guards against non-numeric
+  data.
+
+- Proper definition of `table.all.x` iterators so that `iter(table.all.x)`
   returns self. (Necessary for modules like statistics that check
   if an iterator is passed by testing `if iter(data) is data`.)
 

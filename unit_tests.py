@@ -425,6 +425,19 @@ class TableListTests:
         self._test_init()
         self.assertTrue(self.test_rec in self.t1, "failed 'in' (contains) test")
 
+    def test_head_and_tail(self):
+        self._test_init()
+        self.t1.create_index("a")
+        self.t1.create_index("c")
+        self.assertEqual(["a", "c"], list(self.t1._indexes.keys()), "failed to create indexes")
+
+        self.assertEqual(list(self.t1._indexes.keys()),
+                         list(self.t1.head()._indexes.keys()),
+                         "failed to copy indexes to head()")
+        self.assertEqual(list(self.t1._indexes.keys()),
+                         list(self.t1.tail()._indexes.keys()),
+                         "failed to copy indexes to tail()")
+
     def test_unique(self):
         self._test_init()
         self.assertEqual(sorted([row.a for row in self.t1.unique('a')]), [0, 1, 2], "failed call to unique")
