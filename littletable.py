@@ -291,6 +291,9 @@ class _ObjIndex(object):
         else:
             return default
 
+    def _clear(self):
+        self.obs.clear()
+
 
 Mapping.register(_ObjIndex)
 
@@ -342,6 +345,11 @@ class _UniqueObjIndex(_ObjIndex):
                 self.none_values.remove(obj)
             except ValueError:
                 pass
+
+    def _clear(self):
+        self.obs.clear()
+        self.none_values.clear()
+        self.none_values.clear()
 
 
 class _ObjIndexWrapper(object):
@@ -852,6 +860,15 @@ class Table(object):
         for i in sorted(del_indices, reverse=True):
             self.pop(i)
 
+        return self
+
+    def clear(self):
+        """
+        Remove all contents from a Table and all indexes, but leave index definitions intact.
+        """
+        self.obs.clear()
+        for idx in self._indexes.values():
+            idx._clear()
         return self
 
     def _query_attr_sort_fn(self, attr_val):
@@ -1543,38 +1560,73 @@ class Table(object):
         - standard deviation
         :param field_names:
         :param by_field:
-        :return:
+        :return: Table of statistics; if by_field=True, each row contains summary
+                 statistics for each field; if by_field =False, each row contains a
+                 statistic and the value of that statistic for each field (conceptually
+                 a transpose of the by_field=True results)
         """
-        field_names = self._parse_fields_string("*" if field_names is None else field_names)
-        accum = dict((name, [0, 0, 0, 1e300, -1e300]) for name in field_names)
-        for rec in self:
-            for name in field_names:
-                value = getattr(rec, name, None)
-                if value is not None and isinstance(value, _numeric_type):
-                    acc = accum[name]
-                    acc[0] += 1
-                    acc[1] += value
-                    acc[2] += value*value
-                    if value < acc[3]:
-                        acc[3] = value
-                    if value > acc[4]:
-                        acc[4] = value
-
         ret = Table()
-        stats = [
-            ('count', lambda x: x[0]),
-            ('min', lambda x: x[3]),
-            ('max', lambda x: x[4]),
-            ('mean', lambda x: x[1] / x[0] if x[0] != 0 else None),
-            ('variance', lambda x: (x[2] - x[1]**2/x[0]) / x[0] if x[0] != 0 else None),
-            ('std_dev', lambda x: (x[0]*x[2] - x[1]*x[1])**0.5 / x[0] if x[0] != 0 else None),
-        ]
+
+        # if table is empty, return empty stats
+        if not self:
+            return ret
+
+        try:
+            import statistics
+        except ImportError:
+            statistics = None
+
+        if field_names is None:
+            field_names = self._parse_fields_string("*")
+
+        if statistics is not None:
+            accum = {fname: list(filter(lambda x: isinstance(x, _numeric_type), getattr(self.all, fname)))
+                                 for fname in field_names}
+            def safe_fn(fn, seq):
+                try:
+                    return fn(seq)
+                except (ValueError, statistics.StatisticsError):
+                    return None
+            stats = [
+                ('count', lambda seq: sum(isinstance(x, _numeric_type) for x in seq)),
+                ('min', partial(safe_fn, min)),
+                ('max', partial(safe_fn, max)),
+                ('mean', partial(safe_fn, getattr(statistics, "fmean", statistics.mean))),
+                ('variance', partial(safe_fn, statistics.variance)),
+                ('std_dev', partial(safe_fn, statistics.stdev))
+            ]
+        else:
+            accum = dict((name, [0, 0, 0, 1e300, -1e300]) for name in field_names)
+            for rec in self:
+                for name in field_names:
+                    value = getattr(rec, name, None)
+                    if value is not None and isinstance(value, _numeric_type):
+                        acc = accum[name]
+                        acc[0] += 1
+                        acc[1] += value
+                        acc[2] += value*value
+                        if value < acc[3]:
+                            acc[3] = value
+                        if value > acc[4]:
+                            acc[4] = value
+
+            stats = [
+                ('count', lambda x: x[0]),
+                ('min', lambda x: x[3] if x[0] != 0 else None),
+                ('max', lambda x: x[4] if x[0] != 0 else None),
+                ('mean', lambda x: x[1] / x[0] if x[0] != 0 else None),
+                ('variance', lambda x: (x[2] - x[1]**2/x[0]) / x[0] if x[0] != 0 else None),
+                ('std_dev', lambda x: (x[0]*x[2] - x[1]*x[1])**0.5 / x[0] if x[0] != 0 else None),
+            ]
+
         if by_field:
+            ret.create_index("name", unique=True)
             ret.insert_many(DataObject(name=fname,
                                        **dict((stat_name, stat_fn(accum[fname]))
                                               for stat_name, stat_fn in stats))
                             for fname in field_names)
         else:
+            ret.create_index("stat", unique=True)
             ret.insert_many(DataObject(stat=stat_name,
                                        **dict((fname, stat_fn(accum[fname]))
                                               for fname in field_names))

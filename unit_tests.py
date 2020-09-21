@@ -538,6 +538,46 @@ class TableListTests:
         mini_test((1000, 2000, None))
         mini_test((None, None, -1))
 
+    def test_clear(self):
+        self._test_init()
+        num_fields = len(self.t1.info()["fields"])
+        self.assertEqual(self.test_size ** num_fields, len(self.t1), "invalid len")
+        self.t1.create_index("a")
+
+        self.t1.clear()
+        self.assertEqual(0, len(self.t1), "invalid len after clear")
+        self.assertEqual(1, len(self.t1.info()["indexes"]), "invalid indexes after clear")
+
+    def test_stats(self):
+        self._test_init()
+        field_names = self.t1.info()["fields"]
+        num_fields = len(field_names)
+        t1_stats = self.t1.stats().select("name count min max mean")
+        for fieldname in field_names:
+            stat_rec = t1_stats.by.name[fieldname]
+            self.assertEqual(lt.DataObject(name=fieldname,
+                                           count=self.test_size ** num_fields,
+                                           min=0,
+                                           max=self.test_size - 1,
+                                           mean=(self.test_size - 1) / 2), stat_rec,
+                             "invalid stat for {}".format(fieldname))
+
+        t1_stats = self.t1.stats(by_field=False)
+        for stat, value in (('min', 0), ('max', self.test_size - 1), ('count', self.test_size ** num_fields),):
+            for fieldname in field_names:
+                self.assertEqual(value, getattr(t1_stats.by.stat[stat], fieldname),
+                                 "invalid {} stat for {}".format(stat, fieldname))
+
+        to_dict = lt._to_dict
+        mod_rec = self.t1.pop(0)
+        rec_type = type(mod_rec)
+        new_rec_dict = to_dict(mod_rec)
+        new_rec_dict['a'] = "not a number"
+        new_rec = rec_type(**new_rec_dict)
+        self.t1.insert(new_rec)
+        t1_stats = self.t1.stats()
+        self.assertEqual(self.test_size ** num_fields - 1, t1_stats.by.name["a"].count)
+
 class TableListTests_DataObjects(unittest.TestCase, TableListTests, UsingDataObjects):
     pass
 

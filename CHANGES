@@ -3,17 +3,24 @@ Change History
 
 Version 1.0.2 -
 ---------------
-- Fix unit tests that fail under Python versions pre-3.6 that do not
-  preserve dict insertion order. (This is a bug in the unit test, not in
-  the littletable core code.)
-
 - Added `head(n)` and `tail(n)` methods for easy slicing of the first
   or last `n` items in a Table (`n` defaults to 10).
+
+- Added `Table.clear()` method to clear all contents of a Table, but
+  leaving any index definitions intact.
+
+- Updated `Table.stats()` to use the Python statistics module for those
+  versions of Python that support it. The Tables returned from this
+  method now also include unique indexes to support `.by.name[field_name]`
+  access to the stats for a particular field, or `.by.stat[stat_name]`
+  access to a particular stat for all fields, if `Table.stats` is called
+  with `by_field=False`.
 
 - Fixed `Table.stats()`` to return `None` for `min` and `max` values if
   source table is empty. `Table.stats()` also defaults to using all
   field names if a list is not given, and guards against non-numeric
-  data.
+  data. If `stats()` is called on an empty Table, an empty Table of
+  statistics is returned.
 
 - Proper definition of `table.all.x` iterators so that `iter(table.all.x)`
   returns self. (Necessary for modules like statistics that check
@@ -26,6 +33,10 @@ Version 1.0.2 -
   (such as "{:5.2f}" for a real value formatted to two decimal places).
   If a callable is passed, it should take a single value argument and
   return a str.
+
+- Fixed unit tests that fail under Python versions pre-3.6 that do not
+  preserve dict insertion order. (This was a bug in the unit test, not in
+  the littletable core code.)
 
 
 Version 1.0.1 -
