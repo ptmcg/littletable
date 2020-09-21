@@ -348,8 +348,7 @@ class _UniqueObjIndex(_ObjIndex):
 
     def _clear(self):
         self.obs.clear()
-        self.none_values.clear()
-        self.none_values.clear()
+        del self.none_values[:]
 
 
 class _ObjIndexWrapper(object):
@@ -866,7 +865,7 @@ class Table(object):
         """
         Remove all contents from a Table and all indexes, but leave index definitions intact.
         """
-        self.obs.clear()
+        del self.obs[:]
         for idx in self._indexes.values():
             idx._clear()
         return self
