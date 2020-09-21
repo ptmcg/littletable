@@ -117,15 +117,16 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
-import os
-import sys
-import operator
 import csv
+import operator
+import os
 import random
+import re
+import sys
 from collections import defaultdict, deque, namedtuple
-from itertools import starmap, repeat, islice, takewhile, chain
-from functools import partial
 from contextlib import closing
+from functools import partial
+from itertools import starmap, repeat, islice, takewhile, chain, product
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
 __version_info__ = version_info(1, 0, 2, "final", 0)
@@ -163,7 +164,6 @@ except ImportError:
         # in tables or output files
         ODict = dict
 
-import re
 # import json in Python 2 or 3 compatible forms
 try:
     import simplejson as json
@@ -181,25 +181,6 @@ except ImportError:
 
 _consumer = deque(maxlen=0)
 do_all = _consumer.extend
-
-try:
-    from itertools import product
-except ImportError:
-    # Py2 emulation
-    def product(*seqs):
-        tupleseqs = [[(x,) for x in s] for s in seqs]
-
-        def _product(*internal_seqs):
-            if len(internal_seqs) == 1:
-                for x in internal_seqs[0]:
-                    yield x
-            else:
-                for x in internal_seqs[0]:
-                    for p in _product(*internal_seqs[1:]):
-                        yield x+p
-
-        for pp in _product(*tupleseqs):
-            yield pp
 
 if PY_3:
     basestring = str
