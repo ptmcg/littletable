@@ -568,13 +568,18 @@ class TableListTests:
                 self.assertEqual(value, getattr(t1_stats.by.stat[stat], fieldname),
                                  "invalid {} stat for {}".format(stat, fieldname))
 
-        to_dict = lt._to_dict
-        mod_rec = self.t1.pop(0)
-        rec_type = type(mod_rec)
-        new_rec_dict = to_dict(mod_rec)
-        new_rec_dict['a'] = "not a number"
-        new_rec = rec_type(**new_rec_dict)
-        self.t1.insert(new_rec)
+        # verify that stats can "step over" non-numeric data
+        try:
+            self.t1[0].a = "not a number"
+        except (AttributeError, TypeError):
+            # some test types aren't mutable, must replace rec with a modified one
+            mod_rec = self.t1.pop(0)
+            rec_type = type(mod_rec)
+            new_rec_dict = lt._to_dict(mod_rec)
+            new_rec_dict['a'] = "not a number"
+            new_rec = rec_type(**new_rec_dict)
+            self.t1.insert(new_rec)
+
         t1_stats = self.t1.stats()
         self.assertEqual(self.test_size ** num_fields - 1, t1_stats.by.name["a"].count)
 
