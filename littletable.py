@@ -118,15 +118,18 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 import csv
+import json
 import operator
 import os
 import random
 import re
 import sys
-from collections import defaultdict, deque, namedtuple
+from collections import defaultdict, deque, namedtuple, OrderedDict as ODict
 from contextlib import closing
 from functools import partial
 from itertools import starmap, repeat, islice, takewhile, chain, product
+
+json_dumps = partial(json.dumps, indent=2)
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
 __version_info__ = version_info(1, 0, 2, "final", 0)
@@ -152,25 +155,6 @@ else:
     str_strip = str.strip
     import urllib.request
     urlopen = urllib.request.urlopen
-
-try:
-    from collections import OrderedDict as ODict
-except ImportError:
-    # try importing ordereddict backport to Py2
-    try:
-        from ordereddict import OrderedDict as ODict
-    except ImportError:
-        # best effort, just use dict, but won't preserve ordering of fields
-        # in tables or output files
-        ODict = dict
-
-# import json in Python 2 or 3 compatible forms
-try:
-    import simplejson as json
-    json_dumps = partial(json.dumps, indent='  ')
-except ImportError:
-    import json
-    json_dumps = partial(json.dumps, indent=2)
 
 try:
     # Python 3
