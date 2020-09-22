@@ -132,14 +132,14 @@ from itertools import starmap, repeat, islice, takewhile, chain, product
 json_dumps = partial(json.dumps, indent=2)
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
-__version_info__ = version_info(1, 0, 2, "final", 0)
+__version_info__ = version_info(1, 1, 0, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
         __version_info__.releaseLevel == "final"
     ]
 )
-__versionTime__ = "20 Sep 2020 14:39 UTC"
+__versionTime__ = "22 Sep 2020 02:11 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -1660,6 +1660,68 @@ class Table(object):
             field_names = list(takewhile(lambda x: x != '*', fn_iter)) + star_fields + list(fn_iter)
         field_names = [nm for nm in field_names if nm not in suppress_names]
         return field_names
+
+    def _rich_table(self, fields=None, empty="", **kwargs):
+
+        if fields is None:
+            fields = self.info()["fields"]
+
+        attr_names = []
+        field_settings = []
+        for field_spec in fields:
+            if isinstance(field_spec, str):
+                name, field_spec = field_spec, {}
+                next_v = next((v for v in getattr(self.all, name) if v is not None), None)
+                if isinstance(next_v, _numeric_type):
+                    field_spec["justify"] = "right"
+            else:
+                name, field_spec = field_spec
+            attr_names.append(name)
+            header = field_spec.pop("header", None)
+            if header is None:
+                header = name.title()
+            field_settings.append((header, field_spec))
+
+        # rich-specific starts here
+        try:
+            from rich import box
+            from rich.table import Table as RichTable
+        except ImportError:
+            raise Exception("rich module not installed")
+
+        table_defaults = dict(show_header=True, header_style="bold", box=box.ASCII)
+        if sys.stdout.isatty():
+            table_defaults["box"] = box.SIMPLE
+        if self.table_name:
+            table_defaults["title"] = self.table_name
+        table_kwargs = table_defaults
+        table_kwargs.update(kwargs)
+
+        # create rich Table
+        rt = RichTable(**table_kwargs)
+
+        # define rich Table columns
+        for header, field_spec in field_settings:
+            rt.add_column(header, **field_spec)
+
+        # add row data from self to rich Table
+        for rec in self.formatted_table(*fields):
+            rt.add_row(*[getattr(rec, attr_name, empty) for attr_name in attr_names])
+
+        return rt
+
+    def present(self, fields=None, file=sys.stdout, **kwargs):
+        try:
+            from rich.console import Console
+        except ImportError:
+            raise Exception("rich module not installed")
+
+        console = Console()
+        table_kwargs = {'header_style': "bold yellow"}
+        table_kwargs.update(kwargs)
+        table = self._rich_table(fields, empty="", **table_kwargs)
+        print()
+        console.print(table)
 
     def as_html(self, fields='*', formats=None):
         """
