@@ -2,6 +2,9 @@ sudo: false
 
 language: python
 
+install:
+  pip install rich
+
 matrix:
   include:
     - python: 2.7
