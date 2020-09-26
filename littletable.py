@@ -1711,6 +1711,19 @@ class Table(object):
         return rt
 
     def present(self, fields=None, file=sys.stdout, **kwargs):
+        """
+        Print a nicely-formatted table of the records in the Table, using the `rich`
+        Python module. If the Table has a title, then that will be displayed as the
+        title over the tabular output.
+
+        :param fields: list of field names to include in the tabular output
+        :param file: (optional) output file for tabular output (defaults to sys.stdout)
+        :param kwargs: (optional) additional keyword args to customize the `rich` output,
+                       as might be passed to the `rich.Table` class
+        :return: None
+
+        Note: the `rich` Python module must be installed to use this method.
+        """
         try:
             from rich.console import Console
         except ImportError:

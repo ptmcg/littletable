@@ -5,7 +5,7 @@
 #
 from __future__ import print_function
 
-from littletable import Table, DataObject
+from littletable import Table
 from collections import namedtuple
 Customer = namedtuple("Customer", "id name")
 CatalogItem = namedtuple("CatalogItem", "sku descr unitofmeas unitprice")
@@ -30,7 +30,7 @@ MAGLS-001,Magnifying glass,EA,12
 ANVIL-001,1000lb anvil,EA,100
 ROPE-001,1 in. heavy rope,100FT,10
 ROBOT-001,Domestic robot,EA,5000"""
-catalog.csv_import(catalog_data, row_class=CatalogItem, transforms={'unitprice':int})
+catalog.csv_import(catalog_data, row_class=CatalogItem, transforms={'unitprice': int})
 
 wishitems = Table("wishitems")
 wishitems.create_index("custid")
@@ -66,7 +66,7 @@ for item in catalog.by.unitofmeas["LB"]:
 print()
 
 # print all items that cost more than 10
-for item in catalog.where(lambda ob : ob.unitprice > 10):
+for item in catalog.where(lambda ob: ob.unitprice > 10):
     print(item.sku, item.descr, item.unitprice)
 print()
 
@@ -91,11 +91,14 @@ for item in wishlists().sort("custid, unitprice desc"):
     print(item)
 print()
 
+# display formatted tabular output
+wishlists().sort("custid, unitprice desc")("Wishlists").present()
+
 # create simple pivot table, grouping wishlist data by customer name
 wishlistsdata = wishlists()
 wishlistsdata.create_index("name")
 pivot = wishlistsdata.pivot("name")
-pivot.dump(row_fn=lambda o:"%s %s" % (o.sku,o.descr))
+pivot.dump(row_fn=lambda o: "%s %s" % (o.sku, o.descr))
 print()
 
 # pivot on both sku number and customer name, giving tabular output
@@ -105,5 +108,5 @@ print()
 
 # pivot on both sku number and customer name, giving tabular output
 # tabulate by sum(unitprice) for all items in each pivot table cell
-piv2.dump_counts(count_fn=lambda recs:sum(r.unitprice for r in recs))
+piv2.dump_counts(count_fn=lambda recs: sum(r.unitprice for r in recs))
 print()

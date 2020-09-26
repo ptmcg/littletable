@@ -4,7 +4,9 @@ Change History
 Version 1.1.0 -
 ---------------
 - Added the `Table.present()` method, using the `rich` module to format
-  table contents into a clean tabular format.
+  table contents into a clean tabular format. Also added notes in the
+  "How to Use Littletable.txt" file on creating nice tabular output with
+  `rich`, Jupyter Notebook, and `tabulate`.
 
 - Added `head(n)` and `tail(n)` methods for easy slicing of the first
   or last `n` items in a Table (`n` defaults to 10).

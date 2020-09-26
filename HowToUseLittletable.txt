@@ -7,7 +7,7 @@ littletable is a simple Python module to make it easy to work with collections o
 - querying for matching objects by one or more attributes
 - data pivoting on 1 or more attributes
 
-It is not necessary to define a table schema  for tables in littletable; the schema of the data emerges from the attributes of the stored objects, and those used to define indexes and queries.
+It is not necessary to define a table schema for tables in littletable; the schema of the data emerges from the attributes of the stored objects, and those used to define indexes and queries.
 
 Indexes can be created and dropped at any time. An index can be defined to have unique or non-unique key values, and whether or not to allow null values.
 
@@ -25,68 +25,83 @@ If you want, you can name the table at creation time, or any time later.
 
     t = Table("customers")
     
-    or
+      or
     
     t = Table()
     t("customers")
 
 Table names are not necessary for queries or updates, as they would be in SQL.  Table names can be useful in diagnosing problems, as they will be included in exception messages. Table joins also use the names of the source tables to create a helpful name for the resulting data table.
 
+
+Importing data from CSV files:
+------------------------------
 You can easily import a CSV file into a Table using Table.csv_import():
 
     t = Table().csv_import("my_data.csv")
-    
+
+In place of a local file name, you can also specify  an HTTP url:
+
+    url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
+    iris_table = Table('iris').csv_import(url)
+
+You can also directly import CSV data as a string or as:
+
+    catalog = Table("catalog")
+    catalog.create_index("sku", unique=True)
+    catalog_data = """\
+    sku,description,unitofmeas,unitprice
+    BRDSD-001,Bird seed,LB,3
+    BBS-001,Steel BB's,LB,5
+    MGNT-001,Magnet,EA,8"""
+    catalog.csv_import(catalog_data, transforms={'unitprice': int})
+
+
 Files containing JSON-formatted records can be similarly imported using Table.json_import().
 
 
-Importing data from fixed-width text files
-----------------------------------------------
-Some files contain fixed-width columns, you can use the FixedWidthReader class to import these into  littletable Tables.
+Tabular output
+--------------
+To produce a nice tabular output for a table, you can use the embedded support for
+the `rich` module, as_html() in Jupyter Notebook, or the `tabulate` module:
 
-For data in this data file (not including the leading column numbers):
-          1         2         3         4         5         6
-0123456789012345678901234567890123456789012345678901234567890123456789
-0010GEORGE JETSON    12345 SPACESHIP ST   HOUSTON       TX 4.9
-0020WILE E COYOTE    312 ACME BLVD        TUCSON        AZ 7.3
-0030FRED FLINTSTONE  246 GRANITE LANE     BEDROCK       CA 2.6
-0040JONNY QUEST      31416 SCIENCE AVE    PALO ALTO     CA 8.1
+Using table.present() (implemented using `rich`; present() accepts `rich` Table keyword args):
 
-Define the columns to import as:
+    table(title_str).present(fields=["col1", "col2", "col3"])
+      or
+    table.select("col1 col2 col3")(title_str).present(caption="caption text")
 
-    columns = [
-        ("id_no", 0, ),
-        ("name", 4, ),
-        ("address", 21, ),
-        ("city", 42, ),
-        ("state", 56, 58, ),
-        ("tech_skill_score", 59, None, float),
-        ]
+Using `Jupyter Notebook`:
 
-And use a FixedWidthReader to read the file and pass a list of dicts to a Table.insert_many:
+    from IPython.display import HTML, display
+    display(HTML(table.as_html()))
 
-    characters_table = lt.Table().insert_many(lt.DataObject(**rec) for rec in
-                                              lt.FixedWidthReader(columns, "cartoon_characters.txt"))
+Using `tabulate`:
 
-For each column, define:
-- the attribute name
-- the starting column
-- (optional) the ending column (the start of the next column is the default)
-- (optional) a function to transform the input string (in this example, 'tech_skill_score' gets converted to a float); if no function is specified, str.strip() is used
+    print(tabulate(map(vars, table), headers="keys"))
 
 
 Inserting objects
 -----------------
-Any object can be inserted into a table, using:
+From within your Python code, you can create objects and add them to the table using
+`insert()` and `insert_many()`. Any object can be inserted into a table, using:
 
     t.insert(obj)
 
     t.insert_many(objlist)
 
+`littletable` supports records that are user-defined types (including those defined
+using `__slots__`), `namedtuple`s, `SimpleNamespace`s. Python `dict`s can be used if
+they are converted to `SimpleNamespace`s or `littletable.DataObject`s.
+
 
 DataObjects
 -----------
+If your program does not have a type for inserting into your table, or if your
+records are Python `dict`s, you can use the `littletable` type `DataObject`:
 
-    t.insert(DataObject(**kwargs))
+    t.insert(DataObject(name="Alice", age=20))
+    bob = {"name": "Bob", "age": 19}
+    t.insert(DataObject(**bob))
 
 
 Removing objects
@@ -122,7 +137,7 @@ Querying for exact matching attribute values
 Querying with indexed attributes
 --------------------------------
 
-If accessing a table using a unique index, giving a key value will return the single matching record, or raise KeyError.
+If accessing a table using a unique index, giving a key value will return the single matching record, or raise `KeyError`.
     employees.by.empid['00086']
 
 If accessing a table using a non-unique index, will return a new table containing all matching records. If there are no matching records, the returned table will be empty.
@@ -135,6 +150,41 @@ Querying for attribute value ranges
     employees.where(lambda emp: emp.salary > 50000)
 
 
+Importing data from fixed-width text files
+----------------------------------------------
+Some files contain fixed-width columns, you can use the `FixedWidthReader` class to import these into  `littletable` `Table`s.
+
+For data in this data file (not including the leading column numbers):
+          1         2         3         4         5         6
+0123456789012345678901234567890123456789012345678901234567890123456789
+0010GEORGE JETSON    12345 SPACESHIP ST   HOUSTON       TX 4.9
+0020WILE E COYOTE    312 ACME BLVD        TUCSON        AZ 7.3
+0030FRED FLINTSTONE  246 GRANITE LANE     BEDROCK       CA 2.6
+0040JONNY QUEST      31416 SCIENCE AVE    PALO ALTO     CA 8.1
+
+Define the columns to import as:
+
+    columns = [
+        ("id_no", 0, ),
+        ("name", 4, ),
+        ("address", 21, ),
+        ("city", 42, ),
+        ("state", 56, 58, ),
+        ("tech_skill_score", 59, None, float),
+        ]
+
+And use a `FixedWidthReader` to read the file and pass a list of dicts to a `Table.insert_many`:
+
+    characters_table = lt.Table().insert_many(lt.DataObject(**rec) for rec in
+                                              lt.FixedWidthReader(columns, "cartoon_characters.txt"))
+
+For each column, define:
+- the attribute name
+- the starting column
+- (optional) the ending column (the start of the next column is the default)
+- (optional) a function to transform the input string (in this example, 'tech_skill_score' gets converted to a float); if no function is specified, str.strip() is used
+
+
 Joining tables
 --------------
 Joining tables is one of the basic functions of relational databases. To join two tables, you must specify:
@@ -142,7 +192,7 @@ Joining tables is one of the basic functions of relational databases. To join tw
 - the right source table and join attribute
 - optionally, a list of the attributes to include in the resulting join data (returned in littletable as a new table)
 
-littletable provides two different coding styles for joining tables.  The first uses conventional object notation, with the table.join() method:
+`littletable` provides two different coding styles for joining tables.  The first uses conventional object notation, with the `table.join()` method:
 
     customers.join(orders, custid="custid")
 
@@ -173,7 +223,6 @@ Pivoting a table
 Pivoting is a useful function for extracting overall distributions of values within a table.  Tables can be pivoted on 1, 2, or 3 attributes. The pivot tallies up the number of objects in a given table with each of the different key values.  A single attribute pivot gives the same results as a histogram - each key for the attribute is given, along with the count of objects having that key value.  (Of course, pivots are most interesting for attributes with non-unique indexes.)
 
 Pivoting on 2 attributes extends the concept, getting the range of key values for each attribute, and then tallying the number of objects containing each possible pair of key values. The results can be reported as a two-dimensional table, with the primary attribute keys down the leftmost column, and the secondary attribute keys as headers across the columns.  Subtotals will also be reported at the far right column and at the bottom of each column.
-
 
 
 Some simple littletable recipes:
@@ -218,5 +267,3 @@ Some simple littletable recipes:
 - Get top 5 objects in table by value of attribute x
 
     salesmen.sort("sales desc")[:5]
-
-

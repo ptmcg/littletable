@@ -9,12 +9,69 @@ objects' `__dict__`, `__slots__`, or `_fields` mappings to access object attribu
 In addition to basic ORM-style insert/remove/query/delete access to the contents of a `Table`, `littletable` offers:
 * simple indexing for improved retrieval performance, and optional enforcing key uniqueness 
 * access to objects using indexed attributes 
-* simplified joins using '+' operator syntax between annotated Tables 
-* the result of any query or join is a new first-class littletable Table 
+* simplified joins using `"+"` operator syntax between annotated `Table`s 
+* the result of any query or join is a new first-class `littletable` `Table` 
+* access like a standard Python list to the records in a Table, including
+  indexing/slicing, `iter`, `zip`, `len`, `groupby`, etc.
+* access like a standard Python `dict` to attributes with a unique index, or like
+  a standard Python `defaultdict(list)` to attributes with a non-unique index.
 
-littletable Tables do not require an upfront schema definition, but simply work off of the attributes in 
+`littletable` `Table`s do not require an upfront schema definition, but simply work off of the attributes in 
 the stored values, and those referenced in any query parameters.
 
+
+Importing data from CSV files:
+------------------------------
+You can easily import a CSV file into a Table using Table.csv_import():
+
+    t = Table().csv_import("my_data.csv")
+
+In place of a local file name, you can also specify  an HTTP url:
+
+    url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
+    iris_table = Table('iris').csv_import(url)
+
+You can also directly import CSV data as a string:
+
+    catalog = Table("catalog")
+
+    catalog_data = """\
+    sku,description,unitofmeas,unitprice
+    BRDSD-001,Bird seed,LB,3
+    BBS-001,Steel BB's,LB,5
+    MGNT-001,Magnet,EA,8"""
+
+    catalog.csv_import(catalog_data, transforms={'unitprice': int})
+
+
+Files containing JSON-formatted records can be similarly imported using `Table.json_import()`.
+
+
+Tabular output
+--------------
+To produce a nice tabular output for a table, you can use the embedded support for
+the [rich](https://github.com/willmcgugan/rich) module, `as_html()` in [Jupyter Notebook](https://jupyter.org/),
+or the [tabulate](https://github.com/astanin/python-tabulate) module:
+
+Using `table.present()` (implemented using `rich`; `present()` accepts `rich` `Table` keyword args):
+
+    table(title_str).present(fields=["col1", "col2", "col3"])
+      or
+    table.select("col1 col2 col3")(title_str).present(caption="caption text", 
+                                                      caption_justify="right")
+
+Using `Jupyter Notebook`:
+
+    from IPython.display import HTML, display
+    display(HTML(table.as_html()))
+
+Using `tabulate`:
+
+    from tabulate import tabulate
+    print(tabulate(map(vars, table), headers="keys"))
+
+Sample Demo
+-----------
 Here is a simple littletable data storage/retrieval example:
 
     from littletable import Table, DataObject
@@ -59,7 +116,7 @@ Here is a simple littletable data storage/retrieval example:
         print(item.sku, item.descr)
 
     # print all items that cost more than 10
-    for item in catalog.where(lambda o: o.unitprice>10):
+    for item in catalog.where(lambda o: o.unitprice > 10):
         print(item.sku, item.descr, item.unitprice)
 
     # join tables to create queryable wishlists collection
@@ -73,3 +130,6 @@ Here is a simple littletable data storage/retrieval example:
     # list all wishlist items in descending order by price
     for item in wishlists().sort("unitprice desc"):
         print(item)
+
+    # print output as a nicely-formatted table
+    wishlists().sort("unitprice desc")("Wishlists").present()
