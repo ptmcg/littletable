@@ -2,9 +2,6 @@ sudo: false
 
 language: python
 
-install:
-  pip install rich
-
 matrix:
   include:
     - python: 2.7
@@ -19,6 +16,5 @@ matrix:
 script:
  - python littletable.py
  - python unit_tests.py
- - python littletable_demo.py
  - python pivot_demo.py
  - python fixed_width_demo.py
