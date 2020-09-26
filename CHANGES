@@ -6,13 +6,18 @@ Version 1.1.0 -
 - Added the `Table.present()` method, using the `rich` module to format
   table contents into a clean tabular format. Also added notes in the
   "How to Use Littletable.txt" file on creating nice tabular output with
-  `rich`, Jupyter Notebook, and `tabulate`.
+  `rich`, Jupyter Notebook, and `tabulate`. (Note: `rich` only supports
+  Python versions 3.6 and later.)
 
 - Added `head(n)` and `tail(n)` methods for easy slicing of the first
   or last `n` items in a Table (`n` defaults to 10).
 
 - Added `Table.clear()` method to clear all contents of a Table, but
   leaving any index definitions intact.
+
+- Added comparators `Table.between(a, b)` and `Table.within(a, b)` for easy
+  range testing.  `Table.between(a, b)` performs an `a < x < b` exclusive
+  match, and `Table.within(a, b)` performs an `a <= x <= b` inclusive match.
 
 - Updated `Table.stats()` to use the Python statistics module for those
   versions of Python that support it. The Tables returned from this
@@ -26,6 +31,9 @@ Version 1.1.0 -
   field names if a list is not given, and guards against non-numeric
   data. If `stats()` is called on an empty Table, an empty Table of
   statistics is returned.
+
+- Removed sorting of field names in `table.info()["fields"]` so that
+  attribute names are kept in default order for tabular output.
 
 - Proper definition of `table.all.x` iterators so that `iter(table.all.x)`
   returns self. (Necessary for modules like statistics that check

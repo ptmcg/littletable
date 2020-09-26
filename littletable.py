@@ -139,7 +139,7 @@ __version__ = (
         __version_info__.releaseLevel == "final"
     ]
 )
-__versionTime__ = "22 Sep 2020 02:11 UTC"
+__versionTime__ = "26 Sep 2020 22:58 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -560,6 +560,17 @@ def _make_comparator(cmp_fn):
     return comparator_with_value
 
 
+def _make_comparator2(cmp_fn):
+    """
+    Internal function to help define Table.within and between
+    """
+    def comparator_with_value(lower, upper):
+        def _Table_comparator_fn(attr):
+            return lambda table_rec: cmp_fn(lower, getattr(table_rec, attr), upper)
+        return _Table_comparator_fn
+    return comparator_with_value
+
+
 class Table(object):
     """Table is the main class in C{littletable}, for representing a collection of DataObjects or
        user-defined objects with publicly accessible attributes or properties.  Tables can be:
@@ -585,6 +596,8 @@ class Table(object):
     ge = staticmethod(_make_comparator(operator.ge))
     ne = staticmethod(_make_comparator(operator.ne))
     eq = staticmethod(_make_comparator(operator.eq))
+    between = staticmethod(_make_comparator2(lambda lower, x, upper: lower < x < upper))
+    within = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x <= upper))
 
     def __init__(self, table_name=''):
         """Create a new, empty Table.
@@ -1037,7 +1050,9 @@ class Table(object):
         all_names = tuple(fields) + tuple(exprs.keys())
         ret = Table()
         ret._indexes.update(dict((k, v.copy_template()) for k, v in self._indexes.items() if k in all_names))
-        return ret().insert_many(DataObject(**dict(zip(all_names, out_tuple))) for out_tuple in raw_tuples)
+        if self:
+            ret.insert_many(DataObject(**dict(zip(all_names, out_tuple))) for out_tuple in raw_tuples)
+        return ret
 
     def formatted_table(self, *fields, **exprs):
         """
@@ -1527,7 +1542,7 @@ class Table(object):
         return {
             'len': len(self),
             'name': self.table_name,
-            'fields': sorted(_object_attrnames(self[0])) if self else [],
+            'fields': list(_object_attrnames(self[0])) if self else [],
             'indexes': [(idx_name, self._indexes[idx_name] in unique_indexes) for idx_name in self._indexes],
         }
 
@@ -1671,11 +1686,14 @@ class Table(object):
         for field_spec in fields:
             if isinstance(field_spec, str):
                 name, field_spec = field_spec, {}
+                # find a value for this attribute, and if numeric, make column right-justified
                 next_v = next((v for v in getattr(self.all, name) if v is not None), None)
                 if isinstance(next_v, _numeric_type):
                     field_spec["justify"] = "right"
             else:
+                # use field settings form caller
                 name, field_spec = field_spec
+
             attr_names.append(name)
             header = field_spec.pop("header", None)
             if header is None:
@@ -1710,7 +1728,7 @@ class Table(object):
 
         return rt
 
-    def present(self, fields=None, file=sys.stdout, **kwargs):
+    def present(self, fields=None, file=None, **kwargs):
         """
         Print a nicely-formatted table of the records in the Table, using the `rich`
         Python module. If the Table has a title, then that will be displayed as the
@@ -1729,7 +1747,7 @@ class Table(object):
         except ImportError:
             raise Exception("rich module not installed")
 
-        console = Console()
+        console = Console(file=file)
         table_kwargs = {'header_style': "bold yellow"}
         table_kwargs.update(kwargs)
         table = self._rich_table(fields, empty="", **table_kwargs)

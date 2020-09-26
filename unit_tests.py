@@ -209,6 +209,10 @@ class TableCreateTests:
         self.assertEqual(len(table.where(a=lt.Table.ne(4))), test_size*test_size*(test_size-1))
         self.assertEqual(len(table.where(a=lt.Table.eq(4))), test_size*test_size)
         self.assertEqual(len(table.where(a=lt.Table.eq(4), b=lt.Table.eq(4))), test_size)
+        self.assertEqual(len(table.where(a=lt.Table.between(3, 8))), test_size*test_size*4)
+        self.assertEqual(len(table.where(a=lt.Table.within(2, 5))), test_size*test_size*4)
+        self.assertEqual(len(table.where(a=lt.Table.between(3, 3))), 0)
+        self.assertEqual(len(table.where(a=lt.Table.within(3, 3))), test_size*test_size)
 
     def test_get_slice(self):
         test_size = 10
