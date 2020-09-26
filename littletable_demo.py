@@ -7,6 +7,8 @@ from __future__ import print_function
 
 from littletable import Table
 from collections import namedtuple
+import sys
+
 Customer = namedtuple("Customer", "id name")
 CatalogItem = namedtuple("CatalogItem", "sku descr unitofmeas unitprice")
 
@@ -91,8 +93,9 @@ for item in wishlists().sort("custid, unitprice desc"):
     print(item)
 print()
 
-# display formatted tabular output
-wishlists().sort("custid, unitprice desc")("Wishlists").present()
+# display formatted tabular output (only on Python 3.6 and later)
+if sys.version_info >= (3, 6):
+    wishlists().sort("custid, unitprice desc")("Wishlists").select("custid name sku descr").present()
 
 # create simple pivot table, grouping wishlist data by customer name
 wishlistsdata = wishlists()
