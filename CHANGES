@@ -15,9 +15,13 @@ Version 1.1.0 -
 - Added `Table.clear()` method to clear all contents of a Table, but
   leaving any index definitions intact.
 
-- Added comparators `Table.between(a, b)` and `Table.within(a, b)` for easy
-  range testing.  `Table.between(a, b)` performs an `a < x < b` exclusive
-  match, and `Table.within(a, b)` performs an `a <= x <= b` inclusive match.
+- Added comparators `Table.between(a, b)`, `Table.within(a, b)`, and
+  `Table.in_range(a, b)` for easy range testing:
+
+     `Table.between(a, b)` matches `a < x < b` exclusive match
+     `Table.within(a, b)`  matches `a <= x <= b` inclusive match
+     `Table.in_range(a, b)` matches `a <= x < b`, range check, similar
+           to testing `x in range(a, b)` in Python
 
 - Updated `Table.stats()` to use the Python statistics module for those
   versions of Python that support it. The Tables returned from this

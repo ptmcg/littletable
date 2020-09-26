@@ -598,6 +598,7 @@ class Table(object):
     eq = staticmethod(_make_comparator(operator.eq))
     between = staticmethod(_make_comparator2(lambda lower, x, upper: lower < x < upper))
     within = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x <= upper))
+    in_range = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x < upper))
 
     def __init__(self, table_name=''):
         """Create a new, empty Table.
