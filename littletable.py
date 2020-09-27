@@ -132,14 +132,14 @@ from itertools import starmap, repeat, islice, takewhile, chain, product
 json_dumps = partial(json.dumps, indent=2)
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
-__version_info__ = version_info(1, 1, 0, "final", 0)
+__version_info__ = version_info(1, 1, 1, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
         __version_info__.releaseLevel == "final"
     ]
 )
-__versionTime__ = "26 Sep 2020 22:58 UTC"
+__versionTime__ = "27 Sep 2020 22:33 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
