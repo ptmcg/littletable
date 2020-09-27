@@ -1,6 +1,9 @@
 littletable - Usage Notes
 =========================
 
+(This file is superseded by the Markdown version, https://github.com/ptmcg/littletable/blob/master/HowToUseLittletable.md - refer to that file for more current
+information on `littletable`.)
+
 littletable is a simple Python module to make it easy to work with collections of objects as if they were records in a database table.  littletable augments normal Python list access with:
 - indexing by key attributes
 - joining multiple tables by common attribute values
