@@ -228,12 +228,49 @@ write:
 
 Simple statistics on Tables of numeric values
 ---------------------------------------------
-Table.stats() will perform simple mean, variance, and standard deviation
+`Table.stats()` will perform simple mean, variance, and standard deviation
 calculations by attribute on records in a table. The results are returned
 in a new Table that can be keyed by attribute (with "mean", "variance", etc.
 attributes), or by statistic (keyed by "mean", etc., with attributes matching
 those in the source Table). Non-numeric values are implicitly omitted from
 the statistics calculations.
+
+    t1 = lt.Table()
+    t1.csv_import("""\
+    a,b,c
+    100,101,102
+    110,220,99
+    108,130,109""", transforms=dict(a=int, b=int, c=int))
+    
+    t1_stats = t1.stats()
+    t1_stats.present(box=box.ASCII)
+    print(t1_stats.by.name["a"].mean)
+    
+    #    +-----------------------------------------------------------------------------+
+    #    | Name | Count | Min | Max |           Mean |       Variance |        Std_Dev |
+    #    |------+-------+-----+-----+----------------+----------------+----------------|
+    #    | a    |     3 | 100 | 110 |          106.0 |             28 | 5.29150262212  |
+    #    | b    |     3 | 101 | 220 | 150.333333333  | 3850.33333333  | 62.0510542483  |
+    #    | c    |     3 |  99 | 109 | 103.333333333  | 26.3333333333  | 5.13160143944  |
+    #    +-----------------------------------------------------------------------------+
+    #    106.0
+
+    
+    t1_stats = t1.stats(by_field=False)
+    t1_stats.present(box=box.ASCII)
+    print(t1_stats.by.stat["mean"].a)
+
+    #    +------------------------------------------------------------------------+
+    #    | Stat     |                 A |                  B |                  C |
+    #    |----------+-------------------+--------------------+--------------------|
+    #    | count    |                 3 |                  3 |                  3 |
+    #    | min      |               100 |                101 |                 99 |
+    #    | max      |               110 |                220 |                109 |
+    #    | mean     |             106.0 | 150.33333333333334 | 103.33333333333333 |
+    #    | variance |                28 | 3850.3333333333335 | 26.333333333333332 |
+    #    | std_dev  | 5.291502622129181 | 62.051054248363364 |  5.131601439446884 |
+    #    +------------------------------------------------------------------------+
+    #    106.0
 
 
 Importing data from fixed-width text files
@@ -410,41 +447,41 @@ Some simple littletable recipes
 - Find objects with NULL attribute values (an object's attribute is considered 
   NULL if the object does not have that attribute, or if its value is None):
 
-    table.where(lambda rec: getattr(rec, keyattr, None) is None)
+      table.where(lambda rec: getattr(rec, keyattr, None) is None)
     
 
 - Histogram of values of a particular attribute:
 
-    (returns a table)
-    table.pivot(attribute).summary_counts()
+      (returns a table)
+      table.pivot(attribute).summary_counts()
 
   or
   
-    (prints the values to stdout in tabular form)
-    table.pivot(attribute).dump_counts()
+      (prints the values to stdout in tabular form)
+      table.pivot(attribute).dump_counts()
 
 
 - Get a list of all key values for an indexed attribute:
 
-    customers.zipcode.keys()
+      customers.zipcode.keys()
 
 
 - Get a count of entries for each key value:
 
-    customers.pivot("zipcode").dump_counts()
+      customers.pivot("zipcode").dump_counts()
     
 
 - Sorted table by attribute x
 
-    employees.sort("salary")
+      employees.sort("salary")
     
 
 - Sorted table by primary attribute x, secondary attribute y
 
-    salesmen.sort("salary,commission")
+      salesmen.sort("salary,commission")
 
 
 - Get top 5 objects in table by value of attribute x
 
-    # top 5 sales employees
-    employees.where(dept="Sales").sort("sales desc")[:5]
+      # top 5 sales employees
+      employees.where(dept="Sales").sort("sales desc")[:5]
