@@ -571,6 +571,8 @@ def _make_comparator(cmp_fn):
     def comparator_with_value(value):
         def _Table_comparator_fn(attr):
             return lambda table_rec: cmp_fn(getattr(table_rec, attr), value)
+        _Table_comparator_fn.fn = cmp_fn
+        _Table_comparator_fn.value = value
         return _Table_comparator_fn
     return comparator_with_value
 
@@ -582,7 +584,11 @@ def _make_comparator2(cmp_fn):
     def comparator_with_value(lower, upper):
         def _Table_comparator_fn(attr):
             return lambda table_rec: cmp_fn(lower, getattr(table_rec, attr), upper)
+        _Table_comparator_fn.fn = cmp_fn
+        _Table_comparator_fn.lower = lower
+        _Table_comparator_fn.upper = upper
         return _Table_comparator_fn
+
     return comparator_with_value
 
 
@@ -1237,9 +1243,42 @@ class Table(object):
         else:
             raise ValueError("pivot can only be called using indexed attributes")
 
-    def _import(self, source, encoding, transforms=None, reader=csv.DictReader, row_class=DataObject, limit=None):
+    def _import(self,
+                source,
+                encoding="utf-8",
+                transforms=None,
+                filters=None,
+                reader=csv.DictReader,
+                row_class=None,
+                limit=None):
+
+        if row_class is None:
+            row_class = DataObject
+
         with closing(_multi_iterator(source, encoding)) as _srciter:
             csvdata = reader(_srciter)
+
+            if filters:
+                for k, v in filters.items():
+                    if callable(v):
+                        if v.__name__ == "_Table_comparator_fn":
+                            # comparators work against attrs, but csvdata is still just a series of
+                            # dicts, so must convert each to a temporary row_class instance to perform the
+                            # comparator predicate method
+                            fn = v.fn
+                            no_object = object()
+                            value = getattr(v, "value", no_object)
+                            upper = getattr(v, "upper", no_object)
+                            lower = getattr(v, "lower", no_object)
+                            if value is not no_object:
+                                csvdata = filter(lambda rec_dict: fn(rec_dict.get(k), value), csvdata)
+                            else:
+                                csvdata = filter(lambda rec_dict: fn(lower, rec_dict.get(k), upper), csvdata)
+
+                        else:
+                            csvdata = filter(lambda rec: v(rec.get(k)), csvdata)
+                    else:
+                        csvdata = filter(lambda rec: rec.get(k) == v, csvdata)
 
             if limit is not None:
                 def limiter(n, iter):
@@ -1283,7 +1322,14 @@ class Table(object):
                 self.insert_many(row_class(**s) for s in csvdata)
         return self
 
-    def csv_import(self, csv_source, encoding='utf-8', transforms=None, row_class=DataObject, limit=None, **kwargs):
+    def csv_import(self,
+                   csv_source,
+                   encoding='utf-8',
+                   transforms=None,
+                   filters=None,
+                   row_class=None,
+                   limit=None,
+                   **kwargs):
         """Imports the contents of a CSV-formatted file into this table.
            @param csv_source: CSV file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1299,6 +1345,12 @@ class Table(object):
                there is an Exception raised by the transform function, then the attribute will
                be set to the given default value
            @type transforms: dict (optional)
+           @param filters: dict of functions by attribute name; if given, each
+               newly-read record will be filtered before being added to the table, with each
+               filter function run using the corresponding attribute; if any filter function
+               returns False, the record is not added to the table. Useful when reading large
+               input files, to pre-screen only for data matching one or more filters
+           @type filters: dict (optional)
            @param row_class: class to construct for each imported row when populating table (default=DataObject)
            @type row_class: type
            @param limit: number of records to import
@@ -1314,19 +1366,32 @@ class Table(object):
                                                                           'limit',
                                                                           ])
         reader = lambda src: csv.DictReader(src, **reader_args)
-        return self._import(csv_source, encoding, transforms, reader=reader, row_class=row_class, limit=limit)
+        return self._import(csv_source,
+                            encoding=encoding,
+                            transforms=transforms,
+                            filters=filters,
+                            reader=reader,
+                            row_class=row_class,
+                            limit=limit)
 
-    def _xsv_import(self, xsv_source, encoding, transforms=None, row_class=DataObject, limit=None, **kwargs):
+    def _xsv_import(self, xsv_source, encoding, transforms=None, filters=None, row_class=None, limit=None, **kwargs):
         reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
                                                                           'xsv_source',
                                                                           'transforms',
                                                                           'row_class',
                                                                           'limit',
+                                                                          'filters,'
                                                                           ])
         xsv_reader = lambda src: csv.DictReader(src, **reader_args)
-        return self._import(xsv_source, encoding, transforms, reader=xsv_reader, row_class=row_class, limit=limit)
+        return self._import(xsv_source,
+                            encoding=encoding,
+                            transforms=transforms,
+                            filters=filters,
+                            reader=xsv_reader,
+                            row_class=row_class,
+                            limit=limit)
 
-    def tsv_import(self, xsv_source, encoding="UTF-8", transforms=None, row_class=DataObject, limit=None, **kwargs):
+    def tsv_import(self, xsv_source, encoding="UTF-8", transforms=None, filters=None, row_class=None, limit=None, **kwargs):
         """Imports the contents of a tab-separated data file into this table.
            @param xsv_source: tab-separated data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1347,9 +1412,10 @@ class Table(object):
         return self._xsv_import(xsv_source,
                                 encoding,
                                 transforms=transforms,
-                                delimiter="\t",
+                                filters=filters,
                                 row_class=row_class,
                                 limit=limit,
+                                delimiter="\t",
                                 **kwargs)
 
     def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8", delimiter=",", **kwargs):

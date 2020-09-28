@@ -112,8 +112,21 @@ You can also directly import CSV data as a string:
     catalog.create_index("sku", unique=True)
     catalog.csv_import(catalog_data, transforms={'unitprice': int})
 
-(If you are working with a very large CSV file and just trying to see 
-what the structure is, add `limit=100` to only read the first 100 rows.)
+If you are working with a very large CSV file and just trying to see 
+what the structure is, add `limit=100` to only read the first 100 rows.
+
+You can also pre-screen data as it is read from the input file by passing
+a `filters={attr: filter_fn, ...}` argument. Each filter function is called
+on the newly-read object _before_ it is added to the table. `filter_fn` 
+can be any function that takes a single argument of the type of the given
+attribute, and returns `True` or `False`. If `False`, the record does not get
+added to the table.
+
+    # import only the first 100 items that match the filter
+    # (product_category == "Home and Garden")
+    catalog.csv_import(catalog_data, 
+                       filters={"product_category": Table.eq("Home and Garden")},
+                       limit=100)
 
 Files containing JSON-formatted records can be similarly imported using 
 `Table.json_import()`, and tab-separated files can be imported using
