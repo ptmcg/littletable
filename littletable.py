@@ -1350,7 +1350,7 @@ class Table(object):
                                 limit=limit,
                                 **kwargs)
 
-    def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8", **kwargs):
+    def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8", delimiter=",", **kwargs):
         """Exports the contents of the table to a CSV-formatted file.
            @param csv_dest: CSV file - if a string is given, the file with that name will be
                opened, written, and closed; if a file object is given, then that object
@@ -1362,6 +1362,8 @@ class Table(object):
            @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
                representing an output filename, an encoding argument can be provided (Python 3 only)
            @type encoding: string
+           @param delimiter: string (default=",") - overridable delimiter for value separator
+           @type delimiter: string
            @param kwargs: additional keyword args to pass through to csv.DictWriter
            @type kwargs: named arguments (optional)
         """
@@ -1382,7 +1384,7 @@ class Table(object):
             if isinstance(fieldnames, basestring):
                 fieldnames = fieldnames.split()
 
-            csv_dest.write(','.join(fieldnames) + NL)
+            csv_dest.write(delimiter.join(fieldnames) + NL)
             csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore', lineterminator=NL, **writer_args)
             if self.obs and hasattr(self.obs[0], "__dict__"):
                 csvout.writerows(o.__dict__ for o in self.obs)
@@ -1392,6 +1394,12 @@ class Table(object):
         finally:
             if close_on_exit:
                 csv_dest.close()
+
+    def tsv_export(self, tsv_dest, fieldnames=None, encoding="UTF-8", **kwargs):
+        r"""
+        Similar to csv_export, with delimiter="\t"
+        """
+        return self.csv_export(tsv_dest, fieldnames, encoding, delimiter='\t', **kwargs)
 
     def json_import(self, source, encoding="UTF-8", transforms=None, row_class=DataObject):
         """Imports the contents of a JSON data file into this table.

@@ -7,6 +7,9 @@ Version 1.1.1 -
   or `data.csv.zip`. (For zip archives, the zip file name must be the
   same as the compressed file with ".zip" added.)
 
+- Added tsv_export, analogous to csv_export, but using <TAB> character
+  as a value separator.
+
 - Converted HowToUseLittletable.txt to Markdown how_to_use_littletable.md.
 
 
