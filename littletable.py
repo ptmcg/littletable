@@ -118,12 +118,14 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 import csv
+import gzip
 import json
 import operator
 import os
 import random
 import re
 import sys
+import zipfile
 from collections import defaultdict, deque, namedtuple, OrderedDict as ODict
 from contextlib import closing
 from functools import partial
@@ -139,7 +141,7 @@ __version__ = (
         __version_info__.releaseLevel == "final"
     ]
 )
-__versionTime__ = "27 Sep 2020 22:33 UTC"
+__versionTime__ = "28 Sep 2020 02:02 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -152,6 +154,7 @@ if PY_2:
     import urllib2
     urlopen = urllib2.urlopen
 else:
+    from pathlib import Path
     str_strip = str.strip
     import urllib.request
     urlopen = urllib.request.urlopen
@@ -470,22 +473,34 @@ class _IndexAccessor(object):
 
 class _multi_iterator(object):
     def __init__(self, seqobj, encoding='utf-8'):
+        def _decoder(seq):
+            for line in seq:
+                yield line.decode(encoding)
+
         if isinstance(seqobj, basestring):
             if '\n' in seqobj:
                 self._iterobj = iter(StringIO(seqobj))
             elif seqobj.startswith("http"):
                 if PY_3:
-                    def _decoder(seq):
-                        for line in seq:
-                            yield line.decode(encoding)
                     self._iterobj = _decoder(urlopen(seqobj))
                 else:
                     self._iterobj = urlopen(seqobj)
             else:
-                if PY_3:
-                    self._iterobj = open(seqobj, encoding=encoding)
+                if seqobj.endswith(".gz"):
+                    self._iterobj = _decoder(gzip.GzipFile(seqobj))
+                elif seqobj.endswith(".zip"):
+                    # assume file name inside zip is the same as the zip file without the trailing ".zip"
+                    if PY_3 and False:
+                        inner_name = Path(seqobj).stem
+                    else:
+                        inner_name = seqobj.replace(os.sep, "/")
+                        inner_name = inner_name.rpartition("/")[-1][:-4]
+                    self._iterobj = _decoder(zipfile.ZipFile(seqobj).open(inner_name))
                 else:
-                    self._iterobj = open(seqobj)
+                    if PY_3:
+                        self._iterobj = open(seqobj, encoding=encoding)
+                    else:
+                        self._iterobj = open(seqobj)
         else:
             self._iterobj = iter(seqobj)
 
