@@ -1,27 +1,38 @@
 # littletable - a Python module to give ORM-like access to a collection of objects
 [![Build Status](https://travis-ci.org/ptmcg/littletable.svg?branch=master)](https://travis-ci.org/ptmcg/littletable) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ptmcg/littletable/master)
 
+- [Introduction](#introduction)
+- [Importing data from CSV files](#importing-data-from-csv-files)
+- [Tabular output](#tabular-output)
+- [For More Info](#for-more-info)
+- [Sample Demo](#sample-demo)
+
+Introduction
+------------
 The `littletable` module provides a low-overhead, schema-less, in-memory database access to a collection 
-of user objects. `littletable` provides a `DataObject` class for ad hoc creation of semi-immutable objects 
-that can be stored in a `littletable` `Table`. Tables can also contain user-defined objects, using those 
-objects' `__dict__`, `__slots__`, or `_fields` mappings to access object attributes.
+of user objects. `littletable` Tables will accept any user-defined object type, including `namedtuples`, `dataclasses`,
+and `types.SimpleNamespaces`, using those objects' `__dict__`, `__slots__`, or `_fields` mappings to access object
+attributes and determine the Table's "columns". `littletable` also provides a `DataObject` class for easy creation of
+namespace objects from Python `dict` instances.
 
 In addition to basic ORM-style insert/remove/query/delete access to the contents of a `Table`, `littletable` offers:
 * simple indexing for improved retrieval performance, and optional enforcing key uniqueness 
-* access to objects using indexed attributes 
+* access to objects using indexed attributes
+* direct CSV import/export
+* clean tabular output for data presentation
 * simplified joins using `"+"` operator syntax between annotated `Table`s 
 * the result of any query or join is a new first-class `littletable` `Table` 
 * access like a standard Python list to the records in a Table, including
   indexing/slicing, `iter`, `zip`, `len`, `groupby`, etc.
 * access like a standard Python `dict` to attributes with a unique index, or like
-  a standard Python `defaultdict(list)` to attributes with a non-unique index.
+  a standard Python `defaultdict(list)` to attributes with a non-unique index
 
 `littletable` `Table`s do not require an upfront schema definition, but simply work off of the attributes in 
 the stored values, and those referenced in any query parameters.
 
 
-Importing data from CSV files:
-------------------------------
+Importing data from CSV files
+-----------------------------
 You can easily import a CSV file into a Table using Table.csv_import():
 
     t = Table().csv_import("my_data.csv")
@@ -43,6 +54,7 @@ You can also directly import CSV data as a string:
 
     catalog.csv_import(catalog_data, transforms={'unitprice': int})
 
+Data can also be directly imported from compressed .zip and .gz files.
 
 Files containing JSON-formatted records can be similarly imported using `Table.json_import()`.
 
@@ -69,6 +81,10 @@ Using `tabulate`:
 
     from tabulate import tabulate
     print(tabulate(map(vars, table), headers="keys"))
+
+For More Info
+-------------
+Extended "getting started" notes at [how_to_use_littletable.md](https://github.com/ptmcg/littletable/blob/master/how_to_use_littletable.md).
 
 Sample Demo
 -----------

@@ -265,8 +265,11 @@ write:
     # - Table.between   attr=Table.between(100, 200)   100 < attr < 200
     # - Table.within    attr=Table.within(100, 200)    100 <= attr <= 200
     # - Table.in_range  attr=Table.in_range(100, 200)  100 <= attr < 200
+    # - Table.is_in     attr=Table.is_in((1, 2, 3))    attr in (1,2,3)
+    # - Table.not_in    attr=Table.not_in((1, 2, 3))   attr not in (1,2,3)
 
     employees.where(salary=Table.gt(50000))
+    employees.where(dept=Table.is_in(["Sales", "Marketing"]))
 
     jan_01 = date(2000, 1, 1)
     mar_31 = date(2000, 3, 31)
