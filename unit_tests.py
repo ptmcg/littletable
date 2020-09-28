@@ -215,6 +215,10 @@ class TableCreateTests:
         self.assertEqual(len(table.where(a=lt.Table.between(3, 3))), 0)
         self.assertEqual(len(table.where(a=lt.Table.within(3, 3))), test_size*test_size)
         self.assertEqual(len(table.where(a=lt.Table.in_range(3, 3))), 0)
+        self.assertEqual(len(table.where(a=lt.Table.is_in([2, 4, 6, 8]))), test_size*test_size*4)
+        self.assertEqual(len(table.where(a=lt.Table.is_in([]))), 0)
+        self.assertEqual(len(table.where(a=lt.Table.not_in([2, 4, 6, 8]))), test_size*test_size*(test_size-4))
+        self.assertEqual(len(table.where(a=lt.Table.not_in([]))), test_size*test_size*test_size)
 
     def test_get_slice(self):
         test_size = 10

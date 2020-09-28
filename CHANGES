@@ -10,6 +10,11 @@ Version 1.1.1 -
 - Added tsv_export, analogous to csv_export, but using <TAB> character
   as a value separator.
 
+- Added comparators `Table.is_in` and `Table.not_in` to support filtering
+  by presence in or absence from a given collection of values. (For best
+  performance, if there are more than 4 values to be compared with,
+  convert the collection to a Python `set` to optimize "in" testing.)
+
 - Converted HowToUseLittletable.txt to Markdown how_to_use_littletable.md.
 
 

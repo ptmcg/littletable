@@ -611,6 +611,8 @@ class Table(object):
     ge = staticmethod(_make_comparator(operator.ge))
     ne = staticmethod(_make_comparator(operator.ne))
     eq = staticmethod(_make_comparator(operator.eq))
+    is_in = staticmethod(_make_comparator(lambda x, seq: x in seq))
+    not_in = staticmethod(_make_comparator(lambda x, seq: x not in seq))
     between = staticmethod(_make_comparator2(lambda lower, x, upper: lower < x < upper))
     within = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x <= upper))
     in_range = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x < upper))
