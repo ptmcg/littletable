@@ -118,14 +118,12 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 import csv
-import gzip
 import json
 import operator
 import os
 import random
 import re
 import sys
-import zipfile
 from collections import defaultdict, deque, namedtuple, OrderedDict as ODict
 from contextlib import closing
 from functools import partial
@@ -487,8 +485,13 @@ class _multi_iterator(object):
                     self._iterobj = urlopen(seqobj)
             else:
                 if seqobj.endswith(".gz"):
+                    import gzip
                     self._iterobj = _decoder(gzip.GzipFile(seqobj))
+                elif seqobj.endswith((".xz", ".lzma")):
+                    import lzma
+                    self._iterobj = _decoder(lzma.open(seqobj))
                 elif seqobj.endswith(".zip"):
+                    import zipfile
                     # assume file name inside zip is the same as the zip file without the trailing ".zip"
                     if PY_3 and False:
                         inner_name = Path(seqobj).stem

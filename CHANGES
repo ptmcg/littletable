@@ -3,9 +3,9 @@ Change History
 
 Version 1.1.1 -
 ---------------
-- Import directly from simple .zip or .gz archives, such as `data.csv.gz`
-  or `data.csv.zip`. (For zip archives, the zip file name must be the
-  same as the compressed file with ".zip" added.)
+- Import directly from simple .zip, .gz, or .xz/.lzma archives,
+  such as `data.csv.gz` or `data.csv.zip`. (For zip archives, the zip
+  file name must be the same as the compressed file with ".zip" added.)
 
 - Added `filters` argument to csv_import, to screen records as they
   are read from the input file *before* they are added to the table. Can
