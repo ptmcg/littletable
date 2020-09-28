@@ -119,6 +119,10 @@ Files containing JSON-formatted records can be similarly imported using
 `Table.json_import()`, and tab-separated files can be imported using
 `Table.tsv_import()`. 
 
+`littletable` can also read CSV, TSV, etc. content directly from a simple .zip
+or .gz archive, assuming that the file name of the compressed file is the 
+same as the original file with ".zip" or ".gz" added.
+
 
 Tabular output
 --------------
