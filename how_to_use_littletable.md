@@ -16,9 +16,9 @@ How to Use littletable
   * [Importing data from fixed-width text files](#importing-data-from-fixed-width-text-files)
   * [Joining tables](#joining-tables)
   * [Pivoting a table](#pivoting-a-table)
-  * [littletable and pandas](#-littletable--and--pandas-)
-  * [littletable and SQLite](#-littletable--and--sqlite-)
-  * [Some simple littletable recipes](#some-simple--littletable--recipes)
+  * [littletable and pandas](#littletable-and-pandas)
+  * [littletable and SQLite](#littletable-and-sqlite)
+  * [Some simple littletable recipes](#some-simple-littletable-recipes)
 
 
 Introduction
@@ -81,6 +81,9 @@ From within your Python code, you can create objects and add them to the table u
     t.insert(obj)
     t.insert_many(objlist)
 
+Performance tip: Calling `insert_many()` with a list of objects will perform better than calling
+`insert()` in a loop.
+
 `littletable` supports records that are user-defined types (including those defined
 using `__slots__`), `namedtuple`s, `SimpleNamespace`s. Python `dict`s can be used if
 they are converted to `SimpleNamespace`s or `littletable.DataObject`s.
@@ -109,9 +112,12 @@ You can also directly import CSV data as a string:
     catalog.create_index("sku", unique=True)
     catalog.csv_import(catalog_data, transforms={'unitprice': int})
 
+(If you are working with a very large CSV file and just trying to see 
+what the structure is, add `limit=100` to only read the first 100 rows.)
 
 Files containing JSON-formatted records can be similarly imported using 
-`Table.json_import()`.
+`Table.json_import()`, and tab-separated files can be imported using
+`Table.tsv_import()`. 
 
 
 Tabular output
@@ -126,6 +132,7 @@ the `rich` module, `as_html()` in Jupyter Notebook, or the `tabulate` module:
 
   or
 
+      # use select() to limit the columns to be shown
       table.select("col1 col2 col3")(title_str).present(caption="caption text")
 
 - Using `Jupyter Notebook`:
@@ -149,16 +156,36 @@ records are Python `dict`s, you can use the `littletable` type `DataObject`:
     bob = {"name": "Bob", "age": 19}
     t.insert(DataObject(**bob))
 
+or if using a Python >= 3.3, you can use `types.SimpleNamespace`:
+
+    from types import SimpleNamespace
+    bob = {"name": "Bob", "age": 19}
+    t.insert(SimpleNamespace(**bob))
+
 
 Removing objects
 ----------------
+Objects can be removed individually or by passing a list (or Table) of
+objects:
 
     t.remove(obj)
     t.remove_many(objlist)
+    t.remove_many(t.where(a=100))
     
 
 Indexing attributes
 -------------------
+Use `create_index` to add an index to a Table. Indexes can be unique or
+non-unique. If the table is not empty and the index to be created is
+`unique=True`, the uniqueness of the index attribute across the existing
+records is verified before creating the index, raising KeyError and
+listing the duplicated value.
+
+If a unique index is created, then retrieving using that index will
+return the single matching object, or raise KeyError.
+
+If a non-unique index is created, a Table is returned of all the matching
+objects. If no objects match, an empty Table is returned.
 
     employees.create_index('employee_id', unique=True)
     employees.create_index('zipcode')
@@ -178,12 +205,18 @@ If accessing a table using a unique index, giving a key value will
 return the single matching record, or raise `KeyError`.
 
     employees.by.employee_id['00086']
+    employees.by.employee_id['invalid_id']
+    #    raises KeyError: "no such value 'invalid_id' in index 'employee_id'"
+
 
 If accessing a table using a non-unique index, will return a new table 
 containing all matching records. If there are no matching records, the 
 returned table will be empty.
 
     employees.by.state['CA']
+    employees.by.dept['Sales']
+    employees.by.dept['Salex']  # no such department
+    #    returns empty table
 
 
 Querying for exact matching attribute values
@@ -478,8 +511,12 @@ Some simple littletable recipes
 
 - Sorted table by primary attribute x, secondary attribute y
 
-      salesmen.sort("salary,commission")
+      sales_employees = employees.where(dept="Sales").sort("salary,commission")
+      
+  or
 
+      employees.create_index("dept")
+      sales_employees = employees.by.dept["Sales"].sort("salary,commission")
 
 - Get top 5 objects in table by value of attribute x
 
