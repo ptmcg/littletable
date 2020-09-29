@@ -54,7 +54,7 @@ You can also directly import CSV data as a string:
 
     catalog.csv_import(catalog_data, transforms={'unitprice': int})
 
-Data can also be directly imported from compressed .zip and .gz files.
+Data can also be directly imported from compressed .zip, .gz, and .xz files.
 
 Files containing JSON-formatted records can be similarly imported using `Table.json_import()`.
 

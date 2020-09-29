@@ -128,13 +128,24 @@ added to the table.
                        filters={"product_category": Table.eq("Home and Garden")},
                        limit=100)
 
+Since CSV files do not keep any type information, `littletable` will use its 
+own `DataObject` type for imported records. You can specify your own type by 
+passing `row_class=MyType` to `csv_import`. The type must be initializable
+using the form `MyType(**attributes_dict)`. `namedtuples` and `SimpleNamespace`
+both support this form.
+
+Performance tip: For very large files, it is faster to load data using
+a `namedtuple` than to use the default `DataObject` class. Get the fields using
+a 10-item import using `limit=10`, and then getting the fields from 
+`table.info()["fields"]`.
+
 Files containing JSON-formatted records can be similarly imported using 
 `Table.json_import()`, and tab-separated files can be imported using
 `Table.tsv_import()`. 
 
-`littletable` can also read CSV, TSV, etc. content directly from a simple .zip
-or .gz archive, assuming that the file name of the compressed file is the 
-same as the original file with ".zip" or ".gz" added.
+`littletable` can also read CSV, TSV, etc. content directly from a simple .zip,
+.gz, or .xz archive, assuming that the file name of the compressed file is the 
+same as the original file with ".zip" or ".gz" or ".xz" added.
 
 
 Tabular output

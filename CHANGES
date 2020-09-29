@@ -1,8 +1,8 @@
 Change History
 ==============
 
-Version 1.1.1 -
----------------
+Version 1.1.1 - (in development)
+--------------------------------
 - Import directly from simple .zip, .gz, or .xz/.lzma archives,
   such as `data.csv.gz` or `data.csv.zip`. (For zip archives, the zip
   file name must be the same as the compressed file with ".zip" added.)
