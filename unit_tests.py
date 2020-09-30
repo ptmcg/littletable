@@ -1,3 +1,9 @@
+#
+# unit_tests.py
+#
+# unit tests for littletable library
+#
+
 import unittest
 import littletable as lt
 import itertools
@@ -65,7 +71,7 @@ class TestDataObjects(unittest.TestCase):
         ob = lt.DataObject()
         ob.z = 200
         ob.a = 100
-        self.assertEqual(sorted(ob.__dict__.items()), [('a', 100), ('z', 200)])
+        self.assertEqual([('a', 100), ('z', 200)], sorted(ob.__dict__.items()))
 
         # test semi-immutability (can't overwrite existing attributes)
         with self.assertRaises(AttributeError):
@@ -73,13 +79,13 @@ class TestDataObjects(unittest.TestCase):
 
         # equality tests
         ob2 = lt.DataObject(**{'a': 100, 'z': 200})
-        self.assertEqual(ob, ob2)
+        self.assertEqual(ob2, ob)
 
         ob2.b = 'blah'
         self.assertNotEqual(ob, ob2)
 
         del ob2.b
-        self.assertEqual(ob, ob2)
+        self.assertEqual(ob2, ob)
 
         del ob2.a
         del ob2.z
@@ -92,7 +98,7 @@ class TestDataObjects(unittest.TestCase):
         with self.assertRaises(KeyError):
             ob2['a'] = 10
 
-        self.assertEqual(repr(ob2), "{'a': 10}")
+        self.assertEqual("{'a': 10}", repr(ob2))
 
 class TestTableTypes(unittest.TestCase):
     def test_types(self):
@@ -157,7 +163,7 @@ class TableCreateTests:
         table.insert(self.make_data_object(1, 2, 3))
         table.insert(self.make_data_object(4, 5, 6))
         table.create_index('a', unique=True)
-        self.assertEqual(table.by.a[4], self.make_data_object(4, 5, 6))
+        self.assertEqual(self.make_data_object(4, 5, 6), table.by.a[4])
 
         with self.assertRaises(KeyError):
             table.insert(self.make_data_object(4, 1, 0))
@@ -175,57 +181,57 @@ class TableCreateTests:
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
 
-        self.assertEqual(len(table.where(a=5)), test_size*test_size)
-        self.assertEqual(len(table.where(a=-1)), 0)
+        self.assertEqual(test_size*test_size, len(table.where(a=5)))
+        self.assertEqual(0, len(table.where(a=-1)))
 
     def test_where_equals_none(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
 
-        self.assertEqual(len(table.where(a=5, b=test_size)), 0)
+        self.assertEqual(0, len(table.where(a=5, b=test_size)))
 
     def test_where_equals_with_index(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
         table.create_index('a')
 
-        self.assertEqual(len(table.where(a=5)), test_size*test_size)
-        self.assertEqual(len(table.where(a=-1)), 0)
+        self.assertEqual(test_size*test_size, len(table.where(a=5)))
+        self.assertEqual(0, len(table.where(a=-1)))
 
     def test_where_range(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
 
-        self.assertEqual(len(table.where(lambda rec: rec.a == rec.b)), test_size*test_size)
+        self.assertEqual(test_size*test_size, len(table.where(lambda rec: rec.a == rec.b)))
 
     def test_where_comparator(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
 
-        self.assertEqual(len(table.where(a=lt.Table.lt(4))), test_size*test_size*4)
-        self.assertEqual(len(table.where(a=lt.Table.le(4))), test_size*test_size*(4+1))
-        self.assertEqual(len(table.where(a=lt.Table.gt(4))), test_size*test_size*(test_size-4-1))
-        self.assertEqual(len(table.where(a=lt.Table.ge(4))), test_size*test_size*(test_size-4))
-        self.assertEqual(len(table.where(a=lt.Table.ne(4))), test_size*test_size*(test_size-1))
-        self.assertEqual(len(table.where(a=lt.Table.eq(4))), test_size*test_size)
-        self.assertEqual(len(table.where(a=lt.Table.eq(4), b=lt.Table.eq(4))), test_size)
-        self.assertEqual(len(table.where(a=lt.Table.between(3, 8))), test_size*test_size*4)
-        self.assertEqual(len(table.where(a=lt.Table.within(2, 5))), test_size*test_size*4)
-        self.assertEqual(len(table.where(a=lt.Table.in_range(2, 5))), test_size*test_size*3)
-        self.assertEqual(len(table.where(a=lt.Table.between(3, 3))), 0)
-        self.assertEqual(len(table.where(a=lt.Table.within(3, 3))), test_size*test_size)
-        self.assertEqual(len(table.where(a=lt.Table.in_range(3, 3))), 0)
-        self.assertEqual(len(table.where(a=lt.Table.is_in([2, 4, 6, 8]))), test_size*test_size*4)
-        self.assertEqual(len(table.where(a=lt.Table.is_in([]))), 0)
-        self.assertEqual(len(table.where(a=lt.Table.not_in([2, 4, 6, 8]))), test_size*test_size*(test_size-4))
-        self.assertEqual(len(table.where(a=lt.Table.not_in([]))), test_size*test_size*test_size)
+        self.assertEqual(test_size*test_size*4, len(table.where(a=lt.Table.lt(4))))
+        self.assertEqual(test_size*test_size*(4+1), len(table.where(a=lt.Table.le(4))))
+        self.assertEqual(test_size*test_size*(test_size-4-1), len(table.where(a=lt.Table.gt(4))))
+        self.assertEqual(test_size*test_size*(test_size-4), len(table.where(a=lt.Table.ge(4))))
+        self.assertEqual(test_size*test_size*(test_size-1), len(table.where(a=lt.Table.ne(4))))
+        self.assertEqual(test_size*test_size, len(table.where(a=lt.Table.eq(4))))
+        self.assertEqual(test_size, len(table.where(a=lt.Table.eq(4), b=lt.Table.eq(4))))
+        self.assertEqual(test_size*test_size*4, len(table.where(a=lt.Table.between(3, 8))))
+        self.assertEqual(test_size*test_size*4, len(table.where(a=lt.Table.within(2, 5))))
+        self.assertEqual(test_size*test_size*3, len(table.where(a=lt.Table.in_range(2, 5))))
+        self.assertEqual(0, len(table.where(a=lt.Table.between(3, 3))))
+        self.assertEqual(test_size*test_size, len(table.where(a=lt.Table.within(3, 3))))
+        self.assertEqual(0, len(table.where(a=lt.Table.in_range(3, 3))))
+        self.assertEqual(test_size*test_size*4, len(table.where(a=lt.Table.is_in([2, 4, 6, 8]))))
+        self.assertEqual(0, len(table.where(a=lt.Table.is_in([]))))
+        self.assertEqual(test_size*test_size*(test_size-4), len(table.where(a=lt.Table.not_in([2, 4, 6, 8]))))
+        self.assertEqual(test_size*test_size*test_size, len(table.where(a=lt.Table.not_in([]))))
 
     def test_get_slice(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
 
         subtable = table[0::test_size]
-        self.assertEqual(len(subtable), test_size * test_size)
+        self.assertEqual(test_size * test_size, len(subtable))
 
     def test_indexing(self):
         chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -236,12 +242,12 @@ class TableCreateTests:
 
         self.assertTrue('A' in table.by.a)
         self.assertTrue('AA' not in table.by.a)
-        self.assertEqual(len(table.by.a['B']), test_size * test_size)
+        self.assertEqual(test_size * test_size, len(table.by.a['B']))
         self.assertTrue(isinstance(table.by.a['B'], lt.Table))
         with self.assertRaises(AttributeError):
             table.by.z
 
-        self.assertEqual(len(table.by.a.keys()), test_size)
+        self.assertEqual(test_size, len(table.by.a.keys()))
 
     def test_unique_indexing(self):
         chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -282,10 +288,10 @@ class TableCreateTests:
         import pprint
         info = table.info()
         pprint.pprint(info)
-        self.assertEqual(info['name'], 'Table_1')
-        self.assertEqual(list(sorted(info['fields'])), list('abc'))
-        self.assertEqual(list(sorted(info['indexes'])), [('a', True), ('c', False)])
-        self.assertEqual(info['len'], 1001)
+        self.assertEqual('Table_1', info['name'])
+        self.assertEqual(['a', 'b', 'c'], list(sorted(info['fields'])))
+        self.assertEqual([('a', True), ('c', False)], list(sorted(info['indexes'])))
+        self.assertEqual(1001, info['len'])
 
     def test_chained_indexing(self):
         chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -323,21 +329,20 @@ class TableCreateTests:
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
 
-        self.assertEqual(table.delete(b=5), test_size*test_size)
-        self.assertEqual(len(table), test_size*test_size*(test_size-1))
-        self.assertEqual(table.delete(b=-1), 0)
-
-        self.assertEqual(table.delete(), 0)
+        self.assertEqual(test_size*test_size, table.delete(b=5))
+        self.assertEqual(test_size*test_size*(test_size-1), len(table))
+        self.assertEqual(0, table.delete(b=-1))
+        self.assertEqual(0, table.delete())
 
     def test_remove_many(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
 
         table.remove_many(table.where(lambda t: t.a % 2))
-        self.assertEqual(len(table), test_size*test_size*test_size/2)
+        self.assertEqual(test_size*test_size*test_size/2, len(table))
         table_len = len(table)
         table.remove(table[1])
-        self.assertEqual(len(table), table_len-1)
+        self.assertEqual(table_len-1, len(table))
 
     def test_add_new_field(self):
         test_size = 10
@@ -348,7 +353,7 @@ class TableCreateTests:
             table.add_field('d', lambda rec: rec.a+rec.b+rec.c)
 
             table.create_index('d')
-            self.assertEqual(len(table.by.d.keys()), len(range(0, 27+1)))
+            self.assertEqual(len(range(0, 27+1)), len(table.by.d.keys()))
 
     def test_add_two_tables(self):
         test_size = 10
@@ -356,15 +361,15 @@ class TableCreateTests:
         make_rec = lambda a,b,c: self.make_data_object(a+test_size, b, c)
         t2 = make_test_table(make_rec, test_size)
 
-        self.assertEqual(len(t1+t2), test_size*test_size*test_size*2)
-        self.assertEqual(len(t1), test_size * test_size * test_size)
+        self.assertEqual(test_size*test_size*test_size*2, len(t1+t2))
+        self.assertEqual(test_size * test_size * test_size, len(t1))
 
         t1 += t2
-        self.assertEqual(len(t1), test_size * test_size * test_size * 2)
+        self.assertEqual(test_size * test_size * test_size * 2, len(t1))
 
         offset = test_size * test_size
         t3 = t1 + (self.make_data_object(rec.a+offset, rec.b, rec.c) for rec in t2)
-        self.assertEqual(len(t3), test_size * test_size * test_size * 3)
+        self.assertEqual(test_size * test_size * test_size * 3, len(t3))
 
     def test_table_info(self):
         test_size = 10
@@ -374,10 +379,11 @@ class TableCreateTests:
         # must sort fields and indexes values, for test comparisons
         t1_info['fields'].sort()
         t1_info['indexes'].sort()
-        self.assertEqual(t1_info, {'fields': ['a', 'b', 'c'],
-                                     'indexes': [('b', False)],
-                                     'len': 1000,
-                                     'name': 'info_test'}, "invalid info results")
+        self.assertEqual({'fields': ['a', 'b', 'c'],
+                          'indexes': [('b', False)],
+                          'len': 1000,
+                          'name': 'info_test'},
+                         t1_info, "invalid info results")
 
 
 class TableCreateTests_DataObjects(unittest.TestCase, TableCreateTests, UsingDataObjects):
@@ -409,7 +415,7 @@ class TableListTests:
 
     def test_index_find(self):
         self._test_init()
-        self.assertEqual(self.t1.index(self.test_rec), 13, "failed 'in' (contains) test")
+        self.assertEqual(13, self.t1.index(self.test_rec), "failed 'in' (contains) test")
 
     def test_remove(self):
         self._test_init()
@@ -450,12 +456,12 @@ class TableListTests:
 
     def test_unique(self):
         self._test_init()
-        self.assertEqual(sorted([row.a for row in self.t1.unique('a')]), [0, 1, 2], "failed call to unique")
+        self.assertEqual([0, 1, 2], sorted([row.a for row in self.t1.unique('a')]), "failed call to unique")
 
     def test_all_accessor(self):
         self._test_init()
-        self.assertEqual(list(self.t1.all.a),
-                         sum(([i]*self.test_size**2 for i in range(self.test_size)), []),
+        self.assertEqual(sum(([i]*self.test_size**2 for i in range(self.test_size)), []),
+                         list(self.t1.all.a),
                          "failed to successfully get all values in 'a'")
 
         all_as = self.t1.all.a
@@ -463,8 +469,8 @@ class TableListTests:
 
     def test_format(self):
         self._test_init()
-        self.assertEqual(list(self.t1.format("{a:02d} {b} {c}"))[:3],
-                         ['00 0 0', '00 0 1', '00 0 2'],
+        self.assertEqual(['00 0 0', '00 0 1', '00 0 2'],
+                         list(self.t1.format("{a:02d} {b} {c}"))[:3],
                          "failed to create formatted rows")
 
     def test_as_html(self):
@@ -569,7 +575,8 @@ class TableListTests:
                                            count=self.test_size ** num_fields,
                                            min=0,
                                            max=self.test_size - 1,
-                                           mean=(self.test_size - 1) / 2), stat_rec,
+                                           mean=(self.test_size - 1) / 2),
+                             stat_rec,
                              "invalid stat for {}".format(fieldname))
 
         t1_stats = self.t1.stats(by_field=False)
@@ -621,13 +628,13 @@ class TableJoinTests:
         t2.insert(lt.DataObject(a=1, d=100))
 
         joined = (t1.join_on('a') + t2.join_on('a'))()
-        self.assertEqual(len(joined), test_size * test_size)
+        self.assertEqual(test_size * test_size, len(joined))
 
         joined = (t1.join_on('a') + t2)()
-        self.assertEqual(len(joined), test_size * test_size)
+        self.assertEqual(test_size * test_size, len(joined))
 
         joined = (t1 + t2.join_on('a'))()
-        self.assertEqual(len(joined), test_size * test_size)
+        self.assertEqual(test_size * test_size, len(joined))
 
         t1.delete_index('a')
         with self.assertRaises(ValueError):
@@ -642,7 +649,7 @@ class TableJoinTests:
             t3 = t1.join(t2, 'a,d,z', a='a')
 
         t3 = t1.join(t2, 'a,d', a='a')
-        self.assertEqual(len(t3), test_size * test_size)
+        self.assertEqual(test_size * test_size, len(t3))
 
         t4 = t1.join(t2, a='a').select('a c d', e=lambda rec: rec.a + rec.c + rec.d)
         self.assertTrue(all(rec.e == rec.a+rec.c+rec.d for rec in t4))
@@ -651,7 +658,7 @@ class TableJoinTests:
         empty_table = lt.Table()
         empty_table.create_index('a')
         t5 = (t1.join_on('a') + empty_table)()
-        self.assertEqual(len(t5), 0)
+        self.assertEqual(0, len(t5))
 
 class TableJoinTests_DataObjects(unittest.TestCase, TableJoinTests, UsingDataObjects):
     pass
@@ -679,18 +686,18 @@ class TableTransformTests:
         for c_value, recs in itertools.groupby(t1, key=lambda rec: rec.c):
             c_groups += 1
             list(recs)
-        self.assertEqual(c_groups, test_size * test_size * test_size)
+        self.assertEqual(test_size * test_size * test_size, c_groups)
 
         t1.sort('c')
         c_groups = 0
         for c_value, recs in itertools.groupby(t1, key=lambda rec: rec.c):
             c_groups += 1
             list(recs)
-        self.assertEqual(c_groups, test_size)
-        self.assertEqual(t1[0].c, 0)
+        self.assertEqual(test_size, c_groups)
+        self.assertEqual(0, t1[0].c)
 
         t1.sort('c desc')
-        self.assertEqual(t1[0].c, test_size-1)
+        self.assertEqual(test_size-1, t1[0].c)
 
     def test_sort2(self):
 
@@ -770,10 +777,10 @@ class TableTransformTests:
         t1 = make_test_table(self.make_data_object, test_size)
 
         t2 = t1.unique()
-        self.assertEqual(len(t2), len(t1))
+        self.assertEqual(len(t1), len(t2))
 
         t3 = t1.unique(key=lambda rec: rec.c)
-        self.assertEqual(len(t3), test_size)
+        self.assertEqual(test_size, len(t3))
 
 class TableTransformTests_DataObjects(unittest.TestCase, TableTransformTests, UsingDataObjects):
     pass
@@ -899,7 +906,7 @@ class TableImportExportTests:
             outlines = out.read().splitlines()
             out.close()
             self.assertEqual(','.join(fieldnames), outlines[0])
-            self.assertEqual(len(outlines), test_size**3+1)
+            self.assertEqual(test_size**3+1, len(outlines))
             for ob, line in zip(t1, outlines[1:]):
                 csv_vals = line.split(',')
                 self.assertTrue(all(
@@ -915,7 +922,7 @@ class TableImportExportTests:
             outlines = out.read().splitlines()
             out.close()
             self.assertEqual(','.join(fieldnames), outlines[0])
-            self.assertEqual(len(outlines), 1)
+            self.assertEqual(1, len(outlines))
 
         # rerun using an empty table, with indexes to dictate fieldnames
         for fieldnames in permutations(list('abc')):
@@ -928,7 +935,7 @@ class TableImportExportTests:
             outlines = out.read().splitlines()
             out.close()
             self.assertEqual(set(fieldnames), set(outlines[0].split(',')))
-            self.assertEqual(len(outlines), 1)
+            self.assertEqual(1, len(outlines))
 
     def test_csv_import(self):
         data = csv_data
@@ -1009,12 +1016,12 @@ class TableImportExportTests:
             outlines = out.read().splitlines()
             out.close()
 
-            self.assertEqual(len(outlines), test_size**3)
+            self.assertEqual(test_size**3, len(outlines))
 
             for ob, line in zip(t1, outlines):
                 json_dict = json.loads(line)
                 t1_dataobj = make_dataobject_from_ob(ob)
-                self.assertEqual(lt.DataObject(**json_dict), t1_dataobj)
+                self.assertEqual(t1_dataobj, lt.DataObject(**json_dict))
 
     def test_json_import(self):
         data = json_data
