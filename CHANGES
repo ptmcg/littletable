@@ -17,8 +17,12 @@ Version 1.1.1 - (in development)
 
 - Added comparators `Table.is_in` and `Table.not_in` to support filtering
   by presence in or absence from a given collection of values. (For best
-  performance, if there are more than 4 values to be tested,
-  convert the collection to a Python `set` to optimize "in" testing.)
+  performance, if there are more than 4 values to be tested, convert the
+  collection to a Python `set` to optimize "in" testing.)
+
+- For Python versions that support it, `types.SimpleNamespace` is now used
+  as the default row_class for dynamically created tables, instead of
+  `littletable.DataObject`. (This gives a significant performance boost.)
 
 - Converted HowToUseLittletable.txt to Markdown how_to_use_littletable.md.
 

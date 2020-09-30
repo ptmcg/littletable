@@ -139,7 +139,7 @@ __version__ = (
         __version_info__.releaseLevel == "final"
     ]
 )
-__versionTime__ = "28 Sep 2020 02:02 UTC"
+__versionTime__ = "30 Sep 2020 18:17 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -156,6 +156,13 @@ else:
     str_strip = str.strip
     import urllib.request
     urlopen = urllib.request.urlopen
+
+try:
+    from types import SimpleNamespace
+except ImportError:
+    default_row_class = None
+else:
+    default_row_class = SimpleNamespace
 
 try:
     # Python 3
@@ -248,6 +255,8 @@ class DataObject(object):
     def __ne__(self, other):
         return not (self == other)
 
+if default_row_class is None:
+    default_row_class = DataObject
 
 class _ObjIndex(object):
     def __init__(self, attr):
@@ -1078,7 +1087,7 @@ class Table(object):
         ret = Table()
         ret._indexes.update(dict((k, v.copy_template()) for k, v in self._indexes.items() if k in all_names))
         if self:
-            ret.insert_many(DataObject(**dict(zip(all_names, out_tuple))) for out_tuple in raw_tuples)
+            ret.insert_many(default_row_class(**dict(zip(all_names, out_tuple))) for out_tuple in raw_tuples)
         return ret
 
     def formatted_table(self, *fields, **exprs):
@@ -1208,7 +1217,7 @@ class Table(object):
         joinrows = []
         for thisrows, otherrows in matchingrows:
             for trow, orow in product(thisrows, otherrows):
-                retobj = DataObject()
+                retobj = default_row_class()
                 do_all(setattr(retobj, a, getattr(trow, c)) for _, c, a in thiscols)
                 do_all(setattr(retobj, a, getattr(orow, c)) for _, c, a in othercols if not hasattr(retobj, a))
                 joinrows.append(retobj)
@@ -1256,7 +1265,7 @@ class Table(object):
                 limit=None):
 
         if row_class is None:
-            row_class = DataObject
+            row_class = default_row_class
 
         with closing(_multi_iterator(source, encoding)) as _srciter:
             csvdata = reader(_srciter)
@@ -1308,7 +1317,7 @@ class Table(object):
                         return cls(*(getattr(do, attr, None) for attr in cls_slots))
 
                 for slc in slices(csvdata):
-                    scratch = Table().insert_many(DataObject(**s) for s in slc)
+                    scratch = Table().insert_many(default_row_class(**s) for s in slc)
                     if not scratch:
                         continue
                     for attr, fn in transforms.items():
@@ -1317,7 +1326,7 @@ class Table(object):
                             fn, default = fn
                         objfn = lambda obj: fn(getattr(obj, attr))
                         scratch.add_field(attr, objfn, default)
-                    if row_class is DataObject:
+                    if row_class is default_row_class:
                         self.insert_many(scratch)
                     else:
                         self.insert_many(make_row(rec) for rec in scratch)
@@ -1473,7 +1482,7 @@ class Table(object):
         """
         return self.csv_export(tsv_dest, fieldnames=fieldnames, encoding=encoding, delimiter='\t', **kwargs)
 
-    def json_import(self, source, encoding="UTF-8", transforms=None, row_class=DataObject):
+    def json_import(self, source, encoding="UTF-8", transforms=None, row_class=None):
         """Imports the contents of a JSON data file into this table.
            @param source: JSON data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1505,6 +1514,8 @@ class Table(object):
                     except Exception:
                         pass
 
+        if row_class is None:
+            row_class = default_row_class
         return self._import(source, encoding, transforms=transforms, reader=_JsonFileReader, row_class=row_class)
 
     def json_export(self, dest, fieldnames=None, encoding="UTF-8"):
@@ -1597,7 +1608,7 @@ class Table(object):
         tbl = Table()
         do_all(tbl.create_index(k, unique=(len(keyattrs) == 1)) for k in keyattrs)
         for key, recs in sorted(grouped_obs.items()):
-            group_obj = DataObject(**dict(zip(keyattrs, key)))
+            group_obj = default_row_class(**dict(zip(keyattrs, key)))
             do_all(setattr(group_obj, subkey, expr(recs)) for subkey, expr in outexprs.items())
             tbl.insert(group_obj)
         return tbl
@@ -1731,13 +1742,13 @@ class Table(object):
 
         if by_field:
             ret.create_index("name", unique=True)
-            ret.insert_many(DataObject(name=fname,
+            ret.insert_many(default_row_class(name=fname,
                                        **dict((stat_name, stat_fn(accum[fname]))
                                               for stat_name, stat_fn in stats))
                             for fname in field_names)
         else:
             ret.create_index("stat", unique=True)
-            ret.insert_many(DataObject(stat=stat_name,
+            ret.insert_many(default_row_class(stat=stat_name,
                                        **dict((fname, stat_fn(accum[fname]))
                                               for fname in field_names))
                             for stat_name, stat_fn in stats)
@@ -2042,7 +2053,7 @@ class _PivotTable(Table):
                     attrdict[col_label] = fn(sub)
                 else:
                     attrdict[col_label] = fn([s[col] for s in sub])
-                ret.insert(DataObject(**attrdict))
+                ret.insert(default_row_class(**attrdict))
         elif len(self._pivot_attrs) == 2:
             for sub in self.subtables:
                 for ssub in sub.subtables:
@@ -2051,7 +2062,7 @@ class _PivotTable(Table):
                         attrdict[col_label] = fn(ssub)
                     else:
                         attrdict[col_label] = fn([s[col] for s in ssub])
-                    ret.insert(DataObject(**attrdict))
+                    ret.insert(default_row_class(**attrdict))
         elif len(self._pivot_attrs) == 3:
             for sub in self.subtables:
                 for ssub in sub.subtables:
@@ -2061,7 +2072,7 @@ class _PivotTable(Table):
                             attrdict[col_label] = fn(sssub)
                         else:
                             attrdict[col_label] = fn([s[col] for s in sssub])
-                        ret.insert(DataObject(**attrdict))
+                        ret.insert(default_row_class(**attrdict))
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
         return ret
@@ -2088,7 +2099,7 @@ class _PivotTableSummary(object):
         if len(self._pivot_attrs) == 1:
             col = self._pivot_attrs[0]
             col_label = self._label
-            data = Table().insert_many(DataObject(**{col: k, col_label: self._fn(sub)}) for k, sub in self._pt.items())
+            data = Table().insert_many(default_row_class(**{col: k, col_label: self._fn(sub)}) for k, sub in self._pt.items())
             return data.as_html((col, col_label), formats=formats)
 
         elif len(self._pivot_attrs) == 2:
