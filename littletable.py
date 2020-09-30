@@ -495,16 +495,17 @@ class _multi_iterator(object):
             else:
                 if seqobj.endswith(".gz"):
                     import gzip
-                    self._iterobj = _decoder(gzip.GzipFile(seqobj))
+                    self._iterobj = _decoder(gzip.GzipFile(filename=seqobj))
                 elif seqobj.endswith((".xz", ".lzma")):
                     import lzma
                     self._iterobj = lzma.open(seqobj, "rt", encoding=encoding)
                 elif seqobj.endswith(".zip"):
                     import zipfile
                     # assume file name inside zip is the same as the zip file without the trailing ".zip"
-                    if PY_3 and False:
+                    if PY_3:
                         inner_name = Path(seqobj).stem
                     else:
+                        # emulate stem property
                         inner_name = seqobj.replace(os.sep, "/")
                         inner_name = inner_name.rpartition("/")[-1][:-4]
                     self._iterobj = _decoder(zipfile.ZipFile(seqobj).open(inner_name))
