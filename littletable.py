@@ -489,7 +489,7 @@ class _multi_iterator(object):
                     self._iterobj = _decoder(gzip.GzipFile(seqobj))
                 elif seqobj.endswith((".xz", ".lzma")):
                     import lzma
-                    self._iterobj = _decoder(lzma.open(seqobj))
+                    self._iterobj = lzma.open(seqobj, "rt", encoding=encoding))
                 elif seqobj.endswith(".zip"):
                     import zipfile
                     # assume file name inside zip is the same as the zip file without the trailing ".zip"
