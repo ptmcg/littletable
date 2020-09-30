@@ -1212,7 +1212,7 @@ class Table(object):
             swap = True
             
         # find matching rows
-        matchingrows = list((longindex[key], rows) if swap else (rows, longindex[key])
+        matchingrows = ((longindex[key], rows) if swap else (rows, longindex[key])
                             for key, rows in shortindex.items())
 
         joinrows = []
@@ -2053,7 +2053,7 @@ class _PivotTable(Table):
                 if col is None or fn is len:
                     attrdict[col_label] = fn(sub)
                 else:
-                    attrdict[col_label] = fn([s[col] for s in sub])
+                    attrdict[col_label] = fn([getattr(s, col, None) for s in sub])
                 ret.insert(default_row_class(**attrdict))
         elif len(self._pivot_attrs) == 2:
             for sub in self.subtables:
@@ -2062,7 +2062,7 @@ class _PivotTable(Table):
                     if col is None or fn is len:
                         attrdict[col_label] = fn(ssub)
                     else:
-                        attrdict[col_label] = fn([s[col] for s in ssub])
+                        attrdict[col_label] = fn([getattr(s, col, None) for s in ssub])
                     ret.insert(default_row_class(**attrdict))
         elif len(self._pivot_attrs) == 3:
             for sub in self.subtables:
@@ -2072,7 +2072,7 @@ class _PivotTable(Table):
                         if col is None or fn is len:
                             attrdict[col_label] = fn(sssub)
                         else:
-                            attrdict[col_label] = fn([s[col] for s in sssub])
+                            attrdict[col_label] = fn([getattr(s, col, None) for s in sssub])
                         ret.insert(default_row_class(**attrdict))
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
