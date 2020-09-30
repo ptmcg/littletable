@@ -1377,7 +1377,7 @@ class Table(object):
                             row_class=row_class,
                             limit=limit)
 
-    def _xsv_import(self, xsv_source, encoding, transforms=None, filters=None, row_class=None, limit=None, **kwargs):
+    def _xsv_import(self, xsv_source, encoding='utf-8', transforms=None, filters=None, row_class=None, limit=None, **kwargs):
         reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
                                                                           'xsv_source',
                                                                           'transforms',
@@ -1394,7 +1394,7 @@ class Table(object):
                             row_class=row_class,
                             limit=limit)
 
-    def tsv_import(self, xsv_source, encoding="UTF-8", transforms=None, filters=None, row_class=None, limit=None, **kwargs):
+    def tsv_import(self, xsv_source, encoding="utf-8", transforms=None, filters=None, row_class=None, limit=None, **kwargs):
         """Imports the contents of a tab-separated data file into this table.
            @param xsv_source: tab-separated data file - if a string is given, the file with that name will be
                opened, read, and closed; if a file object is given, then that object
@@ -1413,7 +1413,7 @@ class Table(object):
            @type limit: int (optional)
         """
         return self._xsv_import(xsv_source,
-                                encoding,
+                                encoding=encoding,
                                 transforms=transforms,
                                 filters=filters,
                                 row_class=row_class,
@@ -1421,7 +1421,7 @@ class Table(object):
                                 delimiter="\t",
                                 **kwargs)
 
-    def csv_export(self, csv_dest, fieldnames=None, encoding="UTF-8", delimiter=",", **kwargs):
+    def csv_export(self, csv_dest, fieldnames=None, encoding="utf-8", delimiter=",", **kwargs):
         """Exports the contents of the table to a CSV-formatted file.
            @param csv_dest: CSV file - if a string is given, the file with that name will be
                opened, written, and closed; if a file object is given, then that object
@@ -1456,7 +1456,8 @@ class Table(object):
                 fieldnames = fieldnames.split()
 
             csv_dest.write(delimiter.join(fieldnames) + NL)
-            csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore', lineterminator=NL, **writer_args)
+            csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore',
+                                    lineterminator=NL, delimiter=delimiter, **writer_args)
             if self.obs and hasattr(self.obs[0], "__dict__"):
                 csvout.writerows(o.__dict__ for o in self.obs)
             else:
@@ -1470,7 +1471,7 @@ class Table(object):
         r"""
         Similar to csv_export, with delimiter="\t"
         """
-        return self.csv_export(tsv_dest, fieldnames, encoding, delimiter='\t', **kwargs)
+        return self.csv_export(tsv_dest, fieldnames=fieldnames, encoding=encoding, delimiter='\t', **kwargs)
 
     def json_import(self, source, encoding="UTF-8", transforms=None, row_class=DataObject):
         """Imports the contents of a JSON data file into this table.
