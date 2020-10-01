@@ -124,7 +124,7 @@ import os
 import random
 import re
 import sys
-from collections import defaultdict, deque, namedtuple, OrderedDict as ODict
+from collections import defaultdict, namedtuple, OrderedDict as ODict
 from contextlib import closing
 from functools import partial
 from itertools import starmap, repeat, islice, takewhile, chain, product
@@ -170,9 +170,6 @@ try:
 except ImportError:
     # Python 2.7
     from collections import Mapping, Sequence
-
-_consumer = deque(maxlen=0)
-do_all = _consumer.extend
 
 if PY_3:
     basestring = str
@@ -711,7 +708,8 @@ class Table(object):
         ret = self.obs.pop(i)
 
         # remove from indexes
-        do_all(ind.remove(ret) for attr, ind in self._indexes.items())
+        for attr, ind in self._indexes.items():
+            ind.remove(ret)
         
         return ret
 
@@ -761,6 +759,9 @@ class Table(object):
         if table_name is not None:
             self.table_name = table_name
         return self
+
+    def _attr_names(self):
+        return list(_object_attrnames(self.obs[0]) if self.obs else self._indexes.keys())
 
     def copy_template(self, name=None):
         """Create empty copy of the current table, with copies of all
@@ -1042,8 +1043,8 @@ class Table(object):
                 # mix of ascending and descending sorts, have to do succession of sorts
                 # leftmost attr is the most primary sort key, so reverse attr_orders to do
                 # succession of sorts from right to left
-                do_all(self.obs.sort(key=operator.attrgetter(attr), reverse=(order == "desc"))
-                       for attr, order in reversed(attr_orders))
+                for attr, order in reversed(attr_orders):
+                    self.obs.sort(key=operator.attrgetter(attr), reverse=(order == "desc"))
         else:
             # sorting given a sort key function
             keyfn = key
@@ -1219,8 +1220,11 @@ class Table(object):
         for thisrows, otherrows in matchingrows:
             for trow, orow in product(thisrows, otherrows):
                 retobj = default_row_class()
-                do_all(setattr(retobj, a, getattr(trow, c)) for _, c, a in thiscols)
-                do_all(setattr(retobj, a, getattr(orow, c)) for _, c, a in othercols if not hasattr(retobj, a))
+                for _, c, a in thiscols:
+                    setattr(retobj, a, getattr(trow, c))
+                for _, c, a in othercols:
+                    if not hasattr(retobj, a):
+                        setattr(retobj, a, getattr(orow, c))
                 joinrows.append(retobj)
 
         ret = Table(retname)
@@ -1461,7 +1465,7 @@ class Table(object):
             close_on_exit = True
         try:
             if fieldnames is None:
-                fieldnames = list(_object_attrnames(self.obs[0])) if self.obs else list(self._indexes.keys())
+                fieldnames = self._attr_names()
             if isinstance(fieldnames, basestring):
                 fieldnames = fieldnames.split()
 
@@ -1471,8 +1475,9 @@ class Table(object):
             if self.obs and hasattr(self.obs[0], "__dict__"):
                 csvout.writerows(o.__dict__ for o in self.obs)
             else:
-                do_all(csvout.writerow(ODict(starmap(lambda obj, fld: (fld, getattr(obj, fld)),
-                                                     zip(repeat(o), fieldnames)))) for o in self.obs)
+                for o in self.obs:
+                    csvout.writerow(ODict(starmap(lambda obj, fld: (fld, getattr(obj, fld)),
+                                                  zip(repeat(o), fieldnames))))
         finally:
             if close_on_exit:
                 csv_dest.close()
@@ -1544,9 +1549,11 @@ class Table(object):
                 fieldnames = fieldnames.split()
 
             if fieldnames is None:
-                do_all(dest.write(_to_json(o)+'\n') for o in self.obs)
+                for o in self.obs:
+                    dest.write(_to_json(o)+'\n')
             else:
-                do_all(dest.write(json.dumps(ODict((f, getattr(o, f)) for f in fieldnames))+'\n') for o in self.obs)
+                for o in self.obs:
+                    dest.write(json.dumps(ODict((f, getattr(o, f)) for f in fieldnames))+'\n')
         finally:
             if close_on_exit:
                 dest.close()
@@ -1576,7 +1583,8 @@ class Table(object):
             else:
                 setattr(rec_, attrname, val)
         try:
-            do_all(_add_field_to_rec(r) for r in self)
+            for r in self:
+                _add_field_to_rec(r)
         except AttributeError:
             raise AttributeError("cannot add/modify attribute {!r} in table records".format(attrname))
         return self
@@ -1604,13 +1612,16 @@ class Table(object):
             raise TypeError("keyexpr must be string or tuple")
 
         grouped_obs = defaultdict(list)
-        do_all(grouped_obs[keyfn(ob)].append(ob) for ob in self.obs)
+        for ob in self.obs:
+            grouped_obs[keyfn(ob)].append(ob)
 
         tbl = Table()
-        do_all(tbl.create_index(k, unique=(len(keyattrs) == 1)) for k in keyattrs)
+        for k in keyattrs:
+            tbl.create_index(k, unique=(len(keyattrs) == 1))
         for key, recs in sorted(grouped_obs.items()):
             group_obj = default_row_class(**dict(zip(keyattrs, key)))
-            do_all(setattr(group_obj, subkey, expr(recs)) for subkey, expr in outexprs.items())
+            for subkey, expr in outexprs.items():
+                setattr(group_obj, subkey, expr(recs))
             tbl.insert(group_obj)
         return tbl
 
@@ -1632,7 +1643,7 @@ class Table(object):
                 try:
                     ob_dict = vars(ob)
                 except TypeError:
-                    ob_dict = dict((k, getattr(ob, k)) for k in _object_attrnames(ob))
+                    ob_dict = _to_dict(ob)
                 reckey = tuple(sorted(ob_dict.items()))
             else:
                 reckey = key(ob)
@@ -1650,7 +1661,7 @@ class Table(object):
         return {
             'len': len(self),
             'name': self.table_name,
-            'fields': list(_object_attrnames(self[0])) if self else [],
+            'fields': self._attr_names(),
             'indexes': [(idx_name, self._indexes[idx_name] in unique_indexes) for idx_name in self._indexes],
         }
 
@@ -1775,7 +1786,7 @@ class Table(object):
             field_names = ['*']
         if '*' in field_names:
             if self:
-                star_fields = [name for name in _object_attrnames(self[0]) if name not in field_names]
+                star_fields = [name for name in self._attr_names() if name not in field_names]
             else:
                 # no records to look at, just use names of any defined indexes
                 star_fields = list(self._indexes.keys())
@@ -1982,13 +1993,16 @@ class _PivotTable(Table):
             out.write("Pivot: {}".format(','.join(self._pivot_attrs)))
         out.write(NL)
         if self.has_subtables():
-            do_all(sub.dump(out, row_fn, limit, indent+1) for sub in self.subtables if sub)
+            for sub in self.subtables:
+                if sub:
+                    sub.dump(out, row_fn, limit, indent+1)
         else:
             if limit >= 0:
                 showslice = slice(0, limit)
             else:
                 showslice = slice(None, None)
-            do_all(out.write("  "*(indent+1) + row_fn(r) + NL) for r in self.obs[showslice])
+            for r in self.obs[showslice]:
+                out.write("  "*(indent+1) + row_fn(r) + NL)
         out.flush()
         
     def dump_counts(self, out=sys.stdout, count_fn=len, colwidth=10):
@@ -2045,7 +2059,8 @@ class _PivotTable(Table):
                 col_label = 'count'
         ret = Table()
 
-        do_all(ret.create_index(attr) for attr in self._pivot_attrs)
+        for attr in self._pivot_attrs:
+            ret.create_index(attr)
         if len(self._pivot_attrs) == 1:
             for sub in self.subtables:
                 subattr, subval = sub._attr_path[-1]
