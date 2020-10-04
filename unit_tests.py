@@ -1009,6 +1009,26 @@ class TableImportExportTests:
             self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
             self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
 
+    def test_csv_filtered_import(self):
+        test_size = 3
+        tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int))
+        print("abc.csv", tt.info())
+
+        tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int),
+                                   filters={"c": lt.Table.eq(1)})
+        print(tt.info())
+        self.assertEqual(test_size * test_size, len(tt))
+
+        tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int),
+                                   filters={"c": 1})
+        print(tt.info())
+        self.assertEqual(test_size * test_size, len(tt))
+
+        tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int),
+                                   filters={"c": lambda x: 0 < x < 2})
+        print(tt.info())
+        self.assertEqual(test_size * test_size, len(tt))
+
     def test_csv_string_import(self):
         data = csv_data
         csvtable = lt.Table().csv_import(csv_source=data, transforms={'a': int, 'b': int, 'c': int})

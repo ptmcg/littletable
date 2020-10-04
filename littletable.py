@@ -1326,6 +1326,27 @@ class Table(object):
         with closing(_multi_iterator(source, encoding)) as _srciter:
             csvdata = reader(_srciter)
 
+            if transforms:
+                transformers = []
+                for k, v in transforms.items():
+                    if isinstance(v, tuple):
+                        v, default = v
+                    else:
+                        default = None
+                    if callable(v):
+                        transformers.append((k, v, default))
+                    else:
+                        transformers.append((k, lambda __: v, default))
+
+                def transformer(rec, transformers=transformers):
+                    for k, v, default in transformers:
+                        try:
+                            rec[k] = v(rec[k])
+                        except Exception:
+                            rec[k] = default
+                    return rec
+                csvdata = map(transformer, csvdata)
+
             if filters:
                 for k, v in filters.items():
                     if callable(v):
@@ -1356,38 +1377,7 @@ class Table(object):
                         yield obj
                 csvdata = limiter(limit, csvdata)
 
-            if transforms:
-                def slices(seq, slice_size=128):
-                    seq_iter = iter(seq)
-                    while True:
-                        yield islice(seq_iter, 0, slice_size)
-                        try:
-                            yield [next(seq_iter)]
-                        except StopIteration:
-                            break
-
-                if hasattr(row_class, '__dict__') or hasattr(row_class, '_fields'):
-                    make_row = lambda do, cls=row_class, vars=vars: cls(**vars(do))
-                else:
-                    def make_row(do, cls=row_class, cls_slots=row_class.__slots__, getattr=getattr):
-                        return cls(*(getattr(do, attr, None) for attr in cls_slots))
-
-                for slc in slices(csvdata):
-                    scratch = Table().insert_many(default_row_class(**s) for s in slc)
-                    if not scratch:
-                        continue
-                    for attr, fn in transforms.items():
-                        default = None
-                        if isinstance(fn, tuple):
-                            fn, default = fn
-                        objfn = lambda obj: fn(getattr(obj, attr))
-                        scratch.add_field(attr, objfn, default)
-                    if row_class is default_row_class:
-                        self.insert_many(scratch)
-                    else:
-                        self.insert_many(make_row(rec) for rec in scratch)
-            else:
-                self.insert_many(row_class(**s) for s in csvdata)
+            self.insert_many(row_class(**s) for s in csvdata)
         return self
 
     def csv_import(self,
