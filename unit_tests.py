@@ -997,6 +997,18 @@ class TableImportExportTests:
         print(type(csvtable2[0]).__name__, csvtable2[0])
         self.assertEqual(type(t1[0]), type(csvtable2[0]))
 
+    def test_csv_compressed_import(self):
+        tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int))
+        print("abc.csv", tt.info())
+
+        for name in ("abc.csv.zip", "abc.csv.gz", "abc.csv.xz"):
+            tt2 = lt.Table().csv_import("test/" + name, transforms=dict.fromkeys("abc", int))
+            print(name, tt2.info())
+            self.assertEqual(tt.info(), tt2.info())
+            self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
+            self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
+            self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
+
     def test_csv_string_import(self):
         data = csv_data
         csvtable = lt.Table().csv_import(csv_source=data, transforms={'a': int, 'b': int, 'c': int})
