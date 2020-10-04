@@ -139,7 +139,7 @@ __version__ = (
         __version_info__.releaseLevel == "final"
     ]
 )
-__versionTime__ = "4 Oct 2020 11:36 UTC"
+__versionTime__ = "4 Oct 2020 11:56 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -494,6 +494,9 @@ class _multi_iterator(object):
                     import gzip
                     self._iterobj = _decoder(gzip.GzipFile(filename=seqobj))
                 elif seqobj.endswith((".xz", ".lzma")):
+                    if not PY_3:
+                        raise Exception("unable to import {!r}; "
+                                        "lzma decompression requires Python 3.3 or later".format(seqobj))
                     import lzma
                     self._iterobj = lzma.open(seqobj, "rt", encoding=encoding)
                 elif seqobj.endswith(".zip"):

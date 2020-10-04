@@ -1001,13 +1001,21 @@ class TableImportExportTests:
         tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int))
         print("abc.csv", tt.info())
 
-        for name in ("abc.csv.zip", "abc.csv.gz", "abc.csv.xz"):
+        compressed_files = ["abc.csv.zip", "abc.csv.gz"]
+        if PY_3:
+            compressed_files.append("abc.csv.xz")
+        for name in compressed_files:
             tt2 = lt.Table().csv_import("test/" + name, transforms=dict.fromkeys("abc", int))
             print(name, tt2.info())
             self.assertEqual(tt.info(), tt2.info())
             self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
             self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
             self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
+
+        if PY_2:
+            with self.assertRaises(Exception):
+                name = "abc.csv.xz"
+                tt2 = lt.Table().csv_import("test/" + name, transforms=dict.fromkeys("abc", int))
 
         tt2 = lt.Table().json_import("test/abc.json.gz")
         print("abc.json.gz", tt2.info())
