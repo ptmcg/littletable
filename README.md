@@ -22,10 +22,8 @@ In addition to basic ORM-style insert/remove/query/delete access to the contents
 * clean tabular output for data presentation
 * simplified joins using `"+"` operator syntax between annotated `Table`s 
 * the result of any query or join is a new first-class `littletable` `Table` 
-* access like a standard Python list to the records in a Table, including
-  indexing/slicing, `iter`, `zip`, `len`, `groupby`, etc.
-* access like a standard Python `dict` to attributes with a unique index, or like
-  a standard Python `defaultdict(list)` to attributes with a non-unique index
+* access like a standard Python list to the records in a Table, including indexing/slicing, `iter`, `zip`, `len`, `groupby`, etc.
+* access like a standard Python `dict` to attributes with a unique index, or like a standard Python `defaultdict(list)` to attributes with a non-unique index
 
 `littletable` `Table`s do not require an upfront schema definition, but simply work off of the attributes in 
 the stored values, and those referenced in any query parameters.
