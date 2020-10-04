@@ -1215,12 +1215,15 @@ class Table(object):
         other_attr_specs = [attr_spec for attr_spec in full_attr_specs if attr_spec[0] is other]
 
         if auto_create_indexes:
-            for tbl, col, _ in full_attr_specs:
-                if col not in tbl._indexes:
-                    tbl.create_index(col)
+            for tbl, col_list in ((self, this_cols), (other, other_cols)):
+                for col in col_list:
+                    if col not in tbl._indexes:
+                        tbl.create_index(col)
         else:
             # make sure all join columns are indexed
-            unindexed_cols = [col for tbl, col, _ in full_attr_specs if col not in tbl._indexes]
+            unindexed_cols = []
+            for tbl, col_list in ((self, this_cols), (other, other_cols)):
+                unindexed_cols.extend(col for col in col_list if col not in tbl._indexes)
             if unindexed_cols:
                 raise ValueError("indexed attributes required for join: {}".format(','.join(unindexed_cols)))
 
