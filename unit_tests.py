@@ -660,6 +660,47 @@ class TableJoinTests:
         t5 = (t1.join_on('a') + empty_table)()
         self.assertEqual(0, len(t5))
 
+    def test_outer_joins(self):
+        t1 = lt.Table()
+        t1.csv_import(textwrap.dedent("""\
+        sku,color,size,material
+        001,red,XL,cotton
+        002,blue,XL,cotton/poly
+        003,blue,L,linen
+        004,red,M,cotton
+        """))
+
+        t2 = lt.Table()
+        t2.csv_import(textwrap.dedent("""\
+        sku,unit_price,size
+        001,10,L
+        001,12,XL
+        002,11,
+        004,9,
+        """), transforms={'size': lambda x: x or None})
+        print(t1.info())
+
+        t3 = t1.join(t2, auto_create_indexes=True, sku="sku")()
+        print(t3.info())
+        self.assertEqual(4, len(t3))
+
+        t3 = t1.join(t2, auto_create_indexes=True, sku="sku", size="size")()("inner join")
+        print(t3.info())
+        self.assertEqual(1, len(t3))
+
+        t3 = t1.join(t2, auto_create_indexes=True, join="right outer", sku="sku", size="size")()("right outer join")
+        print(t3.info())
+        self.assertEqual(5, len(t3))
+
+        t3 = t1.join(t2, auto_create_indexes=True, join="left outer", sku="sku", size="size")()("left outer join")
+        print(t3.info())
+        self.assertEqual(3, len(t3))
+
+        t3 = t1.join(t2, auto_create_indexes=True, join="full outer", sku="sku", size="size")()("full outer join")
+        print(t3.info())
+        self.assertEqual(19, len(t3))
+
+
 class TableJoinTests_DataObjects(unittest.TestCase, TableJoinTests, UsingDataObjects):
     pass
 

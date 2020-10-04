@@ -7,6 +7,13 @@ Version 1.1.1 - (in development)
   such as `data.csv.gz` or `data.csv.zip`. (For zip archives, the zip
   file name must be the same as the compressed file with ".zip" added.)
 
+- Add `join` argument to `Table.join()` to indicate whether an
+  "inner" join or "outer" join is to be performed. Accepted values
+  are "inner", "left outer", "right outer", "full outer", and "outer"
+  (synonym for "right outer"). Default join type is "inner".
+
+- Fixed bug preventing joining on more than one field.
+
 - Added `filters` argument to csv_import, to screen records as they
   are read from the input file *before* they are added to the table. Can
   be useful when dealing with large input files, to pre-screen data
