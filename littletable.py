@@ -1720,7 +1720,7 @@ class Table(object):
         :param n: (int, default=10) number of records to return
         :return: Table
         """
-        return self[:n]
+        return self[:n](self.table_name)
 
     def tail(self, n=10):
         """
@@ -1728,7 +1728,7 @@ class Table(object):
         :param n: (int, default=10) number of records to return
         :return: Table
         """
-        return self[-n:]
+        return self[-n:](self.table_name)
 
     def stats(self, field_names=None, by_field=True):
         """
