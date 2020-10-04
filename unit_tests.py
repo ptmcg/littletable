@@ -1009,6 +1009,13 @@ class TableImportExportTests:
             self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
             self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
 
+        tt2 = lt.Table().json_import("test/abc.json.gz")
+        print("abc.json.gz", tt2.info())
+        self.assertEqual(tt.info(), tt2.info())
+        self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
+        self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
+        self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
+
     def test_csv_filtered_import(self):
         test_size = 3
         tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int))
