@@ -127,19 +127,19 @@ import sys
 from collections import defaultdict, namedtuple, OrderedDict as ODict
 from contextlib import closing
 from functools import partial
-from itertools import starmap, repeat, islice, takewhile, chain, product
+from itertools import starmap, repeat, takewhile, chain, product
 
 json_dumps = partial(json.dumps, indent=2)
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
-__version_info__ = version_info(1, 2, 1, "final", 0)
+__version_info__ = version_info(1, 3, 0, "final", 0)
 __version__ = (
         "{}.{}.{}".format(*__version_info__[:3])
         + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
             __version_info__.releaseLevel == "final"
             ]
 )
-__versionTime__ = "4 Oct 2020 21:02 UTC"
+__versionTime__ = "5 Oct 2020 14:29 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -638,6 +638,12 @@ class Table(object):
     within = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x <= upper))
     in_range = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x < upper))
 
+    INNER_JOIN = object()
+    LEFT_OUTER_JOIN = object()
+    RIGHT_OUTER_JOIN = object()
+    FULL_OUTER_JOIN = object()
+    OUTER_JOIN_TYPES = (LEFT_OUTER_JOIN, RIGHT_OUTER_JOIN, FULL_OUTER_JOIN)
+
     def __init__(self, table_name=''):
         """Create a new, empty Table.
            @param table_name: name for Table
@@ -1135,7 +1141,7 @@ class Table(object):
         for line in self:
             yield fmt.format(**_to_dict(line))
 
-    def join(self, other, attrlist=None, auto_create_indexes=True, join="inner", **kwargs):
+    def join(self, other, attrlist=None, auto_create_indexes=True, **kwargs):
         """
         Join the objects of one table with the objects of another, based on the given
         matching attributes in the named arguments.  The attrlist specifies the attributes to
@@ -1162,10 +1168,10 @@ class Table(object):
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
         @returns: a new Table containing the joined data as new DataObjects
         """
-        if join not in ("inner", "left outer", "right outer", "full outer", "outer"):
-            raise ValueError("join argument must be 'inner', 'left outer', "
-                             "'right outer', 'full outer', or 'outer'")
-
+        # if join not in ("inner", "left outer", "right outer", "full outer", "outer"):
+        #     raise ValueError("join argument must be 'inner', 'left outer', "
+        #                      "'right outer', 'full outer', or 'outer'")
+        #
         if not kwargs:
             raise TypeError("must specify at least one join attribute as a named argument")
         this_cols, other_cols = list(kwargs.keys()), list(kwargs.values())
@@ -1178,16 +1184,19 @@ class Table(object):
                                           other.table_name, '/'.join(other_cols)))
 
         # if inner join, make sure both tables contain records to join - if not, just return empty list
-        if join == "inner":
-            if not (self.obs and other.obs):
-                return Table(retname)
-        else:
-            if not self:
-                # no records in either table, return empty table
-                return Table(retname)
-            elif not other:
-                # no records in other, just return a copy of this table
-                return self.clone()
+        if not (self.obs and other.obs):
+            return Table(retname)
+
+        # if join == "inner":
+        #     if not (self.obs and other.obs):
+        #         return Table(retname)
+        # else:
+        #     if not self:
+        #         # no records in either table, return empty table
+        #         return Table(retname)
+        #     elif not other:
+        #         # no records in other, just return a copy of this table
+        #         return self.clone()
 
         attr_spec_list = attrlist
         if isinstance(attrlist, basestring):
@@ -1245,13 +1254,164 @@ class Table(object):
             this_rows = self.where(**base_this_where_dict)
             other_rows = other.where(**base_other_where_dict)
 
-            if join in ("full outer", "left outer"):
+            # if join in ("full outer", "left outer"):
+            #     if not this_rows:
+            #         this_outer_dict = dict.fromkeys(this_cols, None)
+            #         this_outer_dict.update(dict(zip(this_cols, join_values)))
+            #         this_rows.insert(default_row_class(**this_outer_dict))
+            #
+            # if join in ("full outer", "right outer", "outer"):
+            #     if not other_rows:
+            #         other_outer_dict = dict.fromkeys(other_cols, None)
+            #         other_outer_dict.update(dict(zip(other_cols, join_values)))
+            #         other_rows.insert(default_row_class(**other_outer_dict))
+            #
+            matchingrows.append((this_rows, other_rows))
+
+        # remove attr_specs from other_attr_specs if alias is duplicate of any alias in this_attr_specs
+        this_attr_specs_aliases = set(alias for tbl, col, alias in this_attr_specs)
+        other_attr_specs = [(tbl, col, alias) for tbl, col, alias in other_attr_specs
+                            if alias not in this_attr_specs_aliases]
+
+        joinrows = []
+        for thisrows, otherrows in matchingrows:
+            for trow, orow in product(thisrows, otherrows):
+                retobj = default_row_class()
+                for _, attr_name, alias in this_attr_specs:
+                    setattr(retobj, alias, getattr(trow, attr_name, None))
+                for _, attr_name, alias in other_attr_specs:
+                    setattr(retobj, alias, getattr(orow, attr_name, None))
+                joinrows.append(retobj)
+
+        ret = Table(retname)
+        ret.insert_many(joinrows)
+
+        # add indexes as defined in source tables
+        for tbl, attr_name, alias in this_attr_specs + other_attr_specs:
+            if attr_name in tbl._indexes:
+                if alias not in ret._indexes:
+                    ret.create_index(alias)  # no unique indexes in join results
+
+        return ret
+
+    def outer_join(self, join_type, other, attrlist=None, auto_create_indexes=True, **kwargs):
+        """
+        Join the objects of one table with the objects of another, based on the given
+        matching attributes in the named arguments.  The attrlist specifies the attributes to
+        be copied from the source tables - if omitted, all attributes will be copied.  Entries
+        in the attrlist may be single attribute names, or if there are duplicate names in both
+        tables, then a C{(table,attributename)} tuple can be given to disambiguate which
+        attribute is desired. A C{(table,attributename,alias)} tuple can also be passed, to
+        rename an attribute from a source table.
+
+        This method may be called directly, or can be constructed using the L{join_on} method and
+        the '+' operator.  Using this syntax, the join is specified using C{table.join_on("xyz")}
+        to create a JoinTerm containing both table and joining attribute.  Multiple JoinTerm
+        or tables can be added to construct a compound join expression.  When complete, the
+        join expression gets executed by calling the resulting join definition,
+        using C{join_expression([attrlist])}.
+
+        @param join_type: type of outer join to be performed
+        @type join_type: must be Table.LEFT_OUTER_JOIN, Table.RIGHT_OUTER_JOIN, or Table.FULL_OUTER_JOIN
+        @param other: other table to join to
+        @param attrlist: list of attributes to be copied to the new joined table; if
+            none provided, all attributes of both tables will be used (taken from the first
+            object in each table)
+        @type attrlist: string, or list of strings or C{(table,attribute[,alias])} tuples
+            (list may contain both strings and tuples)
+        @param kwargs: attributes to join on, given as additional named arguments
+            of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
+        @returns: a new Table containing the joined data as new DataObjects
+        """
+        if join_type not in (Table.OUTER_JOIN_TYPES):
+            join_names = [nm for nm, join_var in vars(Table).items() if join_var in Table.OUTER_JOIN_TYPES]
+            raise ValueError("join argument must be one of [{}]".format(', '.join("Table." + nm for nm in join_names)))
+
+        if not kwargs:
+            raise TypeError("must specify at least one join attribute as a named argument")
+        this_cols, other_cols = list(kwargs.keys()), list(kwargs.values())
+
+        if (not all(isinstance(col, str) for col in this_cols)
+                or not all(isinstance(col, str) for col in other_cols)):
+            raise TypeError("all join keywords must be of type str")
+
+        retname = ("({}:{}^{}:{})".format(self.table_name, '/'.join(this_cols),
+                                          other.table_name, '/'.join(other_cols)))
+
+        if self is other:
+            return self.clone()(retname)
+
+        attr_spec_list = attrlist
+        if isinstance(attrlist, basestring):
+            attr_spec_list = re.split(r'[,\s]+', attrlist)
+
+        # expand attrlist to full (table, name, alias) tuples
+        if attr_spec_list is None:
+            full_attr_specs = [(self, n, n) for n in self._attr_names()]
+            full_attr_specs += [(other, n, n) for n in other._attr_names()]
+        else:
+            full_attr_specs = []
+            this_attr_names = set(self._attr_names())
+            other_attr_names = set(other._attr_names())
+            for attr_spec in attr_spec_list:
+                if isinstance(attr_spec, tuple):
+                    # assume attr_spec contains at least (table, col_name), fill in alias if missing
+                    # to be same as col_name
+                    if len(attr_spec) == 2:
+                        attr_spec = attr_spec + (attr_spec[-1],)
+                    full_attr_specs.append(attr_spec)
+                else:
+                    name = attr_spec
+                    if name in this_attr_names:
+                        full_attr_specs.append((self, name, name))
+                    elif attr_spec in other_attr_names:
+                        full_attr_specs.append((other, name, name))
+                    else:
+                        raise ValueError("join attribute not found: {!r}".format(name))
+
+        # regroup attribute specs by table
+        this_attr_specs = [attr_spec for attr_spec in full_attr_specs if attr_spec[0] is self]
+        other_attr_specs = [attr_spec for attr_spec in full_attr_specs if attr_spec[0] is other]
+
+        if auto_create_indexes:
+            for tbl, col_list in ((self, this_cols), (other, other_cols)):
+                for col in col_list:
+                    if col not in tbl._indexes:
+                        tbl.create_index(col)
+        else:
+            # make sure all join columns are indexed
+            unindexed_cols = []
+            for tbl, col_list in ((self, this_cols), (other, other_cols)):
+                unindexed_cols.extend(col for col in col_list if col not in tbl._indexes)
+            if unindexed_cols:
+                raise ValueError("indexed attributes required for join: {}".format(','.join(unindexed_cols)))
+
+        # find matching rows
+        matchingrows = []
+        if join_type == Table.RIGHT_OUTER_JOIN:
+            key_map_values = list(zip(this_cols, other_cols, (self._indexes[key].keys() for key in this_cols)))
+        elif join_type == Table.LEFT_OUTER_JOIN:
+            key_map_values = list(zip(this_cols, other_cols, (other._indexes[key].keys() for key in other_cols)))
+        else:
+            key_map_values = list(zip(this_cols, other_cols,
+                                      (set(self._indexes[this_key].keys()) | set(other._indexes[other_key].keys())
+                                       for this_key, other_key in zip(this_cols, other_cols))))
+
+        for join_values in product(*(kmv[-1] for kmv in key_map_values)):
+            base_this_where_dict = dict(zip(this_cols, join_values))
+            base_other_where_dict = dict(zip(other_cols, join_values))
+
+            # compute inner join rows to start
+            this_rows = self.where(**base_this_where_dict)
+            other_rows = other.where(**base_other_where_dict)
+
+            if join_type in (Table.FULL_OUTER_JOIN, Table.LEFT_OUTER_JOIN):
                 if not this_rows:
                     this_outer_dict = dict.fromkeys(this_cols, None)
                     this_outer_dict.update(dict(zip(this_cols, join_values)))
                     this_rows.insert(default_row_class(**this_outer_dict))
 
-            if join in ("full outer", "right outer", "outer"):
+            if join_type in (Table.FULL_OUTER_JOIN, Table.RIGHT_OUTER_JOIN):
                 if not other_rows:
                     other_outer_dict = dict.fromkeys(other_cols, None)
                     other_outer_dict.update(dict(zip(other_cols, join_values)))
@@ -1285,7 +1445,7 @@ class Table(object):
 
         return ret
 
-    def join_on(self, attr):
+    def join_on(self, attr, join="inner"):
         """Creates a JoinTerm in preparation for joining with another table, to
            indicate what attribute should be used in the join.  Only indexed attributes
            may be used in a join.
@@ -1295,7 +1455,7 @@ class Table(object):
            @returns: L{JoinTerm}"""
         if attr not in self._indexes:
             raise ValueError("can only join on indexed attributes")
-        return _JoinTerm(self, attr)
+        return _JoinTerm(self, attr, join)
 
     def pivot(self, attrlist):
         """Pivots the data using the given attributes, returning a L{PivotTable}.
@@ -2234,10 +2394,11 @@ class _JoinTerm(object):
        When calling the join expression, you can optionally specify a
        list of attributes as defined in L{Table.join}.
     """
-    def __init__(self, source_table, join_field):
+    def __init__(self, source_table, join_field, join_type=None):
         self.source_table = source_table
         self.join_field = join_field
         self.join_to = None
+        self.join_type = join_type
 
     def __add__(self, other):
         if isinstance(other, Table):
@@ -2248,6 +2409,12 @@ class _JoinTerm(object):
                     self.join_to = other
                 else:
                     self.join_to = other()
+
+                if self.join_type is None:
+                    self.join_type = other.join_type
+                if other.join_type is None:
+                    other.join_type = self.join_type
+
                 return self
             else:
                 if other.join_to is None:

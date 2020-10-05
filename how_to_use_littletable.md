@@ -454,7 +454,7 @@ Here is how that looks with littletable:
     0005,Enid
     """)
 
-    regisrations = lt.Table().csv_import("""\
+    registrations = lt.Table().csv_import("""\
     student_id,course
     0001,PSYCH101
     0001,CALC1
@@ -463,9 +463,9 @@ Here is how that looks with littletable:
     """)
 
     # perform outer join and show results:    
-    non_reg = students.join(regisrations, 
-                            join="outer", 
-                            student_id="student_id").where(course=None)
+    non_reg = students.outer_join(lt.Table.RIGHT_OUTER_JOIN, 
+                                  registrations, 
+                                  student_id="student_id").where(course=None)
     non_reg.present()
     print(list(non_reg.all.name))
     

@@ -50,6 +50,13 @@ if PY_3:
 else:
     import StringIO as io
 
+# if rich is not installed, disable table.present() calls
+try:
+    import rich
+except ImportError:
+    lt.Table.present = lambda *args: None
+
+
 class Slotted(object):
     __slots__ = ['a', 'b', 'c']
 
@@ -661,45 +668,110 @@ class TableJoinTests:
         self.assertEqual(0, len(t5))
 
     def test_outer_joins(self):
-        t1 = lt.Table()
+        t1 = lt.Table("catalog")
         t1.csv_import(textwrap.dedent("""\
-        sku,color,size,material
-        001,red,XL,cotton
-        002,blue,XL,cotton/poly
-        003,blue,L,linen
-        004,red,M,cotton
-        """))
+            sku,color,size,material
+            001,red,XL,cotton
+            002,blue,XL,cotton/poly
+            003,blue,L,linen
+            004,red,M,cotton
+            """))
 
-        t2 = lt.Table()
+        t2 = lt.Table("prices")
         t2.csv_import(textwrap.dedent("""\
-        sku,unit_price,size
-        001,10,L
-        001,12,XL
-        002,11,
-        004,9,
-        """), transforms={'size': lambda x: x or None})
+            sku,unit_price,size
+            001,10,L
+            001,12,XL
+            002,11,
+            004,9,
+            """), transforms={'size': lambda x: x or None})
         print(t1.info())
 
-        t3 = t1.join(t2, auto_create_indexes=True, sku="sku")()
+        t1.present()
+        t2.present()
+
+        t3 = t1.join(t2, auto_create_indexes=True, sku="sku")
         print(t3.info())
+        t3.present()
         self.assertEqual(4, len(t3))
 
-        t3 = t1.join(t2, auto_create_indexes=True, sku="sku", size="size")()("inner join")
+        t3 = t1.join(t2, auto_create_indexes=True, sku="sku", size="size")
+        t3("inner join - " + t3.table_name)
         print(t3.info())
+        t3.present()
         self.assertEqual(1, len(t3))
 
-        t3 = t1.join(t2, auto_create_indexes=True, join="right outer", sku="sku", size="size")()("right outer join")
+        t3 = t1.outer_join(lt.Table.RIGHT_OUTER_JOIN, t2, sku="sku", size="size")
+        t3("right outer join - " + t3.table_name)
         print(t3.info())
+        t3.present()
         self.assertEqual(4, len(t3))
 
-        t3 = t1.join(t2, auto_create_indexes=True, join="left outer", sku="sku", size="size")()("left outer join")
+        t3 = t1.outer_join(lt.Table.LEFT_OUTER_JOIN, t2, sku="sku", size="size")
+        t3("left outer join - " + t3.table_name)
         print(t3.info())
+        t3.present()
         self.assertEqual(2, len(t3))
 
-        t3 = t1.join(t2, auto_create_indexes=True, join="full outer", sku="sku", size="size")()("full outer join")
+        t3 = t1.outer_join(lt.Table.FULL_OUTER_JOIN, t2, sku="sku", size="size")
+        t3("full outer join - " + t3.table_name)
         print(t3.info())
+        t3.present()
         self.assertEqual(12, len(t3))
 
+    def test_outer_join_example(self):
+        # define student and registration data
+        students = lt.Table("students").csv_import(textwrap.dedent("""\
+            student_id,name
+            0001,Alice
+            0002,Bob
+            0003,Charlie
+            0004,Dave
+            0005,Enid
+            """))
+
+        registrations = lt.Table("registrations").csv_import(textwrap.dedent("""\
+            student_id,course
+            0001,PSYCH101
+            0001,CALC1
+            0003,BIO200
+            0005,CHEM101
+            0006,PHY101
+            """))
+
+        courses = lt.Table("courses").csv_import(textwrap.dedent("""\
+            course
+            BIO200
+            CALC1
+            CHEM101
+            PSYCH101
+            PE101
+            """))
+
+        # perform outer join and show results:
+        non_reg = students.outer_join(lt.Table.RIGHT_OUTER_JOIN,
+                                      registrations,
+                                      student_id="student_id").where(course=None)
+        non_reg.present()
+        print(list(non_reg.all.name))
+        self.assertEqual(['Bob', 'Dave'], sorted(non_reg.all.name))
+
+        # courses with no students
+        no_students = registrations.outer_join(lt.Table.LEFT_OUTER_JOIN,
+                                         courses,
+                                         course="course").where(student_id=None)
+        no_students.present()
+        print(list(no_students.all.course))
+        self.assertEqual(['PE101'], sorted(no_students.all.course))
+
+
+        full =  students.outer_join(lt.Table.FULL_OUTER_JOIN,
+                                      registrations,
+                                      student_id="student_id").where(lambda rec: rec.course is None
+                                                                                 or rec.name is None)
+        full.present()
+        print(sorted(full.all.student_id))
+        self.assertEqual(['0002', '0004', '0006'], sorted(full.all.student_id))
 
 class TableJoinTests_DataObjects(unittest.TestCase, TableJoinTests, UsingDataObjects):
     pass
