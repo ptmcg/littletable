@@ -147,6 +147,14 @@ Files containing JSON-formatted records can be similarly imported using
 .gz, or .xz archive, assuming that the file name of the compressed file is the 
 same as the original file with ".zip" or ".gz" or ".xz" added.
 
+Note: if you find you cannot import .xz or .lzma files, getting the Python error
+`ModuleNotFoundError :_lzma`, you can remedy this by rebuilding Python after 
+installing the `lzma-dev` library. On Ubuntu for example, this is done using:
+
+    $ sudo apt-get install liblzma-dev
+
+Then rebuild and reinstall Python.
+
 
 Tabular output
 --------------
