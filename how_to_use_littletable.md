@@ -437,6 +437,49 @@ can be written as:
                           + orders 
                           + orderitems.join_on("orderid"))())
 
+A classic example of performing an outer join is, given a table of students
+and a table of student->course registrations, find the students who
+are not registered for any courses. The solution is to perform an outer
+join, and select those students where their course registration is NULL.
+
+Here is how that looks with littletable:
+
+    # define student and registration data
+    students = lt.Table().csv_import("""\
+    student_id,name
+    0001,Alice
+    0002,Bob
+    0003,Charlie
+    0004,Dave
+    0005,Enid
+    """)
+
+    regisrations = lt.Table().csv_import("""\
+    student_id,course
+    0001,PSYCH101
+    0001,CALC1
+    0003,BIO200
+    0005,CHEM101
+    """)
+
+    # perform outer join and show results:    
+    non_reg = students.join(regisrations, 
+                            join="outer", 
+                            student_id="student_id").where(course=None)
+    non_reg.present()
+    print(list(non_reg.all.name))
+    
+Displays:
+
+    +----------------------------+
+    | Student_Id | Name | Course |
+    |------------+------+--------|
+    | 0002       | Bob  | None   |
+    | 0004       | Dave | None   |
+    +----------------------------+
+    ['Bob', 'Dave']
+
+
 
 Pivoting a table
 ----------------
