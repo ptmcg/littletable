@@ -1,6 +1,14 @@
 Change History
 ==============
 
+Version 1.2.1 -
+---------------
+- Sorry, it looks like I rushed the Table.join() changes in 1.2.0,
+  and left in some debugging print() statements and a bug in the
+  outer join logic. Outer joins are still slow, but at least with
+  this version they are giving better results.
+
+
 Version 1.2.0 -
 ---------------
 - Import directly from simple .zip, .gz, or .xz/.lzma archives,

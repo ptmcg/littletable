@@ -74,7 +74,7 @@ Here is a simple C{littletable} data storage/retrieval example::
     ANVIL-001,1000lb anvil,EA,100
     ROPE-001,1 in. heavy rope,100FT,10
     ROBOT-001,Domestic robot,EA,5000'''
-    
+
     catalog = lt.Table("catalog")
     catalog.create_index("sku", unique=True)
     catalog.csv_import(catalog_data, transforms={'unitprice':int})
@@ -134,12 +134,12 @@ json_dumps = partial(json.dumps, indent=2)
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
 __version_info__ = version_info(1, 2, 1, "final", 0)
 __version__ = (
-    "{}.{}.{}".format(*__version_info__[:3])
-    + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
-        __version_info__.releaseLevel == "final"
-    ]
+        "{}.{}.{}".format(*__version_info__[:3])
+        + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
+            __version_info__.releaseLevel == "final"
+            ]
 )
-__versionTime__ = "4 Oct 2020 16:45 UTC"
+__versionTime__ = "4 Oct 2020 21:02 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -252,8 +252,10 @@ class DataObject(object):
     def __ne__(self, other):
         return not (self == other)
 
+
 if default_row_class is None:
     default_row_class = DataObject
+
 
 class _ObjIndex(object):
     def __init__(self, attr):
@@ -448,10 +450,10 @@ class _IndexAccessor(object):
         """A quick way to query for matching records using their indexed attributes. The attribute
            name is used to locate the index, and returns a wrapper on the index.  This wrapper provides
            dict-like access to the underlying records in the table, as in::
-           
+
               employees.by.socsecnum["000-00-0000"]
               customers.by.zipcode["12345"]
-        
+
            (C{'by'} is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
            are not attributes of the table, but of items in the table.)
 
@@ -462,7 +464,7 @@ class _IndexAccessor(object):
              - if the index is non-unique, then all matching objects will be returned in a new Table,
                just as if a regular query had been performed; if no objects match the key value, an empty
                Table is returned and no exception is raised.
-               
+
            If there is no index defined for the given attribute, then C{AttributeError} is raised.
         """
         if attr in self._table._indexes:
@@ -542,11 +544,11 @@ class FixedWidthReader(object):
         Each tuple consists of:
         - data column label
         - starting column number (0-based)
-        - (optional) ending column number; if omitted or None, uses the 
-          starting column of the next spec tuple as the ending column 
+        - (optional) ending column number; if omitted or None, uses the
+          starting column of the next spec tuple as the ending column
           for this column
         - (optional) transform function: function called with the column
-          string value to convert to other type, such as int, float, 
+          string value to convert to other type, such as int, float,
           datetime, etc.; if omitted or None, str.strip() will be used
     - src_file: a string filename or a file-like object containing the
         fixed-width data to be loaded
@@ -554,8 +556,8 @@ class FixedWidthReader(object):
     def __init__(self, slice_spec, src_file, encoding='utf-8'):
         def parse_spec(spec):
             ret = []
-            for cur, next_ in zip(spec, spec[1:]+[("", None, None, None)]):
-                label, col, endcol, fn = (cur + (None,)*2)[:4]
+            for cur, next_ in zip(spec, spec[1:] + [("", None, None, None)]):
+                label, col, endcol, fn = (cur + (None,) * 2)[:4]
                 if label is None:
                     continue
                 if endcol is None:
@@ -618,7 +620,7 @@ class Table(object):
           L{join} or operator '+' to perform the actual join
         - pivoted, using L{pivot} to create a nested structure of sub-tables grouping objects
           by attribute values
-        - grouped, using L{groupby} to create a summary table of computed values, grouped by a key 
+        - grouped, using L{groupby} to create a summary table of computed values, grouped by a key
           attribute
         - L{imported<csv_import>}/L{exported<csv_export>} to CSV-format files
        Queries and joins return their results as new Table objects, so that queries and joins can
@@ -681,7 +683,7 @@ class Table(object):
     def __len__(self):
         """Return the number of objects in the Table."""
         return len(self.obs)
-        
+
     def __iter__(self):
         """Create an iterator over the objects in the Table."""
         return iter(self.obs)
@@ -694,7 +696,7 @@ class Table(object):
             return ret
         else:
             return self.obs[i]
-    
+
     def __delitem__(self, i):
         if isinstance(i, int):
             delidxs = [i]
@@ -713,7 +715,7 @@ class Table(object):
         # remove from indexes
         for attr, ind in self._indexes.items():
             ind.remove(ret)
-        
+
         return ret
 
     def __bool__(self):
@@ -791,7 +793,7 @@ class Table(object):
            ValueError is raised.
            @param attr: the attribute to be used for indexed access and joins
            @type attr: string
-           @param unique: flag indicating whether the indexed field values are 
+           @param unique: flag indicating whether the indexed field values are
                expected to be unique across table entries
            @type unique: boolean
            @param accept_none: flag indicating whether None is an acceptable
@@ -809,6 +811,7 @@ class Table(object):
             self._indexes[attr] = _ObjIndex(attr)
             accept_none = True
         ind = self._indexes[attr]
+
         try:
             for obj in self.obs:
                 obval = getattr(obj, attr, None)
@@ -817,7 +820,7 @@ class Table(object):
                 else:
                     raise KeyError("None is not an allowed key")
             return self
-                    
+
         except KeyError:
             del self._indexes[attr]
             self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
@@ -833,7 +836,7 @@ class Table(object):
             del self._indexes[attr]
             self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
         return self
-            
+
     def get_index(self, attr):
         return _ReadonlyObjIndexWrapper(self._indexes[attr], self.copy_template())
 
@@ -842,18 +845,18 @@ class Table(object):
            @param obj: any Python object -
            Objects can be constructed using the defined DataObject type, or they can
            be any Python object that does not use the Python C{__slots__} feature; C{littletable}
-           introspects the object's C{__dict__} or C{_fields} attributes to obtain join and 
+           introspects the object's C{__dict__} or C{_fields} attributes to obtain join and
            index attributes and values.
-           
+
            If the table contains a unique index, and the record to be inserted would add
            a duplicate value for the indexed attribute, then C{KeyError} is raised, and the
            object is not inserted.
-           
+
            If the table has no unique indexes, then it is possible to insert duplicate
            objects into the table.
            """
         return self.insert_many([obj])
-            
+
     def insert_many(self, it):
         """Inserts a collection of objects into the table."""
         unique_indexes = self._uniqueIndexes
@@ -935,20 +938,20 @@ class Table(object):
                 return 0
         else:
             return 1e9
-        
+
     def where(self, wherefn=None, **kwargs):
         """
         Retrieves matching objects from the table, based on given
         named parameters.  If multiple named parameters are given, then
         only objects that satisfy all of the query criteria will be returned.
-        
+
         @param wherefn: a method or lambda that returns a boolean result, as in::
-           
+
            lambda ob : ob.unitprice > 10
-           
+
         @type wherefn: callable(object) returning boolean
 
-        @param kwargs: attributes for selecting records, given as additional 
+        @param kwargs: attributes for selecting records, given as additional
           named arguments of the form C{attrname="value"}, or C{Table.le(value)}
           using any of the methods C{Table.le}, C{Table.lt}, C{Table.ge}, C{Table.gt},
           C{Table.ne}, or C{Table.eq}, corresponding to the same methods defined
@@ -958,13 +961,13 @@ class Table(object):
         """
         if kwargs:
             # order query criteria in ascending order of number of matching items
-            # for each individual given attribute; this will minimize the number 
+            # for each individual given attribute; this will minimize the number
             # of filtering records that each subsequent attribute will have to
             # handle
             kwargs = list(kwargs.items())
             if len(kwargs) > 1 and len(self) > 100:
                 kwargs = sorted(kwargs, key=self._query_attr_sort_fn)
-                
+
             ret = self
             NO_SUCH_ATTR = object()
             for k, v in kwargs:
@@ -998,14 +1001,14 @@ class Table(object):
         """Deletes matching objects from the table, based on given
            named parameters.  If multiple named parameters are given, then
            only objects that satisfy all of the query criteria will be removed.
-           @param kwargs: attributes for selecting records, given as additional 
-              named arguments of the form C{attrname="attrvalue"}, or 
+           @param kwargs: attributes for selecting records, given as additional
+              named arguments of the form C{attrname="attrvalue"}, or
               C{attrname=Table.lt(value)} (see doc for L{Table.where}).
            @return: the number of objects removed from the table
         """
         if not kwargs:
             return 0
-        
+
         affected = self.where(**kwargs)
         self.remove_many(affected)
         return len(affected)
@@ -1020,9 +1023,9 @@ class Table(object):
     def sort(self, key, reverse=False):
         """Sort Table in place, using given fields as sort key.
            @param key: if this is a string, it is a comma-separated list of field names,
-              optionally followed by 'desc' to indicate descending sort instead of the 
+              optionally followed by 'desc' to indicate descending sort instead of the
               default ascending sort; if a list or tuple, it is a list or tuple of field names
-              or field names with ' desc' appended; if it is a function, then it is the 
+              or field names with ' desc' appended; if it is a function, then it is the
               function to be used as the sort key function
            @param reverse: (default=False) set to True if results should be in reverse order
            @type reverse: bool
@@ -1031,11 +1034,11 @@ class Table(object):
         if isinstance(key, (basestring, list, tuple)):
             if isinstance(key, basestring):
                 attrdefs = [s.strip() for s in key.split(',')]
-                attr_orders = [(a.split()+['asc', ])[:2] for a in attrdefs]
+                attr_orders = [(a.split() + ['asc', ])[:2] for a in attrdefs]
             else:
                 # attr definitions were already resolved to a sequence by the caller
                 if isinstance(key[0], basestring):
-                    attr_orders = [(a.split()+['asc', ])[:2] for a in key]
+                    attr_orders = [(a.split() + ['asc', ])[:2] for a in key]
                 else:
                     attr_orders = key
             attrs = [attr for attr, order in attr_orders]
@@ -1059,7 +1062,7 @@ class Table(object):
 
     def select(self, fields=None, **exprs):
         """
-        Create a new table containing a subset of attributes, with optionally 
+        Create a new table containing a subset of attributes, with optionally
         newly-added fields computed from each rec in the original table.
 
         @param fields: list of strings, or single space-delimited string, listing attribute name to be included in the
@@ -1069,7 +1072,7 @@ class Table(object):
         @type exprs: C{name=callable}, callable takes the record as an argument, and returns the new attribute value
         If a string is passed as a callable, this string will be used using string formatting, given the record
         as a source of interpolation values.  For instance, C{fullName = '%(lastName)s, %(firstName)s'}
-        
+
         """
         if fields is not None:
             fields = self._parse_fields_string(fields)
@@ -1083,14 +1086,14 @@ class Table(object):
                 return expr
 
         exprs = dict((k, _make_string_callable(v)) for k, v in exprs.items())
-            
+
         raw_tuples = []
         for ob in self.obs:
             attrvalues = tuple(getattr(ob, field_name, None) for field_name in fields)
             if exprs:
                 attrvalues += tuple(expr(ob) for expr in exprs.values())
             raw_tuples.append(attrvalues)
-        
+
         all_names = tuple(fields) + tuple(exprs.keys())
         ret = Table()
         ret._indexes.update(dict((k, v.copy_template()) for k, v in self._indexes.items() if k in all_names))
@@ -1104,7 +1107,7 @@ class Table(object):
         formatted output.
         @param fields: one or more strings, each string is an attribute name to be included in the output
         @type fields: string (multiple)
-        @param exprs: one or more named string arguments, to format the given attribute with a formatting string 
+        @param exprs: one or more named string arguments, to format the given attribute with a formatting string
         @type exprs: name=string
         """
         select_exprs = ODict()
@@ -1121,7 +1124,7 @@ class Table(object):
                         select_exprs[ename] = lambda r: expr.format(r)
                     else:
                         select_exprs[ename] = lambda r: expr.format(getattr(r, ename, "None"))
-        
+
         return self.select(**select_exprs)
 
     def format(self, fmt):
@@ -1134,24 +1137,24 @@ class Table(object):
 
     def join(self, other, attrlist=None, auto_create_indexes=True, join="inner", **kwargs):
         """
-        Join the objects of one table with the objects of another, based on the given 
-        matching attributes in the named arguments.  The attrlist specifies the attributes to 
-        be copied from the source tables - if omitted, all attributes will be copied.  Entries 
+        Join the objects of one table with the objects of another, based on the given
+        matching attributes in the named arguments.  The attrlist specifies the attributes to
+        be copied from the source tables - if omitted, all attributes will be copied.  Entries
         in the attrlist may be single attribute names, or if there are duplicate names in both
-        tables, then a C{(table,attributename)} tuple can be given to disambiguate which 
-        attribute is desired. A C{(table,attributename,alias)} tuple can also be passed, to 
+        tables, then a C{(table,attributename)} tuple can be given to disambiguate which
+        attribute is desired. A C{(table,attributename,alias)} tuple can also be passed, to
         rename an attribute from a source table.
-        
+
         This method may be called directly, or can be constructed using the L{join_on} method and
         the '+' operator.  Using this syntax, the join is specified using C{table.join_on("xyz")}
         to create a JoinTerm containing both table and joining attribute.  Multiple JoinTerm
-        or tables can be added to construct a compound join expression.  When complete, the 
-        join expression gets executed by calling the resulting join definition, 
+        or tables can be added to construct a compound join expression.  When complete, the
+        join expression gets executed by calling the resulting join definition,
         using C{join_expression([attrlist])}.
-        
+
         @param other: other table to join to
-        @param attrlist: list of attributes to be copied to the new joined table; if 
-            none provided, all attributes of both tables will be used (taken from the first 
+        @param attrlist: list of attributes to be copied to the new joined table; if
+            none provided, all attributes of both tables will be used (taken from the first
             object in each table)
         @type attrlist: string, or list of strings or C{(table,attribute[,alias])} tuples
             (list may contain both strings and tuples)
@@ -1159,8 +1162,9 @@ class Table(object):
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
         @returns: a new Table containing the joined data as new DataObjects
         """
-        if join not in ("inner", "left outer", "right outer", "full outer"):
-            raise ValueError("join argument must be 'inner' or 'outer'")
+        if join not in ("inner", "left outer", "right outer", "full outer", "outer"):
+            raise ValueError("join argument must be 'inner', 'left outer', "
+                             "'right outer', 'full outer', or 'outer'")
 
         if not kwargs:
             raise TypeError("must specify at least one join attribute as a named argument")
@@ -1231,38 +1235,29 @@ class Table(object):
                 raise ValueError("indexed attributes required for join: {}".format(','.join(unindexed_cols)))
 
         # find matching rows
-        if len(kwargs) == 1:
-            thiscol = this_cols[0]
-            othercol = other_cols[0]
-            thiscolindex = self._indexes[thiscol]
-            othercolindex = other._indexes[othercol]
-            if join == "inner":
-                matchingrows = ((rows, othercolindex[key]) for key, rows in thiscolindex.items())
-            else:
-                matchingrows = ((rows, othercolindex[key] + othercolindex[None]) for key, rows in thiscolindex.items())
-        else:
-            matchingrows = []
-            key_map_values = list(zip(this_cols, other_cols, (self._indexes[key].keys() for key in this_cols)))
-            for join_values in product(*(kmv[-1] for kmv in key_map_values)):
-                base_this_where_dict = dict(zip(this_cols, join_values))
-                base_other_where_dict = dict(zip(other_cols, join_values))
+        matchingrows = []
+        key_map_values = list(zip(this_cols, other_cols, (self._indexes[key].keys() for key in this_cols)))
+        for join_values in product(*(kmv[-1] for kmv in key_map_values)):
+            base_this_where_dict = dict(zip(this_cols, join_values))
+            base_other_where_dict = dict(zip(other_cols, join_values))
 
-                # compute inner join rows to start
-                this_rows = self.where(**base_this_where_dict)
-                other_rows = other.where(**base_other_where_dict)
+            # compute inner join rows to start
+            this_rows = self.where(**base_this_where_dict)
+            other_rows = other.where(**base_other_where_dict)
 
-                if join in ("full outer", "left outer"):
-                    print(join_values)
+            if join in ("full outer", "left outer"):
+                if not this_rows:
                     this_outer_dict = dict.fromkeys(this_cols, None)
                     this_outer_dict.update(dict(zip(this_cols, join_values)))
                     this_rows.insert(default_row_class(**this_outer_dict))
 
-                if join in ("full outer", "right outer", "outer"):
+            if join in ("full outer", "right outer", "outer"):
+                if not other_rows:
                     other_outer_dict = dict.fromkeys(other_cols, None)
                     other_outer_dict.update(dict(zip(other_cols, join_values)))
                     other_rows.insert(default_row_class(**other_outer_dict))
 
-                matchingrows.append((this_rows, other_rows))
+            matchingrows.append((this_rows, other_rows))
 
         # remove attr_specs from other_attr_specs if alias is duplicate of any alias in this_attr_specs
         this_attr_specs_aliases = set(alias for tbl, col, alias in this_attr_specs)
@@ -1291,7 +1286,7 @@ class Table(object):
         return ret
 
     def join_on(self, attr):
-        """Creates a JoinTerm in preparation for joining with another table, to 
+        """Creates a JoinTerm in preparation for joining with another table, to
            indicate what attribute should be used in the join.  Only indexed attributes
            may be used in a join.
            @param attr: attribute name to join from this table (may be different
@@ -1301,7 +1296,7 @@ class Table(object):
         if attr not in self._indexes:
             raise ValueError("can only join on indexed attributes")
         return _JoinTerm(self, attr)
-        
+
     def pivot(self, attrlist):
         """Pivots the data using the given attributes, returning a L{PivotTable}.
             @param attrlist: list of attributes to be used to construct the pivot table
@@ -1570,8 +1565,8 @@ class Table(object):
 
     def json_export(self, dest, fieldnames=None, encoding="UTF-8"):
         """Exports the contents of the table to a JSON-formatted file.
-           @param dest: output file - if a string is given, the file with that name will be 
-               opened, written, and closed; if a file object is given, then that object 
+           @param dest: output file - if a string is given, the file with that name will be
+               opened, written, and closed; if a file object is given, then that object
                will be written as-is, and left for the caller to be closed.
            @type dest: string or file
            @param fieldnames: attribute names to be exported; can be given as a single
@@ -1594,10 +1589,10 @@ class Table(object):
 
             if fieldnames is None:
                 for o in self.obs:
-                    dest.write(_to_json(o)+'\n')
+                    dest.write(_to_json(o) + '\n')
             else:
                 for o in self.obs:
-                    dest.write(json.dumps(ODict((f, getattr(o, f)) for f in fieldnames))+'\n')
+                    dest.write(json.dumps(ODict((f, getattr(o, f)) for f in fieldnames)) + '\n')
         finally:
             if close_on_exit:
                 dest.close()
@@ -1607,11 +1602,11 @@ class Table(object):
            existing attribute in each record with a computed value
            @param attrname: attribute to compute for each object
            @type attrname: string
-           @param fn: function used to compute new attribute value, based on 
+           @param fn: function used to compute new attribute value, based on
            other values in the object, as in::
-               
+
                lambda ob : ob.commission_pct/100.0 * ob.gross_sales
-               
+
            @type fn: function(obj) returns value
            @param default: value to use if an exception is raised while trying
            to evaluate fn
@@ -1632,12 +1627,12 @@ class Table(object):
         return self
 
     def groupby(self, keyexpr, **outexprs):
-        """simple prototype of group by, with support for expressions in the group-by clause 
+        """simple prototype of group by, with support for expressions in the group-by clause
            and outputs
            @param keyexpr: grouping field and optional expression for computing the key value;
                 if a string is passed
            @type keyexpr: string or tuple
-           @param outexprs: named arguments describing one or more summary values to 
+           @param outexprs: named arguments describing one or more summary values to
            compute per key
            @type outexprs: callable, taking a sequence of objects as input and returning
            a single summary value
@@ -1756,12 +1751,14 @@ class Table(object):
 
         if statistics is not None:
             accum = {fname: list(filter(lambda x: isinstance(x, _numeric_type), getattr(self.all, fname)))
-                                 for fname in field_names}
+                     for fname in field_names}
+
             def safe_fn(fn, seq):
                 try:
                     return fn(seq)
                 except (ValueError, statistics.StatisticsError):
                     return None
+
             stats = [
                 ('count', lambda seq: sum(isinstance(x, _numeric_type) for x in seq)),
                 ('min', partial(safe_fn, min)),
@@ -1779,7 +1776,7 @@ class Table(object):
                         acc = accum[name]
                         acc[0] += 1
                         acc[1] += value
-                        acc[2] += value*value
+                        acc[2] += value * value
                         if value < acc[3]:
                             acc[3] = value
                         if value > acc[4]:
@@ -1790,21 +1787,21 @@ class Table(object):
                 ('min', lambda x: x[3] if x[0] != 0 else None),
                 ('max', lambda x: x[4] if x[0] != 0 else None),
                 ('mean', lambda x: x[1] / x[0] if x[0] != 0 else None),
-                ('variance', lambda x: (x[2] - x[1]**2/x[0]) / x[0] if x[0] != 0 else None),
-                ('std_dev', lambda x: (x[0]*x[2] - x[1]*x[1])**0.5 / x[0] if x[0] != 0 else None),
+                ('variance', lambda x: (x[2] - x[1] ** 2 / x[0]) / x[0] if x[0] != 0 else None),
+                ('std_dev', lambda x: (x[0] * x[2] - x[1] * x[1]) ** 0.5 / x[0] if x[0] != 0 else None),
             ]
 
         if by_field:
             ret.create_index("name", unique=True)
             ret.insert_many(default_row_class(name=fname,
-                                       **dict((stat_name, stat_fn(accum[fname]))
-                                              for stat_name, stat_fn in stats))
+                                              **dict((stat_name, stat_fn(accum[fname]))
+                                                     for stat_name, stat_fn in stats))
                             for fname in field_names)
         else:
             ret.create_index("stat", unique=True)
             ret.insert_many(default_row_class(stat=stat_name,
-                                       **dict((fname, stat_fn(accum[fname]))
-                                              for fname in field_names))
+                                              **dict((fname, stat_fn(accum[fname]))
+                                                     for fname in field_names))
                             for stat_name, stat_fn in stats)
         return ret
 
@@ -1971,7 +1968,7 @@ class _PivotTable(Table):
         self._attr_path = attr_val_path[:]
         self._pivot_attrs = attrlist[:]
         self._subtable_dict = {}
-        
+
         # for k,v in parent._indexes.items():
         #     self._indexes[k] = v.copy_template()
         self._indexes.update(dict((k, v.copy_template()) for k, v in parent._indexes.items()))
@@ -2007,11 +2004,11 @@ class _PivotTable(Table):
         return [self._subtable_dict[k] for k in self.keys()]
 
     def pivot_key(self):
-        """Return the set of attribute-value pairs that define the contents of this 
+        """Return the set of attribute-value pairs that define the contents of this
            table within the original source table.
         """
         return self._attr_path
-        
+
     def pivot_key_str(self):
         """Return the pivot_key as a displayable string.
         """
@@ -2021,7 +2018,7 @@ class _PivotTable(Table):
         """Return whether this table has further subtables.
         """
         return bool(self.subtables)
-    
+
     def dump(self, out=sys.stdout, row_fn=repr, limit=-1, indent=0):
         """Dump out the contents of this table in a nested listing.
            @param out: output stream to write to
@@ -2030,23 +2027,23 @@ class _PivotTable(Table):
            @param indent: current nesting level
         """
         if indent:
-            out.write("  "*indent + self.pivot_key_str())
+            out.write("  " * indent + self.pivot_key_str())
         else:
             out.write("Pivot: {}".format(','.join(self._pivot_attrs)))
         out.write(NL)
         if self.has_subtables():
             for sub in self.subtables:
                 if sub:
-                    sub.dump(out, row_fn, limit, indent+1)
+                    sub.dump(out, row_fn, limit, indent + 1)
         else:
             if limit >= 0:
                 showslice = slice(0, limit)
             else:
                 showslice = slice(None, None)
             for r in self.obs[showslice]:
-                out.write("  "*(indent+1) + row_fn(r) + NL)
+                out.write("  " * (indent + 1) + row_fn(r) + NL)
         out.flush()
-        
+
     def dump_counts(self, out=sys.stdout, count_fn=len, colwidth=10):
         """Dump out the summary counts of entries in this pivot table as a tabular listing.
            @param out: output stream to write to
@@ -2134,6 +2131,7 @@ class _PivotTable(Table):
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
         return ret
+
     summary_counts = as_table
 
     def summarize(self, count_fn=len, col_label=None):
@@ -2157,7 +2155,8 @@ class _PivotTableSummary(object):
         if len(self._pivot_attrs) == 1:
             col = self._pivot_attrs[0]
             col_label = self._label
-            data = Table().insert_many(default_row_class(**{col: k, col_label: self._fn(sub)}) for k, sub in self._pt.items())
+            data = Table().insert_many(
+                default_row_class(**{col: k, col_label: self._fn(sub)}) for k, sub in self._pt.items())
             return data.as_html((col, col_label), formats=formats)
 
         elif len(self._pivot_attrs) == 2:
@@ -2208,24 +2207,24 @@ class _PivotTableSummary(object):
 
 
 class _JoinTerm(object):
-    """Temporary object created while composing a join across tables using 
-       L{Table.join_on} and '+' addition. JoinTerm's are usually created by 
+    """Temporary object created while composing a join across tables using
+       L{Table.join_on} and '+' addition. JoinTerm's are usually created by
        calling join_on on a Table object, as in::
-       
+
            customers.join_on("id") + orders.join_on("custid")
-        
-       This join expression would set up the join relationship 
+
+       This join expression would set up the join relationship
        equivalent to::
-       
+
            customers.join(orders, id="custid")
-           
-       If tables are being joined on attributes that have the same name in 
+
+       If tables are being joined on attributes that have the same name in
        both tables, then a join expression could be created by adding a
        JoinTerm of one table directly to the other table::
-       
+
            customers.join_on("custid") + orders
-       
-       Once the join expression is composed, the actual join is performed 
+
+       Once the join expression is composed, the actual join is performed
        using function call notation::
 
            customerorders = customers.join_on("custid") + orders
@@ -2261,7 +2260,7 @@ class _JoinTerm(object):
         if isinstance(other, Table):
             return other.join_on(self.join_field) + self
         raise ValueError("cannot add object of type {!r} to JoinTerm".format(other.__class__.__name__))
-            
+
     def __call__(self, attrs=None):
         if self.join_to:
             other = self.join_to
@@ -2275,10 +2274,11 @@ class _JoinTerm(object):
 
     def join_on(self, col):
         return self().join_on(col)
-        
+
 
 if __name__ == "__main__":
     import textwrap
+
     rawdata = textwrap.dedent("""\
     Phoenix:AZ:85001:KPHX
     Phoenix:AZ:85001:KPHY
@@ -2352,7 +2352,7 @@ if __name__ == "__main__":
     amfm.create_index("band")
     pivot = (stations.join_on("stn") + amfm)().pivot("state band")
     pivot.dump_counts()
-    
+
     print()
     for rec in amfm:
         print(rec)
@@ -2367,7 +2367,7 @@ if __name__ == "__main__":
     del amfm[0:-1:2]
     for stn in amfm:
         print(stn)
-    
+
     print()
     print(amfm.pop(-1))
     print(len(amfm))

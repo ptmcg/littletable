@@ -193,7 +193,7 @@ or if using a Python >= 3.3, you can use `types.SimpleNamespace`:
 
 Removing objects
 ----------------
-Objects can be removed individually or by passing a list (or Table) of
+Objects can be removed individually or by passing a list (or `Table`) of
 objects:
 
     t.remove(obj)
@@ -203,17 +203,17 @@ objects:
 
 Indexing attributes
 -------------------
-Use `create_index` to add an index to a Table. Indexes can be unique or
+Use `create_index` to add an index to a `Table`. Indexes can be unique or
 non-unique. If the table is not empty and the index to be created is
 `unique=True`, the uniqueness of the index attribute across the existing
-records is verified before creating the index, raising KeyError and
+records is verified before creating the index, raising `KeyError` and
 listing the duplicated value.
 
 If a unique index is created, then retrieving using that index will
-return the single matching object, or raise KeyError.
+return the single matching object, or raise `KeyError`.
 
-If a non-unique index is created, a Table is returned of all the matching
-objects. If no objects match, an empty Table is returned.
+If a non-unique index is created, a `Table` is returned of all the matching
+objects. If no objects match, an empty `Table` is returned.
 
     employees.create_index('employee_id', unique=True)
     employees.create_index('zipcode')
@@ -237,7 +237,7 @@ return the single matching record, or raise `KeyError`.
     #    raises KeyError: "no such value 'invalid_id' in index 'employee_id'"
 
 
-If accessing a table using a non-unique index, will return a new table 
+If accessing a table using a non-unique index, will return a new `Table` 
 containing all matching records. If there are no matching records, the 
 returned table will be empty.
 
@@ -289,14 +289,16 @@ write:
     first_qtr_sales = sales.where(date=Table.within(jan_01, mar_31))
     first_qtr_sales = sales.where(date=Table.in_range(jan_01, apr_01))
 
+Comparators can also be used as filter functions for import methods.
+
 
 Simple statistics on Tables of numeric values
 ---------------------------------------------
 `Table.stats()` will perform simple mean, variance, and standard deviation
 calculations by attribute on records in a table. The results are returned
-in a new Table that can be keyed by attribute (with "mean", "variance", etc.
+in a new `Table` that can be keyed by attribute (with "mean", "variance", etc.
 attributes), or by statistic (keyed by "mean", etc., with attributes matching
-those in the source Table). Non-numeric values are implicitly omitted from
+those in the source `Table`). Non-numeric values are implicitly omitted from
 the statistics calculations.
 
     t1 = lt.Table()
@@ -388,8 +390,10 @@ Joining tables is one of the basic functions of relational databases.
 To join two tables, you must specify:
 - the left source table and join attribute
 - the right source table and join attribute
+- whether the join should be performed as an inner join, left outer
+  join, right outer join, or full outer join (default is an inner join)
 - optionally, a list of the attributes to include in the resulting join 
-  data (returned in `littletable` as a new Table)
+  data (returned in `littletable` as a new `Table`)
 
 `littletable` provides two different coding styles for joining tables.  
 The first uses conventional object notation, with the `table.join()` 
@@ -401,7 +405,7 @@ creates an inner join between the table of customers and the table of
 their respective orders, joining on both tables' `custid` attributes.
 
 More than 2 tables can be joined in succession, since the result of a 
-join is itself a table:
+join is itself a `Table`:
 
     customers.join(orders, custid="custid").join(orderitems, orderid="orderid")
     

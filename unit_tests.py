@@ -690,15 +690,15 @@ class TableJoinTests:
 
         t3 = t1.join(t2, auto_create_indexes=True, join="right outer", sku="sku", size="size")()("right outer join")
         print(t3.info())
-        self.assertEqual(5, len(t3))
+        self.assertEqual(4, len(t3))
 
         t3 = t1.join(t2, auto_create_indexes=True, join="left outer", sku="sku", size="size")()("left outer join")
         print(t3.info())
-        self.assertEqual(3, len(t3))
+        self.assertEqual(2, len(t3))
 
         t3 = t1.join(t2, auto_create_indexes=True, join="full outer", sku="sku", size="size")()("full outer join")
         print(t3.info())
-        self.assertEqual(19, len(t3))
+        self.assertEqual(12, len(t3))
 
 
 class TableJoinTests_DataObjects(unittest.TestCase, TableJoinTests, UsingDataObjects):
