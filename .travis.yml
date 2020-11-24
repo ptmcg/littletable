@@ -16,5 +16,5 @@ matrix:
 script:
  - python littletable.py
  - python unit_tests.py
- - python pivot_demo.py
- - python fixed_width_demo.py
+ - PYTHONPATH=. python examples/pivot_demo.py
+ - PYTHONPATH=. python examples/fixed_width_demo.py
