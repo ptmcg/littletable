@@ -1,9 +1,35 @@
 Change History
 ==============
 
-Version 1.3.1 - (in development)
+Version 1.4.0 - (in development)
 --------------------------------
-(no new changes yet)
+- Added `Table.create_search_index()' and `Table.search.<attribute>` for full text
+  searching in a text attribute. Search terms may be prefixed with
+  '+' and '-' flags, to qualify the required or excluded nature of matching
+  for that term:
+
+    . + strong preference
+    . - strong anti-preference
+    . ++ required
+    . -- excluded
+
+  Example::
+
+        recipe_data = textwrap.dedent("""\
+            title,ingredients
+            Tuna casserole,tuna noodles cream of mushroom soup
+            Hawaiian pizza,pizza dough pineapple ham tomato sauce
+            BLT,bread bacon lettuce tomato mayonnaise
+            Bacon cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese bacon
+            """)
+        recipes = lt.Table().csv_import(recipe_data)
+
+        recipes.create_search_index("ingredients")
+        matches = recipes.search.ingredients("+bacon tomato --pineapple")
+
+  The search index is valid only so long as no items are added or removed from the
+  table, and if the indexed attribute values stay unchanged; if a search is run on a
+  modified table, `littletable.SearchIndexInconsistentError` exception is raised.
 
 
 Version 1.3.0 -

@@ -123,8 +123,9 @@ import operator
 import os
 import random
 import re
+import shlex
 import sys
-from collections import defaultdict, namedtuple, OrderedDict as ODict
+from collections import defaultdict, namedtuple, OrderedDict as ODict, Counter
 from contextlib import closing
 from functools import partial
 from itertools import starmap, repeat, takewhile, chain, product
@@ -132,14 +133,14 @@ from itertools import starmap, repeat, takewhile, chain, product
 json_dumps = partial(json.dumps, indent=2)
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
-__version_info__ = version_info(1, 3, 1, "final", 0)
+__version_info__ = version_info(1, 4, 0, "final", 0)
 __version__ = (
         "{}.{}.{}".format(*__version_info__[:3])
         + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
             __version_info__.releaseLevel == "final"
             ]
 )
-__versionTime__ = "5 Oct 2020 22:53 UTC"
+__versionTime__ = "23 Nov 2020 18:54 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -181,6 +182,19 @@ _numeric_type = (int, float)
 
 __all__ = ["DataObject", "Table", "FixedWidthReader"]
 
+# define default stopwords for full_text_search
+_stopwords = set("""\
+a about above after again against all am an and any are aren't as at be because been 
+before being below between both but by can't cannot could couldn't did didn't do does 
+doesn't doing don't down during each few for from further had hadn't has hasn't have 
+haven't having he he'd he'll he's her here here's hers herself him himself his how how's i i'd 
+i'll i'm i've if in into is isn't it it's its itself let's me more most mustn't my myself no nor not 
+of off on once only or other ought our ours ourselves out over own same shan't she she'd 
+she'll she's should shouldn't so some such than that that's the their theirs them themselves 
+then there there's these they they'd they'll they're they've this those through to too under 
+until up very was wasn't we we'd we'll we're we've were weren't what what's when when's 
+where where's which while who who's whom why why's with won't would wouldn't you 
+you'd you'll you're you've your yours yourself yourselves""".split())
 
 def _object_attrnames(obj):
     if hasattr(obj, "__dict__"):
@@ -210,6 +224,10 @@ def _to_dict(obj):
 
 def _to_json(obj):
     return json.dumps(_to_dict(obj))
+
+
+# special Exceptions
+class SearchIndexInconsistentError(Exception): pass
 
 
 class DataObject(object):
@@ -438,6 +456,15 @@ class _TableAttributeValueLister(object):
         return _TableAttributeValueLister.UniquableIterator(vals)
 
 
+class _TableSearcher(object):
+
+    def __init__(self, table):
+        self._table = table
+
+    def __getattr__(self, attr):
+        return partial(self._table._search, attr)
+
+
 class _IndexAccessor(object):
     def __init__(self, table):
         self._table = table
@@ -653,6 +680,8 @@ class Table(object):
         self.obs = []
         self._indexes = {}
         self._uniqueIndexes = []
+        self._search_indexes = {}
+
         """
         C{'by'} is added as a pseudo-attribute on tables, to provide
         dict-like access to the underlying records in the table by index key, as in::
@@ -685,6 +714,40 @@ class Table(object):
     @property
     def by(self):
         return _IndexAccessor(self)
+
+    @property
+    def search(self):
+        """
+        Use search to find records matching given query.
+        Query is a list of keywords that may be found in a document. Keywords may be prefixed with
+        "+" or "-" to indicate desired inclusion or exclusion. '++' and '--' will indicate a
+        mandatory inclusion or exclusion. All other keywords will be optional,
+        and will count toward a search score. Matching records will be returned in a list of
+        (score, record) tuples, in descending order by score.
+
+        Score will be computed as:
+        - has '+' keyword:            1000
+        - has '-' keyword:           -1000
+        - has optional keyword:        100
+
+        Note: the search index must have been previously created using create_search_index().
+        If records have been added or removed, or text attribute contents modified since the
+        search index was created, search will raise the SearchIndexInconsistentError exception.
+
+        Parameters:
+        - query - list of search keywords, with optional leading '++', '--', '+', or '-' flags
+        - limit (optional) - limit the number of records returned
+        - min_score (optional, default=0) - return only records with the given score or higher
+        - include_words (optional, default=False) - also return the search index words for
+          each record
+
+        Example:
+
+            # get top 10 recipes that have bacon but not anchovies
+            recipes.search.ingredients("++bacon --anchovies", limit=10)
+
+        """
+        return _TableSearcher(self)
 
     def __len__(self):
         """Return the number of objects in the Table."""
@@ -722,6 +785,7 @@ class Table(object):
         for attr, ind in self._indexes.items():
             ind.remove(ret)
 
+        self._contents_changed()
         return ret
 
     def __bool__(self):
@@ -846,6 +910,138 @@ class Table(object):
     def get_index(self, attr):
         return _ReadonlyObjIndexWrapper(self._indexes[attr], self.copy_template())
 
+    def _normalize_word(self, s):
+        match_res = [
+            r"((?:\w\.)+)",
+            r"[^\w_-]?((?:\w|[-_]\w)+)",
+        ]
+        for match_re in match_res:
+            match = re.match(match_re, s)
+            if match:
+                ret = match.group(1).lower().replace(".", "")
+                return ret
+        else:
+            return ""
+
+    def create_search_index(self, attrname, stopwords=None):
+        """
+        Create a text search index for the given attribute.
+        """
+        if attrname in self._search_indexes:
+            if not self._search_indexes[attrname]["VALID"]:
+                # stale search index, rebuild
+                self._search_indexes.pop(attrname)
+            else:
+                return
+
+        if stopwords is None:
+            stopwords = _stopwords
+        else:
+            stopwords = set(stopwords)
+
+        new_index = self._search_indexes[attrname] = defaultdict(list)
+        for i, rec in enumerate(self.obs):
+            words = getattr(rec, attrname, "")
+            words = words.split()
+            words = set(self._normalize_word(wd) for wd in words)
+            words -= stopwords
+            for wd in words:
+                new_index[wd].append(i)
+
+        # use uppercase keys for index metadata, since they should not
+        # overlap with any search terms
+        new_index["STOPWORDS"] = stopwords
+        new_index["VALID"] = True
+
+        return self
+
+    def _search(self, attrname, query, limit=int(1e9), min_score=0, include_words=False):
+        if attrname not in self._search_indexes:
+            raise ValueError("no search index defined for attribute {!r}".format(attrname))
+
+        search_index = self._search_indexes[attrname]
+        if not search_index["VALID"]:
+            msg = ("table has been modified since the search index for {!r} was created,"
+                   " rebuild using create_search_index()".format(attrname))
+            raise SearchIndexInconsistentError(msg)
+        stopwords = search_index["STOPWORDS"]
+
+        plus_matches = {}
+        minus_matches = {}
+        opt_matches = {}
+        reqd_matches = set()
+        excl_matches = set()
+
+        if isinstance(query, basestring):
+            query = shlex.split(query.strip())
+
+        for keyword in query:
+            keyword = keyword.lower()
+            if keyword.startswith("++"):
+                kwd = self._normalize_word(keyword[2:])
+                if kwd in stopwords:
+                    continue
+
+                if kwd not in plus_matches:
+                    plus_matches[kwd] = set(search_index.get(kwd, []))
+
+                if kwd in search_index:
+                    if reqd_matches:
+                        reqd_matches &= set(search_index.get(kwd, []))
+                    else:
+                        reqd_matches = set(search_index.get(kwd, []))
+
+            elif keyword.startswith("--"):
+                kwd = self._normalize_word(keyword[2:])
+                if kwd in stopwords:
+                    continue
+                excl_matches |= set(search_index.get(kwd, []))
+
+            elif keyword.startswith("+"):
+                kwd = self._normalize_word(keyword[1:])
+                if kwd in stopwords:
+                    continue
+                minus_matches.pop(kwd, None)
+                if kwd not in plus_matches and kwd not in reqd_matches:
+                    plus_matches[kwd] = set(search_index.get(kwd, []))
+
+            elif keyword.startswith("-"):
+                kwd = self._normalize_word(keyword[1:])
+                if kwd in stopwords:
+                    continue
+                plus_matches.pop(kwd, None)
+                if kwd not in minus_matches and kwd not in excl_matches:
+                    minus_matches[kwd] = set(search_index.get(kwd, []))
+
+            else:
+                kwd = self._normalize_word(keyword)
+                if kwd in stopwords:
+                    continue
+                if kwd in plus_matches or kwd in minus_matches:
+                    continue
+                opt_matches[kwd] = set(search_index.get(kwd, []))
+
+        tally = Counter()
+        for match_type, score in ((plus_matches, 1000), (minus_matches, -1000), (opt_matches, 100)):
+            for obj_set in match_type.values():
+                if reqd_matches:
+                    obj_set &= reqd_matches
+                obj_set -= excl_matches
+                for obj in obj_set:
+                    tally[obj] += score
+
+        if include_words:
+            return [(self[rec_idx], score,
+                     list({}.fromkeys(getattr(self[rec_idx], attrname, "").lower().split()).keys()))
+                    for rec_idx, score in tally.most_common(limit)
+                    if score > min_score]
+        else:
+            return [(self[rec_idx], score) for rec_idx, score in tally.most_common(limit)
+                    if score > min_score]
+
+    def delete_search_index(self, attrname):
+        self._search_indexes.pop(attrname, None)
+
     def insert(self, obj):
         """Insert a new object into this Table.
            @param obj: any Python object -
@@ -894,6 +1090,7 @@ class Table(object):
         else:
             self.obs.extend(new_objs)
 
+        self._contents_changed()
         return self
 
     def remove(self, ob):
@@ -922,6 +1119,7 @@ class Table(object):
         for i in sorted(del_indices, reverse=True):
             self.pop(i)
 
+        self._contents_changed()
         return self
 
     def clear(self):
@@ -931,7 +1129,16 @@ class Table(object):
         del self.obs[:]
         for idx in self._indexes.values():
             idx._clear()
+
+        self._contents_changed()
         return self
+
+    def _contents_changed(self):
+        """
+        Internal method to be called whenever the contents of a table are modified.
+        """
+        for idx in self._search_indexes.values():
+            idx["VALID"] = False
 
     def _query_attr_sort_fn(self, attr_val):
         """Used to order where keys by most selective key first"""
@@ -1024,6 +1231,7 @@ class Table(object):
         In-place random shuffle of the records in the table.
         """
         random.shuffle(self.obs)
+        self._contents_changed()
         return self
 
     def sort(self, key, reverse=False):
@@ -1064,6 +1272,8 @@ class Table(object):
             # sorting given a sort key function
             keyfn = key
             self.obs.sort(key=keyfn, reverse=reverse)
+
+        self._contents_changed()
         return self
 
     def select(self, fields=None, **exprs):

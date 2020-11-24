@@ -12,6 +12,7 @@ How to Use littletable
   * [Querying with indexed attributes](#querying-with-indexed-attributes)
   * [Querying for exact matching attribute values](#querying-for-exact-matching-attribute-values)
   * [Querying for attribute value ranges](#querying-for-attribute-value-ranges)
+  * [Full-text search on text attributes](#full-text-search-on-text-attributes)
   * [Simple statistics on Tables of numeric values](#simple-statistics-on-tables-of-numeric-values)
   * [Importing data from fixed-width text files](#importing-data-from-fixed-width-text-files)
   * [Joining tables](#joining-tables)
@@ -298,6 +299,45 @@ write:
     first_qtr_sales = sales.where(date=Table.in_range(jan_01, apr_01))
 
 Comparators can also be used as filter functions for import methods.
+
+
+Full-text search on text attributes
+-----------------------------------
+`littletable` can perform a rudimentary version of full-text search against
+attributes composed of multiple-word contents (such as item descriptions, 
+comments, etc.). To perform a full-text search, a search index must first be
+created, using `Table.create_search_index()`, naming the attribute to be 
+indexed, and optionally any stop words that should be ignored.
+
+Afterward, queries can be run using `table.search.attribute(query)`, 
+where `attribute` is the attribute that was indexed, and `query` is
+a list or space-delimited string of search terms. Search terms may be
+prefixed by '++' or '--' to indicate required or prohibited terms, or
+'+' or '-' for preferred or non-preferred terms. The search function
+uses these prefixes to compute a matching score, and the matching records
+are returned in descending score order, along with their scores, and optionally
+each record's parsed keywords.
+
+In addition to the query, you may also specify a limit, and whether to include
+each entry's indexed search words.
+
+Example:
+
+    recipe_data = textwrap.dedent("""\
+        title,ingredients
+        Tuna casserole,tuna noodles cream of mushroom soup
+        Hawaiian pizza,pizza dough pineapple ham tomato sauce
+        BLT,bread bacon lettuce tomato mayonnaise
+        Bacon cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese bacon
+        """)
+    recipes = lt.Table().csv_import(recipe_data)
+    
+    recipes.create_search_index("ingredients")
+    matches = recipes.search.ingredients("+bacon tomato --pineapple")
+
+Search indexes will become invalid if records are added or removed from the table 
+after the index has been created. If they are not rebuilt, subsequent searches
+will raise the `SearchIndexInconsistentError` exception.
 
 
 Simple statistics on Tables of numeric values

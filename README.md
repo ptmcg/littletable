@@ -22,6 +22,7 @@ In addition to basic ORM-style insert/remove/query/delete access to the contents
 * clean tabular output for data presentation
 * simplified joins using `"+"` operator syntax between annotated `Table`s 
 * the result of any query or join is a new first-class `littletable` `Table` 
+* simple full-text search against multi-word text attributes
 * access like a standard Python list to the records in a Table, including indexing/slicing, `iter`, `zip`, `len`, `groupby`, etc.
 * access like a standard Python `dict` to attributes with a unique index, or like a standard Python `defaultdict(list)` to attributes with a non-unique index
 
