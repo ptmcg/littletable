@@ -140,7 +140,7 @@ __version__ = (
             __version_info__.releaseLevel == "final"
             ]
 )
-__versionTime__ = "23 Nov 2020 18:54 UTC"
+__versionTime__ = "24 Nov 2020 11:08 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -923,6 +923,9 @@ class Table(object):
         else:
             return ""
 
+    def _normalize_split(self, s):
+        return [self._normalize_word(wd) for wd in shlex.split(s)]
+
     def create_search_index(self, attrname, stopwords=None):
         """
         Create a text search index for the given attribute.
@@ -941,9 +944,8 @@ class Table(object):
 
         new_index = self._search_indexes[attrname] = defaultdict(list)
         for i, rec in enumerate(self.obs):
-            words = getattr(rec, attrname, "")
-            words = words.split()
-            words = set(self._normalize_word(wd) for wd in words)
+            words = self._normalize_split(getattr(rec, attrname, ""))
+            words = set(words)
             words -= stopwords
             for wd in words:
                 new_index[wd].append(i)
@@ -990,6 +992,10 @@ class Table(object):
                         reqd_matches &= set(search_index.get(kwd, []))
                     else:
                         reqd_matches = set(search_index.get(kwd, []))
+                else:
+                    # required keyword is not present at all - define unmatchable required match and break
+                    reqd_matches = {-1}
+                    break
 
             elif keyword.startswith("--"):
                 kwd = self._normalize_word(keyword[2:])
@@ -1032,7 +1038,7 @@ class Table(object):
 
         if include_words:
             return [(self[rec_idx], score,
-                     list({}.fromkeys(getattr(self[rec_idx], attrname, "").lower().split()).keys()))
+                     list({}.fromkeys(self._normalize_split(getattr(self[rec_idx], attrname, ""))).keys()))
                     for rec_idx, score in tally.most_common(limit)
                     if score > min_score]
         else:

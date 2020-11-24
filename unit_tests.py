@@ -1064,7 +1064,7 @@ class TableImportExportTests:
         incsv = io.StringIO(data)
         row_prototype = self.make_data_object(0, 0, 0)
         csvtable2 = lt.Table().csv_import(incsv, transforms={'a': int, 'b': int, 'c': int}, row_class=type(row_prototype))[:3]
-        
+
         print(type(t1[0]).__name__, t1[0])
         print(type(csvtable2[0]).__name__, csvtable2[0])
         self.assertEqual(type(t1[0]), type(csvtable2[0]))
@@ -1298,6 +1298,129 @@ class TablePivotTests_SimpleNamespace(unittest.TestCase, TablePivotTests, UsingS
 if dataclasses is not None:
     class TablePivotTests_Dataclasses(unittest.TestCase, TablePivotTests, UsingDataclasses):
         pass
+
+
+class TableSearchTests(unittest.TestCase):
+    recipe_data = textwrap.dedent("""\
+        id,title,ingredients
+        1,Tuna casserole,"tuna, noodles, Cream of Mushroom Soup"
+        2,Hawaiian pizza,pizza dough pineapple ham tomato sauce
+        3,Margherita pizza,pizza dough cheese pesto artichoke hearts
+        4,Pepperoni pizza,pizza dough cheese tomato sauce pepperoni
+        5,Grilled cheese sandwich,bread cheese butter
+        6,Tuna melt,tuna mayonnaise tomato bread cheese
+        7,Chili dog,hot dog chili onion bun
+        8,French toast,egg milk vanilla bread maple syrup
+        9,BLT,bread bacon lettuce tomato mayonnaise
+        10,Reuben sandwich,rye bread sauerkraut corned beef swiss cheese russian dressing thousand island
+        11,Hamburger,ground beef bun lettuce ketchup mustard pickle
+        12,Cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese
+        13,Bacon cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese bacon
+        """).splitlines()
+
+    def setUp(self):
+        self.recipes = lt.Table().csv_import(self.recipe_data, transforms=dict(id=int))
+        self.recipes.create_search_index("ingredients")
+
+    def test_text_search(self):
+        for query, expected in [
+            ("", []),
+            ("tuna", [1, 6]),
+            ("tuna +cheese", [6, 3, 4, 5, 10, 12, 13, 1]),
+            ("pineapple +bacon lettuce beef -sauerkraut tomato", [9, 13, 2, 11, 12, 4, 6, 10]),
+            ("pizza dough -pineapple", [3, 4, 2]),
+            ("pizza dough --pineapple", [3, 4]),
+            ("bread bacon", [9, 5, 6, 8, 10, 13]),
+            ("bread ++bacon", [9, 13]),
+            ("bread ++anchovies", []),
+            ("bread ++bacon ++anchovies", []),
+            ("bread bacon --anchovies", [9, 5, 6, 8, 10, 13]),
+        ]:
+            matches = self.recipes.search.ingredients(query, min_score=-10000)
+            match_ids = [recipe.id for recipe, _ in matches]
+            print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
+            self.assertEqual(expected, match_ids,
+                             "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+
+    def test_invalidate_index(self):
+        self.recipes.pop(0)
+        with self.assertRaises(lt.SearchIndexInconsistentError,
+                               msg="failed to raise exception when searching modified table"):
+            self.recipes.search.ingredients("bacon")
+
+    def test_search_with_keywords(self):
+        for query, expected, expected_words in [
+            ("tuna", [1, 6], [['tuna', 'noodles', 'cream', 'of', 'mushroom', 'soup'],
+                              ['tuna', 'mayonnaise', 'tomato', 'bread', 'cheese']]),
+        ]:
+            matches = self.recipes.search.ingredients(query, min_score=-10000, include_words=True)
+            match_ids = [recipe.id for recipe, score, words in matches]
+            print(repr(query), '->', [(recipe.id, score, words) for recipe, score, words in matches])
+            self.assertEqual(expected, match_ids,
+                             "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+            match_words = [words for recipe, score, words in matches]
+            self.assertEqual(expected_words, match_words,
+                             "invalid match words for query {!r}, expected {}, got {}".format(query,
+                                                                                              expected,
+                                                                                              match_words))
+
+    def test_search_with_limit(self):
+        for query, expected in [
+            ("", []),
+            ("tuna", [1, 6]),
+            ("tuna +cheese", [6, 3, 4]),
+            ("pineapple +bacon lettuce beef -sauerkraut tomato", [9, 13, 2]),
+            ("pizza dough -pineapple", [3, 4, 2]),
+            ("pizza dough --pineapple", [3, 4]),
+            ("bread bacon", [9, 5, 6]),
+            ("bread ++bacon", [9, 13]),
+            ("bread ++anchovies", []),
+            ("bread ++bacon ++anchovies", []),
+            ("bread bacon --anchovies", [9, 5, 6]),
+        ]:
+            matches = self.recipes.search.ingredients(query, min_score=-10000, limit=3)
+            match_ids = [recipe.id for recipe, _ in matches]
+            print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
+            self.assertEqual(expected, match_ids,
+                             "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+
+    def test_search_with_min_score(self):
+        for query, expected in [
+            ("", []),
+            ("tuna", []),
+            ("tuna +cheese", [6,]),
+            ("pineapple +bacon lettuce beef -sauerkraut tomato", [9, 13]),
+            ("pizza dough -pineapple", []),
+            ("pizza dough --pineapple", []),
+            ("bread bacon", []),
+            ("bread ++bacon", [9,]),
+            ("bread ++anchovies", []),
+            ("bread ++bacon ++anchovies", []),
+            ("bread bacon --anchovies", []),
+        ]:
+            matches = self.recipes.search.ingredients(query, min_score=1000)
+            match_ids = [recipe.id for recipe, _ in matches]
+            print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
+            self.assertEqual(expected, match_ids,
+                             "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+
+
+class TableSearchTests_DataObjects(TableSearchTests, UsingDataObjects):
+    pass
+
+class TableSearchTests_Namedtuples(TableSearchTests, UsingNamedtuples):
+    pass
+
+class TableSearchTests_Slotted(TableSearchTests, UsingSlottedObjects):
+    pass
+
+class TableSearchTests_SimpleNamespace(TableSearchTests, UsingSimpleNamespace):
+    pass
+
+if dataclasses is not None:
+    class TableSearchTests_Dataclasses(TableSearchTests, UsingDataclasses):
+        pass
+
 
 class InitialTest(unittest.TestCase):
     if sys.version_info[:2] <= (2, 6):
