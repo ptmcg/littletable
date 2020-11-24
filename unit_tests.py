@@ -1350,18 +1350,18 @@ class TableSearchTests(unittest.TestCase):
 
     def test_search_with_keywords(self):
         for query, expected, expected_words in [
-            ("tuna", [1, 6], [['tuna', 'noodles', 'cream', 'of', 'mushroom', 'soup'],
-                              ['tuna', 'mayonnaise', 'tomato', 'bread', 'cheese']]),
-        ]:
+                ("tuna", [1, 6], [{'tuna', 'noodles', 'cream', 'of', 'mushroom', 'soup'},
+                                  {'tuna', 'mayonnaise', 'tomato', 'bread', 'cheese'}]),
+                ]:
             matches = self.recipes.search.ingredients(query, min_score=-10000, include_words=True)
             match_ids = [recipe.id for recipe, score, words in matches]
             print(repr(query), '->', [(recipe.id, score, words) for recipe, score, words in matches])
             self.assertEqual(expected, match_ids,
                              "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
-            match_words = [words for recipe, score, words in matches]
+            match_words = [set(words) for recipe, score, words in matches]
             self.assertEqual(expected_words, match_words,
                              "invalid match words for query {!r}, expected {}, got {}".format(query,
-                                                                                              expected,
+                                                                                              expected_words,
                                                                                               match_words))
 
     def test_search_with_limit(self):
