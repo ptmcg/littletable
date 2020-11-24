@@ -10,11 +10,13 @@
 # Copyright (c) 2011  Paul T. McGuire
 #
 from littletable import Table
+import os
+this_dir, _ = os.path.split(__file__)
 
 # import from csv, convert elevation from meters to feet
-places = Table().csv_import('us_ppl.csv', 
-                            transforms={'elev':lambda s:int(s)*33/10, 
-                                        'pop':int})
+places = Table().csv_import(os.path.join(this_dir, 'us_ppl.csv'),
+                            transforms={'elev': lambda s: int(s)*33/10,
+                                        'pop': int})
 
 # add computed field, elevation rounded down by 1000's
 places.add_field('elev2', lambda x: int(x.elev/1000)*1000, 0)
