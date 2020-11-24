@@ -924,7 +924,7 @@ class Table(object):
             return ""
 
     def _normalize_split(self, s):
-        return [self._normalize_word(wd) for wd in shlex.split(s)]
+        return [self._normalize_word(wd) for wd in s.split()]
 
     def create_search_index(self, attrname, stopwords=None):
         """
