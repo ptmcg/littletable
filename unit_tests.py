@@ -1322,6 +1322,13 @@ class TableSearchTests(unittest.TestCase):
         self.recipes = lt.Table().csv_import(self.recipe_data, transforms=dict(id=int))
         self.recipes.create_search_index("ingredients")
 
+    def test_access_non_existent_search_attribute(self):
+        with self.assertRaises(ValueError, msg="failed to raise ValueError when accessing non-existent search index"):
+            self.recipes.search.title("xyz")
+
+    def test_search_dir(self):
+        self.assertEqual(['ingredients'], dir(self.recipes.search), "failed to generate correct dir() response")
+
     def test_text_search(self):
         for query, expected in [
             ("", []),

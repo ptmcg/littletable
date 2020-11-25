@@ -140,7 +140,7 @@ __version__ = (
             __version_info__.releaseLevel == "final"
             ]
 )
-__versionTime__ = "24 Nov 2020 11:08 UTC"
+__version_time__ = "25 Nov 2020 03:15 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -195,6 +195,7 @@ then there there's these they they'd they'll they're they've this those through 
 until up very was wasn't we we'd we'll we're we've were weren't what what's when when's 
 where where's which while who who's whom why why's with won't would wouldn't you 
 you'd you'll you're you've your yours yourself yourselves""".split())
+
 
 def _object_attrnames(obj):
     if hasattr(obj, "__dict__"):
@@ -464,13 +465,16 @@ class _TableSearcher(object):
     def __getattr__(self, attr):
         return partial(self._table._search, attr)
 
+    def __dir__(self):
+        return list(self._table._search_indexes)
+
 
 class _IndexAccessor(object):
     def __init__(self, table):
         self._table = table
 
     def __dir__(self):
-        ret = dir(type(self)) + list(self._table._indexes)
+        ret = list(self._table._indexes)
         return ret
 
     def __getattr__(self, attr):
