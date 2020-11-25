@@ -1436,7 +1436,7 @@ class InitialTest(unittest.TestCase):
 
     from littletable import (
         __version__ as littletable_version,
-        __versionTime__ as littletable_version_time,
+        __version_time__ as littletable_version_time,
         __version_info__ as littletable_version_info,
     )
 
