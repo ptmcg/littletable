@@ -1,8 +1,8 @@
 Change History
 ==============
 
-Version 1.4.0 - (in development)
---------------------------------
+Version 1.4.0 -
+---------------
 - Added `Table.create_search_index()' and `Table.search.<attribute>` for full text
   searching in a text attribute. Search terms may be prefixed with
   '+' and '-' flags, to qualify the required or excluded nature of matching
