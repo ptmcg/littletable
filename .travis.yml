@@ -13,8 +13,11 @@ matrix:
       sudo: true
   fast_finish: true
 
+install:
+  - pip install rich
+
 script:
- - python littletable.py
- - python unit_tests.py
- - PYTHONPATH=. python examples/pivot_demo.py
- - PYTHONPATH=. python examples/fixed_width_demo.py
+  - python littletable.py
+  - python unit_tests.py
+  - PYTHONPATH=. python examples/pivot_demo.py
+  - PYTHONPATH=. python examples/fixed_width_demo.py

@@ -914,6 +914,13 @@ if dataclasses is not None:
 
 class TableOutputTests:
     def test_basic_present(self):
+        try:
+            import rich
+        except ImportError:
+            import warnings
+            warnings.warn("rich not installed, cannot run test")
+            return
+
         from io import StringIO
         table = lt.Table().csv_import(textwrap.dedent("""\
         a,b
