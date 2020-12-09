@@ -1,6 +1,12 @@
 Change History
 ==============
 
+Version 1.4.1 - (in development)
+--------------------------------
+- Fixed bug when present() failed if a Table contained a field named 'default'.
+  Issue #1 (!!!) reported by edp-penso, thanks!
+
+
 Version 1.4.0 -
 ---------------
 - Added `Table.create_search_index()' and `Table.search.<attribute>` for full text

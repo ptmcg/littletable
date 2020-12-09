@@ -912,6 +912,66 @@ if dataclasses is not None:
         pass
 
 
+class TableOutputTests:
+    def test_basic_present(self):
+        from io import StringIO
+        table = lt.Table().csv_import(textwrap.dedent("""\
+        a,b
+        10,100
+        20,200
+        """))
+        table.present()
+        out = StringIO()
+        table.present(file=out)
+        expected = textwrap.dedent("""\
+        +----------+
+        | A  | B   |
+        |----+-----|
+        | 10 | 100 |
+        | 20 | 200 |
+        +----------+
+        """)
+        self.assertEqual(expected, out.getvalue())
+
+        # test bugfix when table has attribute "default"
+        table = lt.Table().csv_import(textwrap.dedent("""\
+        a,b,default
+        10,100,purple
+        15,150,
+        20,200,orange
+        """))
+        table.present()
+        out = StringIO()
+        table.present(file=out)
+        expected = textwrap.dedent("""\
+        +--------------------+
+        | A  | B   | Default |
+        |----+-----+---------|
+        | 10 | 100 | purple  |
+        | 15 | 150 |         |
+        | 20 | 200 | orange  |
+        +--------------------+
+        """)
+        self.assertEqual(expected, out.getvalue())
+
+
+class TableOutputTests_DataObjects(unittest.TestCase, TableOutputTests, UsingDataObjects):
+    pass
+
+class TableOutputTests_Namedtuples(unittest.TestCase, TableOutputTests, UsingNamedtuples):
+    pass
+
+class TableOutputTests_Slotted(unittest.TestCase, TableOutputTests, UsingSlottedObjects):
+    pass
+
+class TableOutputTests_SimpleNamespace(unittest.TestCase, TableOutputTests, UsingSimpleNamespace):
+    pass
+
+if dataclasses is not None:
+    class TableOutputTests_Dataclasses(unittest.TestCase, TableOutputTests, UsingDataclasses):
+        pass
+
+
 # sample import data sets
 csv_data = """\
 a,b,c

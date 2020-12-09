@@ -133,14 +133,14 @@ from itertools import starmap, repeat, takewhile, chain, product
 json_dumps = partial(json.dumps, indent=2)
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
-__version_info__ = version_info(1, 4, 0, "final", 0)
+__version_info__ = version_info(1, 4, 1, "final", 0)
 __version__ = (
         "{}.{}.{}".format(*__version_info__[:3])
         + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
             __version_info__.releaseLevel == "final"
             ]
 )
-__version_time__ = "25 Nov 2020 03:15 UTC"
+__version_time__ = "9 Dec 2020 06:14 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -422,14 +422,14 @@ class _ReadonlyObjIndexWrapper(_ObjIndexWrapper):
 class _TableAttributeValueLister(object):
     class UniquableIterator(object):
         def __init__(self, seq):
-            self._seq = seq
-            self._iter = iter(seq)
+            self.__seq = seq
+            self.__iter = iter(seq)
 
         def __iter__(self):
             return self
 
         def __next__(self):
-            return next(self._iter)
+            return next(self.__iter)
 
         if PY_2:
             def next(self):
@@ -437,19 +437,19 @@ class _TableAttributeValueLister(object):
 
         def __getattr__(self, attr):
             if attr == 'unique':
-                self._iter = filter(lambda x, seen=set(): x not in seen and not seen.add(x), self._iter)
+                self.__iter = filter(lambda x, seen=set(): x not in seen and not seen.add(x), self.__iter)
                 return self
             raise AttributeError("no such attribute {!r} defined".format(attr))
 
     def __init__(self, table, default=None):
-        self.table = table
-        self.default = default
+        self.__table = table
+        self.__default = default
 
     def __getattr__(self, attr):
-        if attr not in self.table._indexes:
-            vals = (getattr(row, attr, self.default) for row in self.table)
+        if attr not in self.__table._indexes:
+            vals = (getattr(row, attr, self.__default) for row in self.__table)
         else:
-            table_index = self.table._indexes[attr]
+            table_index = self.__table._indexes[attr]
             if table_index.is_unique:
                 vals = table_index.keys()
             else:
@@ -460,13 +460,13 @@ class _TableAttributeValueLister(object):
 class _TableSearcher(object):
 
     def __init__(self, table):
-        self._table = table
+        self.__table = table
 
     def __getattr__(self, attr):
-        return partial(self._table._search, attr)
+        return partial(self.__table._search, attr)
 
     def __dir__(self):
-        return list(self._table._search_indexes)
+        return list(self.__table._search_indexes)
 
 
 class _IndexAccessor(object):
