@@ -1110,8 +1110,18 @@ class Table(object):
 
     def remove_many(self, it):
         """Removes a collection of objects from the table."""
+
+        # if table is empty, there is nothing to remove
+        if not self.obs:
+            return
+
         # find indicies of objects in iterable
         to_be_deleted = list(it)
+
+        # if list of items to delete is empty, there is nothing to remove
+        if not to_be_deleted:
+            return
+
         del_indices = []
         for i, ob in enumerate(self.obs):
             try:
@@ -1129,7 +1139,9 @@ class Table(object):
         for i in sorted(del_indices, reverse=True):
             self.pop(i)
 
-        self._contents_changed()
+        if del_indices:
+            self._contents_changed()
+
         return self
 
     def clear(self):
@@ -2057,10 +2069,7 @@ class Table(object):
         seen = set()
         for ob in self:
             if key is None:
-                try:
-                    ob_dict = vars(ob)
-                except TypeError:
-                    ob_dict = _to_dict(ob)
+                ob_dict = _to_dict(ob)
                 reckey = tuple(sorted(ob_dict.items()))
             else:
                 reckey = key(ob)

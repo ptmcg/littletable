@@ -346,6 +346,7 @@ class TableCreateTests:
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
 
+        self.assertEqual(test_size*test_size*test_size/2, len(table.where(lambda t: t.a % 2)))
         table.remove_many(table.where(lambda t: t.a % 2))
         self.assertEqual(test_size*test_size*test_size/2, len(table))
         table_len = len(table)
@@ -415,7 +416,7 @@ class TableListTests:
     def _test_init(self):
         self.test_size = 3
         self.t1 = make_test_table(self.make_data_object, self.test_size)
-        self.test_rec = self.make_data_object(1,1,1)
+        self.test_rec = self.make_data_object(1, 1, 1)
 
     def test_contains(self):
         self._test_init()
@@ -423,7 +424,11 @@ class TableListTests:
 
     def test_index_find(self):
         self._test_init()
-        self.assertEqual(13, self.t1.index(self.test_rec), "failed 'in' (contains) test")
+        self.assertEqual(13, self.t1.index(self.test_rec), "failed 'index; test (exists)")
+
+        no_such_rec = self.make_data_object(self.test_size+1, self.test_size+1, self.test_size+1)
+        with self.assertRaises(ValueError, msg="failed 'index' test (not exists)"):
+            self.t1.index(no_such_rec)
 
     def test_remove(self):
         self._test_init()
@@ -432,6 +437,11 @@ class TableListTests:
         self.t1.remove(rec)
         self.assertFalse(rec in self.t1, "failed to remove record from table (contains)")
         self.assertEqual(prev_len-1, len(self.t1), "failed to remove record from table (len)")
+
+        no_such_rec = self.make_data_object(self.test_size+1, self.test_size+1, self.test_size+1)
+        self.assertFalse(no_such_rec in self.t1, "failed to create non-existent record from table")
+        self.t1.remove(no_such_rec)
+        self.assertEqual(prev_len-1, len(self.t1), "failed removing non-existent record from table (len)")
 
     def test_index_access(self):
         self._test_init()
@@ -443,7 +453,8 @@ class TableListTests:
 
     def test_reversed(self):
         self._test_init()
-        self.assertEqual(self.make_data_object(2,2,2), next(reversed(self.t1)), "failed reversed test")
+        last_rec = next(reversed(self.t1))
+        self.assertEqual(self.make_data_object(2, 2, 2), last_rec, "failed reversed test")
 
     def test_iter(self):
         self._test_init()
