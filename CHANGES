@@ -7,6 +7,9 @@ Version 1.4.1
   (would also have failed with a field named 'table'). Issue #1 (!!!) reported
   by edp-penso, thanks!
 
+- Add optional 'force' argument to create_search_index to regenerate a search
+  index if the contents of a searchable attribute changed.
+
 - Some small optimizations to `Table.remove_many` and additional unit tests.
 
 

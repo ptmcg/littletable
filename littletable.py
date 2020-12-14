@@ -930,12 +930,42 @@ class Table(object):
     def _normalize_split(self, s):
         return [self._normalize_word(wd) for wd in s.split()]
 
-    def create_search_index(self, attrname, stopwords=None):
+    def create_search_index(self, attrname, stopwords=None, force=False):
         """
         Create a text search index for the given attribute.
+        Regular indexes can perform range or equality checks against the
+        value of a particular attribute. A search index will support
+        calls to search() to perform keyword searches within the text
+        of each record's attribute.
+
+        Parameters:
+        - attrname - name of attribute to be searched for word matches
+        - stopwords (optional, default=defined list of English stop words)
+          a user-defined list of stopwords to be filtered from
+          search text and queries
+        - force (optional, default=False) - force rebuild of a search index
+          even if no records have been added or deleted (useful to rebuild
+          a search index if a mutable record has been updated, which
+          littletable cannot detect)
+
+        Example:
+
+            journal = Table()
+            journal.insert(SimpleNamespace(date="1/1/2001", entry="The sky is so blue today."))
+            journal.insert(SimpleNamespace(date="1/2/2001", entry="Feeling kind of blue."))
+            journal.insert(SimpleNamespace(date="1/3/2001", entry="Delicious blueberry pie for dessert."))
+
+            journal.create_search_index("entry")
+            journal.search.entry("sky")
+                [(namespace(date='1/1/2001', entry='The sky is so blue today.'), 100)]
+            journal.search.entry("blue")
+                [(namespace(date='1/1/2001', entry='The sky is so blue today.'), 100),
+                 (namespace(date='1/2/2001', entry='Feeling kind of blue.'), 100)]
+            journal.search.entry("blue --feeling")
+                [(namespace(date='1/1/2001', entry='The sky is so blue today.'), 100)]
         """
         if attrname in self._search_indexes:
-            if not self._search_indexes[attrname]["VALID"]:
+            if force or not self._search_indexes[attrname]["VALID"]:
                 # stale search index, rebuild
                 self._search_indexes.pop(attrname)
             else:
