@@ -54,7 +54,8 @@ else:
 try:
     import rich
 except ImportError:
-    lt.Table.present = lambda *args: None
+    rich = None
+    lt.Table.present = lambda *args, **kwargs: None
 
 
 class Slotted(object):
@@ -914,13 +915,12 @@ if dataclasses is not None:
 
 class TableOutputTests:
     def test_basic_present(self):
-        try:
-            import rich
-        except ImportError:
+        if rich is None:
             import warnings
             warnings.warn("rich not installed, cannot run test")
             return
 
+        from rich import box
         from io import StringIO
         table = lt.Table().csv_import(textwrap.dedent("""\
         a,b
@@ -929,7 +929,7 @@ class TableOutputTests:
         """))
         table.present()
         out = StringIO()
-        table.present(file=out)
+        table.present(file=out, box=box.ASCII)
         expected = textwrap.dedent("""\
         +----------+
         | A  | B   |
@@ -949,7 +949,7 @@ class TableOutputTests:
         """))
         table.present()
         out = StringIO()
-        table.present(file=out)
+        table.present(file=out, box=box.ASCII)
         expected = textwrap.dedent("""\
         +--------------------+
         | A  | B   | Default |

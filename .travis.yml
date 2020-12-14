@@ -9,12 +9,14 @@ matrix:
     - python: 3.6
     - python: 3.7
     - python: 3.8
+    - python: 3.9
       dist: xenial
       sudo: true
   fast_finish: true
 
-install:
-  - pip install rich
+before_install:
+  - export verint="`python -c "import platform; a,b,c=map(int,platform.python_version().split('.')); print(((a*100+b)*100)+c)"`"
+  - if [ $verint -ge 30600 ]; then pip install rich; fi
 
 script:
   - python littletable.py
