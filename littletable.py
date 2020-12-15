@@ -140,7 +140,7 @@ __version__ = (
             __version_info__.releaseLevel == "final"
             ]
 )
-__version_time__ = "9 Dec 2020 06:14 UTC"
+__version_time__ = "15 Dec 2020 06:44 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -1080,6 +1080,9 @@ class Table(object):
                     if score > min_score]
 
     def delete_search_index(self, attrname):
+        """
+        Deletes a previously-created search index on a particular attribute.
+        """
         self._search_indexes.pop(attrname, None)
 
     def insert(self, obj):
@@ -1182,7 +1185,7 @@ class Table(object):
         for idx in self._indexes.values():
             idx._clear()
 
-        self._contents_changed()
+        self._search_indexes.clear()
         return self
 
     def _contents_changed(self):
@@ -1430,10 +1433,6 @@ class Table(object):
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
         @returns: a new Table containing the joined data as new DataObjects
         """
-        # if join not in ("inner", "left outer", "right outer", "full outer", "outer"):
-        #     raise ValueError("join argument must be 'inner', 'left outer', "
-        #                      "'right outer', 'full outer', or 'outer'")
-        #
         if not kwargs:
             raise TypeError("must specify at least one join attribute as a named argument")
         this_cols, other_cols = list(kwargs.keys()), list(kwargs.values())
@@ -1448,17 +1447,6 @@ class Table(object):
         # if inner join, make sure both tables contain records to join - if not, just return empty list
         if not (self.obs and other.obs):
             return Table(retname)
-
-        # if join == "inner":
-        #     if not (self.obs and other.obs):
-        #         return Table(retname)
-        # else:
-        #     if not self:
-        #         # no records in either table, return empty table
-        #         return Table(retname)
-        #     elif not other:
-        #         # no records in other, just return a copy of this table
-        #         return self.clone()
 
         attr_spec_list = attrlist
         if isinstance(attrlist, basestring):
@@ -1516,18 +1504,6 @@ class Table(object):
             this_rows = self.where(**base_this_where_dict)
             other_rows = other.where(**base_other_where_dict)
 
-            # if join in ("full outer", "left outer"):
-            #     if not this_rows:
-            #         this_outer_dict = dict.fromkeys(this_cols, None)
-            #         this_outer_dict.update(dict(zip(this_cols, join_values)))
-            #         this_rows.insert(default_row_class(**this_outer_dict))
-            #
-            # if join in ("full outer", "right outer", "outer"):
-            #     if not other_rows:
-            #         other_outer_dict = dict.fromkeys(other_cols, None)
-            #         other_outer_dict.update(dict(zip(other_cols, join_values)))
-            #         other_rows.insert(default_row_class(**other_outer_dict))
-            #
             matchingrows.append((this_rows, other_rows))
 
         # remove attr_specs from other_attr_specs if alias is duplicate of any alias in this_attr_specs
