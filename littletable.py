@@ -128,12 +128,12 @@ import sys
 from collections import defaultdict, namedtuple, OrderedDict as ODict, Counter
 from contextlib import closing
 from functools import partial
-from itertools import starmap, repeat, takewhile, chain, product
+from itertools import starmap, repeat, takewhile, chain, product, tee
 
 json_dumps = partial(json.dumps, indent=2)
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
-__version_info__ = version_info(1, 4, 1, "final", 0)
+__version_info__ = version_info(1, 5, 0, "final", 0)
 __version__ = (
         "{}.{}.{}".format(*__version_info__[:3])
         + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
@@ -1107,6 +1107,16 @@ class Table(object):
         unique_indexes = self._uniqueIndexes
         NO_SUCH_ATTR = object()
         new_objs = it
+        new_objs, first_obj = tee(new_objs)
+        try:
+            first = next(first_obj)
+            if isinstance(first, dict):
+                # passed in a list of dicts, save as attributed objects
+                new_objs = (default_row_class(**obj) for obj in new_objs)
+        except StopIteration:
+            # iterator is empty, nothing to insert
+            return
+
         if unique_indexes:
             new_objs = list(new_objs)
             for ind in unique_indexes:

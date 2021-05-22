@@ -1,6 +1,11 @@
 Change History
 ==============
 
+Version 1.5.0
+-------------
+- Accept a sequence of dicts for objects to insert into a table. They get
+  stored as SimpleNamespace objects to support all attribute accesses.
+
 Version 1.4.1
 -------------
 - Fixed bug when present() failed if a Table contained a field named 'default'

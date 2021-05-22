@@ -10,10 +10,11 @@
 Introduction
 ------------
 The `littletable` module provides a low-overhead, schema-less, in-memory database access to a collection 
-of user objects. `littletable` Tables will accept any user-defined object type, including `namedtuples`, `dataclasses`,
+of user objects. `littletable` Tables will accept Python `dict`s or any user-defined object type, including `namedtuples`, `dataclasses`,
 and `types.SimpleNamespaces`, using those objects' `__dict__`, `__slots__`, or `_fields` mappings to access object
 attributes and determine the Table's "columns". `littletable` also provides a `DataObject` class for easy creation of
-namespace objects from Python `dict` instances.
+namespace objects from Python `dict` instances. If populated with Python `dict`s, they get stored
+as `SimpleNamespace`s or `DictObject`s.
 
 In addition to basic ORM-style insert/remove/query/delete access to the contents of a `Table`, `littletable` offers:
 * simple indexing for improved retrieval performance, and optional enforcing key uniqueness 
