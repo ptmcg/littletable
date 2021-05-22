@@ -3,7 +3,7 @@
 #
 # unit tests for littletable library
 #
-
+import types
 import unittest
 import littletable as lt
 import itertools
@@ -108,6 +108,7 @@ class TestDataObjects(unittest.TestCase):
 
         self.assertEqual("{'a': 10}", repr(ob2))
 
+
 class TestTableTypes(unittest.TestCase):
     def test_types(self):
         
@@ -184,6 +185,16 @@ class TableCreateTests:
 
         with self.assertRaises(KeyError):
             table.create_index('a', unique=True)
+
+    def test_insert_dicts(self):
+        table = lt.Table()
+        table.insert({"a": 1, "b": 2, "c": 3})
+        table.insert({"a": 4, "b": 5, "c": 6})
+        table.create_index('a', unique=True)
+        rec0 = table[0]
+        self.assertEqual({"a": 1, "b": 2, "c": 3}, vars(rec0))
+        self.assertEqual(lt.default_row_class, type(rec0))
+        self.assertEqual(1, getattr(rec0, "a"))
 
     def test_where_equals(self):
         test_size = 10
