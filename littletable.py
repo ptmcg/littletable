@@ -2070,16 +2070,25 @@ class Table(object):
             tbl.insert(group_obj)
         return tbl
 
-    def splitby(self, key):
+    def splitby(self, pred):
         """
+        Takes a predicate function (takes a table record and returns True or False)
+        and returns two tables: a table with all the rows that returned False and
+        a table with all the rows that returned True. Will also accept a string
+        indicating a particular field name, and uses `bool(getattr(rec, field_name))`
+        for the predicate function.
+
+              is_odd = lambda x: bool(x % 2)
+              evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
+              nulls, not_nulls = tbl.splitby("optional_data_field")
         """
         # if key is a str, convert it to a predicate function as bool(getattr(ob, key))
-        if isinstance(key, str):
-            key_str = key
-            key = lambda ob: bool(getattr(ob, key_str))
+        if isinstance(pred, str):
+            key_str = pred
+            pred = lambda ob: bool(getattr(ob, key_str))
 
         ret = self.copy_template(), self.copy_template()
-        for bool_value, recs in groupby(self, key=key):
+        for bool_value, recs in groupby(self, key=pred):
             ret[bool_value].insert_many(recs)
 
         return ret
