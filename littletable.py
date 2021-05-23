@@ -128,7 +128,7 @@ import sys
 from collections import defaultdict, namedtuple, OrderedDict as ODict, Counter
 from contextlib import closing
 from functools import partial
-from itertools import starmap, repeat, takewhile, chain, product, tee
+from itertools import starmap, repeat, takewhile, chain, product, tee, groupby
 
 json_dumps = partial(json.dumps, indent=2)
 
@@ -2069,6 +2069,20 @@ class Table(object):
                 setattr(group_obj, subkey, expr(recs))
             tbl.insert(group_obj)
         return tbl
+
+    def splitby(self, key):
+        """
+        """
+        # if key is a str, convert it to a predicate function as bool(getattr(ob, key))
+        if isinstance(key, str):
+            key_str = key
+            key = lambda ob: bool(getattr(ob, key_str))
+
+        ret = self.copy_template(), self.copy_template()
+        for bool_value, recs in groupby(self, key=key):
+            ret[bool_value].insert_many(recs)
+
+        return ret
 
     def unique(self, key=None):
         """

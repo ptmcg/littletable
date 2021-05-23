@@ -630,6 +630,28 @@ class TableListTests:
         t1_stats = self.t1.stats()
         self.assertEqual(self.test_size ** num_fields - 1, t1_stats.by.name["a"].count)
 
+    def test_splitby(self):
+        self._test_init()
+        is_odd = lambda rec: rec.a % 2
+        evens, odds = self.t1.splitby(is_odd)
+        self.assertEqual(len(odds) + len(evens), len(self.t1))
+        self.assertEqual(len(odds), len(self.t1.where(is_odd)))
+
+        even_evens, odd_evens = evens.splitby(is_odd)
+        self.assertEqual(0, len(odd_evens))
+        self.assertEqual(len(even_evens), len(evens))
+
+        # make sure indexes are preserved
+        self.t1.create_index("a")
+        evens, odds = self.t1.splitby(is_odd)
+        self.assertEqual(self.t1.info()["indexes"], evens.info()["indexes"])
+
+        # test passing an attribute as a key
+        zeros, non_zeros = self.t1.splitby("a")
+        self.assertTrue(all(rec.a == 0 for rec in zeros))
+        self.assertTrue(all(rec.a != 0 for rec in non_zeros))
+
+
 class TableListTests_DataObjects(unittest.TestCase, TableListTests, UsingDataObjects):
     pass
 

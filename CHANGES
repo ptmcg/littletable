@@ -6,6 +6,17 @@ Version 1.5.0
 - Accept a sequence of dicts for objects to insert into a table. They get
   stored as SimpleNamespace objects to support all attribute accesses.
 
+- Added Table.splitby() - takes a predicate function (takes a table record
+  and returns True or False) and returns two tables: a table with all the rows
+  that returned False and a table with all the rows that returned True. Will
+  also accept a string indicating a particular field name, and uses
+  `bool(getattr(rec, field_name))` for the predicate function.
+
+      is_odd = lambda x: bool(x % 2)
+      evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
+      nulls, not_nulls = tbl.splitby("optional_data_field")
+
+
 Version 1.4.1
 -------------
 - Fixed bug when present() failed if a Table contained a field named 'default'
