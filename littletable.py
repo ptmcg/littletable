@@ -7,7 +7,7 @@
 # to a collection of data objects, without dealing with SQL
 #
 #
-# Copyright (c) 2010-2020  Paul T. McGuire
+# Copyright (c) 2010-2021  Paul T. McGuire
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -118,6 +118,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 import csv
+import io
 import json
 import operator
 import os
@@ -140,7 +141,7 @@ __version__ = (
             __version_info__.releaseLevel == "final"
             ]
 )
-__version_time__ = "15 Dec 2020 06:44 UTC"
+__version_time__ = "23 May 2021 15:05 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2349,7 +2350,7 @@ class Table(object):
         @type fields: list of strings or a single space-delimited string
         @param formats: optional dict of str formats to use when converting field values
                         to strings (usually used for float conversions, but could also be
-                        used for str conversion or text wrapping
+                        used for str conversion or text wrapping)
         @type formats: mapping of field names or types to either str formats as used by
                        the str.format method, or a callable that takes a value and returns
                        a str
@@ -2379,6 +2380,64 @@ class Table(object):
         ret += "</thead>\n<tbody>"
         ret += "".join(map(row_to_tr, self))
         ret += "</tbody>\n</table>"
+        return ret
+
+    def as_markdown(self, fields='*', formats=None):
+        """
+        Output the table as a Markdown table.
+        @param fields: fields in the table to be shown in the table
+                       - listing '*' as a field will add all unnamed fields
+                       - starting a field name with '-' will suppress that name
+        @type fields: list of strings or a single space-delimited string
+        @param formats: optional dict of str formats to use when converting field values
+                        to strings (usually used for float conversions, but could also be
+                        used for str conversion or text wrapping
+        @type formats: mapping of field names or types to either str formats as used by
+                       the str.format method, or a callable that takes a value and returns
+                       a str
+        @return: string of generated Markdown representing the selected table row attributes
+        """
+        fields = self._parse_fields_string(fields)
+        if formats is None:
+            formats = {}
+        field_format_map = {}
+
+        center_vals = (True, False, 'Y', 'N', 'X', 'YES', 'NO', 'y', 'n', 'x', 'yes', 'no', 0, 1, None)
+        field_align_map = {}
+        for f in fields:
+            align = '---'
+            align_center = True
+            align_right = True
+            for v in getattr(self.all, f):
+                if align_center and v in center_vals:
+                    continue
+                align_center = False
+                if not (v is None or isinstance(v, _numeric_type)):
+                    align_right = False
+                if not align_right and not align_center:
+                    break
+            if align_center:
+                align = ':---:'
+            elif align_right:
+                align = '---:'
+            field_align_map[f] = align
+
+        def row_to_tr(r):
+            ret_tr = ["|"]
+            for fld in fields:
+                v = getattr(r, fld, "")
+                if fld not in field_format_map:
+                    field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
+                v_format = field_format_map[fld]
+                str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
+                ret_tr.append(' {} |'.format(str_v))
+            ret_tr.append("\n")
+            return "".join(ret_tr)
+
+        ret = ""
+        ret += "| " + " | ".join(fields) + " |\n"
+        ret += "|" + "|".join(field_align_map[f] for f in fields) + "|\n"
+        ret += "".join(map(row_to_tr, self))
         return ret
 
 

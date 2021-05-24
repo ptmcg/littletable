@@ -149,3 +149,9 @@ Here is a simple littletable data storage/retrieval example:
 
     # print output as a nicely-formatted table
     wishlists().sort("unitprice desc")("Wishlists").present()
+
+    # print output as an HTML table
+    print(wishlists().sort("unitprice desc")("Wishlists").as_html())
+
+    # print output as a Markdown table
+    print(wishlists().sort("unitprice desc")("Wishlists").as_markdown())
