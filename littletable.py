@@ -141,7 +141,7 @@ __version__ = (
             __version_info__.releaseLevel == "final"
             ]
 )
-__version_time__ = "23 May 2021 15:05 UTC"
+__version_time__ = "26 May 2021 02:53 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2083,14 +2083,19 @@ class Table(object):
               evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
               nulls, not_nulls = tbl.splitby("optional_data_field")
         """
-        # if key is a str, convert it to a predicate function as bool(getattr(ob, key))
+        # if key is a str, convert it to a predicate function using attrgetter
         if isinstance(pred, str):
             key_str = pred
-            pred = lambda ob: bool(getattr(ob, key_str))
+            pred = operator.attrgetter(key_str)
 
+        # construct two tables to receive False and True evaluated records
         ret = self.copy_template(), self.copy_template()
+
+        # iterate over self and evaluate predicate for each record - use groupby to take
+        # advantage of efficiencies when using insert_many() over multiple insert() calls
         for bool_value, recs in groupby(self, key=pred):
-            ret[bool_value].insert_many(recs)
+            # force value returned by pred to be bool
+            ret[not not bool_value].insert_many(recs)
 
         return ret
 
