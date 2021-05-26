@@ -158,6 +158,9 @@ else:
     str_strip = str.strip
     import urllib.request
     urlopen = urllib.request.urlopen
+    # 3.7 and later, Python dicts preserve insertion order
+    if sys.version_info[1] >= 7:
+        ODict = dict
 
 try:
     from types import SimpleNamespace
@@ -1107,13 +1110,22 @@ class Table(object):
         """Inserts a collection of objects into the table."""
         unique_indexes = self._uniqueIndexes
         NO_SUCH_ATTR = object()
+
+        def wrap_dict(dd):
+            # do recursive wrap of dicts to namespace types
+            ret = default_row_class(**dd)
+            for k, v in dd.items():
+                if isinstance(v, dict):
+                    setattr(ret, k, wrap_dict(v))
+            return ret
+
         new_objs = it
         new_objs, first_obj = tee(new_objs)
         try:
             first = next(first_obj)
             if isinstance(first, dict):
                 # passed in a list of dicts, save as attributed objects
-                new_objs = (default_row_class(**obj) for obj in new_objs)
+                new_objs = (wrap_dict(obj) for obj in new_objs)
         except StopIteration:
             # iterator is empty, nothing to insert
             return
