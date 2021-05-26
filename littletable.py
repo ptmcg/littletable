@@ -1113,10 +1113,9 @@ class Table(object):
 
         def wrap_dict(dd):
             # do recursive wrap of dicts to namespace types
-            ret = default_row_class(**dd)
-            for k, v in dd.items():
-                if isinstance(v, dict):
-                    setattr(ret, k, wrap_dict(v))
+            ret = default_row_class(**{k: v if not isinstance(v, dict)
+                                            else wrap_dict(v)
+                                       for k, v in dd.items()})
             return ret
 
         new_objs = it
