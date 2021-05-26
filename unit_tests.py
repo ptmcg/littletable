@@ -651,6 +651,12 @@ class TableListTests:
         self.assertTrue(all(rec.a == 0 for rec in zeros))
         self.assertTrue(all(rec.a != 0 for rec in non_zeros))
 
+        # test using predicate that does not always return 0 or 1
+        is_not_multiple_of_3 = lambda rec: rec.a % 3
+        mults_of_3, non_mults_of_3 = self.t1.splitby(is_not_multiple_of_3)
+        print(list(non_mults_of_3.all.a))
+        print(list(mults_of_3.all.a))
+
 
 class TableListTests_DataObjects(unittest.TestCase, TableListTests, UsingDataObjects):
     pass
