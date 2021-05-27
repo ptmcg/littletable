@@ -4,12 +4,11 @@ language: python
 
 matrix:
   include:
-    - python: 2.7
-    - python: 3.5
     - python: 3.6
     - python: 3.7
     - python: 3.8
     - python: 3.9
+    - python: 3.10-dev
       dist: xenial
       sudo: true
   fast_finish: true
@@ -19,7 +18,7 @@ before_install:
   - if [ $verint -ge 30600 ]; then pip install rich; fi
 
 script:
-  - python littletable_DELETE.py
+  - python littletable.py
   - python unit_tests.py
   - PYTHONPATH=. python examples/pivot_demo.py
   - PYTHONPATH=. python examples/fixed_width_demo.py
