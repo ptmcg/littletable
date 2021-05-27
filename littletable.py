@@ -28,8 +28,6 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-from __future__ import print_function
-
 __doc__ = r"""
 
 C{littletable} - a Python module to give ORM-like access to a collection of objects
@@ -118,70 +116,53 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 import csv
-import io
+from io import StringIO
 import json
 import operator
 import os
 import random
 import re
 import shlex
+import statistics
 import sys
-from collections import defaultdict, namedtuple, OrderedDict as ODict, Counter
+from collections import defaultdict, namedtuple, Counter
+from collections.abc import Mapping, Sequence
 from contextlib import closing
 from functools import partial
 from itertools import starmap, repeat, takewhile, chain, product, tee, groupby
+from pathlib import Path
+from types import SimpleNamespace
+import urllib.request
+
+try:
+    import rich
+    from rich import box
+except ImportError:
+    rich = None
+    box = None
 
 json_dumps = partial(json.dumps, indent=2)
 
 version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
-__version_info__ = version_info(1, 5, 0, "final", 0)
+__version_info__ = version_info(2, 0, 0, "final", 0)
 __version__ = (
         "{}.{}.{}".format(*__version_info__[:3])
         + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
             __version_info__.releaseLevel == "final"
             ]
 )
-__version_time__ = "26 May 2021 02:53 UTC"
+__version_time__ = "27 May 2021 05:45 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
-PY_2 = sys.version_info[0] == 2
-PY_3 = sys.version_info[0] == 3
 
-if PY_2:
-    from itertools import ifilter as filter
-    str_strip = lambda s: type(s).strip(s)
-    import urllib2
-    urlopen = urllib2.urlopen
+# 3.7 and later, Python dicts preserve insertion order
+if sys.version_info[:2] >= (3, 7):
+    ODict = dict
 else:
-    from pathlib import Path
-    str_strip = str.strip
-    import urllib.request
-    urlopen = urllib.request.urlopen
-    # 3.7 and later, Python dicts preserve insertion order
-    if sys.version_info[1] >= 7:
-        ODict = dict
+    from collections import OrderedDict as ODict
 
-try:
-    from types import SimpleNamespace
-except ImportError:
-    default_row_class = None
-else:
-    default_row_class = SimpleNamespace
-
-try:
-    # Python 3
-    from collections.abc import Mapping, Sequence
-except ImportError:
-    # Python 2.7
-    from collections import Mapping, Sequence
-
-if PY_3:
-    basestring = str
-    from io import StringIO
-else:
-    from StringIO import StringIO
-
+default_row_class = SimpleNamespace
 _numeric_type = (int, float)
 
 __all__ = ["DataObject", "Table", "FixedWidthReader"]
@@ -232,10 +213,14 @@ def _to_json(obj):
 
 
 # special Exceptions
-class SearchIndexInconsistentError(Exception): pass
+class SearchIndexInconsistentError(Exception):
+    """
+    Exception raised when using search method on table that has been
+    modified since the search index was built.
+    """
 
 
-class DataObject(object):
+class DataObject:
     """A generic semi-mutable object for storing data values in a table. Attributes
        can be set by passing in named arguments in the constructor, or by setting them
        as C{object.attribute = value}. New attributes can be added any time, but updates
@@ -263,6 +248,8 @@ class DataObject(object):
         else:
             raise KeyError("object has no such attribute " + k)
 
+    __iter__ = None
+
     def __setitem__(self, k, v):
         if k not in self.__dict__:
             self.__dict__[k] = v
@@ -276,11 +263,7 @@ class DataObject(object):
         return not (self == other)
 
 
-if default_row_class is None:
-    default_row_class = DataObject
-
-
-class _ObjIndex(object):
+class _ObjIndex:
     def __init__(self, attr):
         self.attr = attr
         self.obs = defaultdict(list)
@@ -383,7 +366,7 @@ class _UniqueObjIndex(_ObjIndex):
         del self.none_values[:]
 
 
-class _ObjIndexWrapper(object):
+class _ObjIndexWrapper:
     def __init__(self, ind, table_template):
         self._index = ind
         self._table_template = table_template
@@ -396,6 +379,8 @@ class _ObjIndexWrapper(object):
         if k in self._index:
             ret.insert_many(self._index[k])
         return ret
+
+    __iter__ = None
 
     def __contains__(self, k):
         return k in self._index
@@ -423,8 +408,8 @@ class _ReadonlyObjIndexWrapper(_ObjIndexWrapper):
         raise Exception("no update access to index {!r}".format(self.attr))
 
 
-class _TableAttributeValueLister(object):
-    class UniquableIterator(object):
+class _TableAttributeValueLister:
+    class UniquableIterator:
         def __init__(self, seq):
             self.__seq = seq
             self.__iter = iter(seq)
@@ -434,10 +419,6 @@ class _TableAttributeValueLister(object):
 
         def __next__(self):
             return next(self.__iter)
-
-        if PY_2:
-            def next(self):
-                return self.__next__()
 
         def __getattr__(self, attr):
             if attr == 'unique':
@@ -461,7 +442,7 @@ class _TableAttributeValueLister(object):
         return _TableAttributeValueLister.UniquableIterator(vals)
 
 
-class _TableSearcher(object):
+class _TableSearcher:
 
     def __init__(self, table):
         self.__table = table
@@ -473,7 +454,7 @@ class _TableSearcher(object):
         return list(self.__table._search_indexes)
 
 
-class _IndexAccessor(object):
+class _IndexAccessor:
     def __init__(self, table):
         self._table = table
 
@@ -512,45 +493,31 @@ class _IndexAccessor(object):
         raise AttributeError("Table {!r} has no index {!r}".format(self._table.table_name, attr))
 
 
-class _multi_iterator(object):
+class _multi_iterator:
     def __init__(self, seqobj, encoding='utf-8'):
         def _decoder(seq):
             for line in seq:
                 yield line.decode(encoding)
 
-        if isinstance(seqobj, basestring):
+        if isinstance(seqobj, str):
             if '\n' in seqobj:
                 self._iterobj = iter(StringIO(seqobj))
             elif seqobj.startswith("http"):
-                if PY_3:
-                    self._iterobj = _decoder(urlopen(seqobj))
-                else:
-                    self._iterobj = urlopen(seqobj)
+                self._iterobj = _decoder(urllib.request.urlopen(seqobj))
             else:
                 if seqobj.endswith(".gz"):
                     import gzip
                     self._iterobj = _decoder(gzip.GzipFile(filename=seqobj))
                 elif seqobj.endswith((".xz", ".lzma")):
-                    if not PY_3:
-                        raise Exception("unable to import {!r}; "
-                                        "lzma decompression requires Python 3.3 or later".format(seqobj))
                     import lzma
                     self._iterobj = lzma.open(seqobj, "rt", encoding=encoding)
                 elif seqobj.endswith(".zip"):
                     import zipfile
                     # assume file name inside zip is the same as the zip file without the trailing ".zip"
-                    if PY_3:
-                        inner_name = Path(seqobj).stem
-                    else:
-                        # emulate stem property
-                        inner_name = seqobj.replace(os.sep, "/")
-                        inner_name = inner_name.rpartition("/")[-1][:-4]
+                    inner_name = Path(seqobj).stem
                     self._iterobj = _decoder(zipfile.ZipFile(seqobj).open(inner_name))
                 else:
-                    if PY_3:
-                        self._iterobj = open(seqobj, encoding=encoding)
-                    else:
-                        self._iterobj = open(seqobj)
+                    self._iterobj = open(seqobj, encoding=encoding)
         else:
             self._iterobj = iter(seqobj)
 
@@ -560,16 +527,12 @@ class _multi_iterator(object):
     def __next__(self):
         return next(self._iterobj)
 
-    if PY_2:
-        def next(self):
-            return self.__next__()
-
     def close(self):
         if hasattr(self._iterobj, 'close'):
             self._iterobj.close()
 
 
-class FixedWidthReader(object):
+class FixedWidthReader:
     """
     Helper class to read fixed-width data and yield a sequence of dicts
     representing each row of data.
@@ -598,7 +561,7 @@ class FixedWidthReader(object):
                 if endcol is None:
                     endcol = next_[1]
                 if fn is None:
-                    fn = str_strip
+                    fn = str.strip
                 ret.append((label.lower(), slice(col, endcol), fn))
             return ret
 
@@ -642,7 +605,7 @@ def _make_comparator2(cmp_fn):
     return comparator_with_value
 
 
-class Table(object):
+class Table:
     """Table is the main class in C{littletable}, for representing a collection of DataObjects or
        user-defined objects with publicly accessible attributes or properties.  Tables can be:
         - created, with an optional name, using standard Python L{C{Table() constructor}<__init__>}
@@ -1012,7 +975,7 @@ class Table(object):
         reqd_matches = set()
         excl_matches = set()
 
-        if isinstance(query, basestring):
+        if isinstance(query, str):
             query = shlex.split(query.strip())
 
         for keyword in query:
@@ -1322,13 +1285,13 @@ class Table(object):
            @type reverse: bool
            @return: self
         """
-        if isinstance(key, (basestring, list, tuple)):
-            if isinstance(key, basestring):
+        if isinstance(key, (str, list, tuple)):
+            if isinstance(key, str):
                 attrdefs = [s.strip() for s in key.split(',')]
                 attr_orders = [(a.split() + ['asc', ])[:2] for a in attrdefs]
             else:
                 # attr definitions were already resolved to a sequence by the caller
-                if isinstance(key[0], basestring):
+                if isinstance(key[0], str):
                     attr_orders = [(a.split() + ['asc', ])[:2] for a in key]
                 else:
                     attr_orders = key
@@ -1373,7 +1336,7 @@ class Table(object):
             fields = []
 
         def _make_string_callable(expr):
-            if isinstance(expr, basestring):
+            if isinstance(expr, str):
                 return lambda r: expr.format(r) if not isinstance(r, (list, tuple)) else expr.format(*r)
             else:
                 return expr
@@ -1409,7 +1372,7 @@ class Table(object):
                 select_exprs[fld] = lambda r, f=fld: str(getattr(r, f, "None"))
 
         for ename, expr in exprs.items():
-            if isinstance(expr, basestring):
+            if isinstance(expr, str):
                 if re.match(r'[a-zA-Z_][a-zA-Z0-9_]*$', expr):
                     select_exprs[ename] = lambda r: str(getattr(r, expr, "None"))
                 else:
@@ -1471,7 +1434,7 @@ class Table(object):
             return Table(retname)
 
         attr_spec_list = attrlist
-        if isinstance(attrlist, basestring):
+        if isinstance(attrlist, str):
             attr_spec_list = re.split(r'[,\s]+', attrlist)
 
         # expand attrlist to full (table, name, alias) tuples
@@ -1602,7 +1565,7 @@ class Table(object):
             return self.clone()(retname)
 
         attr_spec_list = attrlist
-        if isinstance(attrlist, basestring):
+        if isinstance(attrlist, str):
             attr_spec_list = re.split(r'[,\s]+', attrlist)
 
         # expand attrlist to full (table, name, alias) tuples
@@ -1722,7 +1685,7 @@ class Table(object):
             @param attrlist: list of attributes to be used to construct the pivot table
             @type attrlist: list of strings, or string of space-delimited attribute names
         """
-        if isinstance(attrlist, basestring):
+        if isinstance(attrlist, str):
             attrlist = attrlist.split()
         if all(a in self._indexes for a in attrlist):
             return _PivotTable(self, [], attrlist)
@@ -1916,16 +1879,13 @@ class Table(object):
                                                                           'fieldnames',
                                                                           ])
         close_on_exit = False
-        if isinstance(csv_dest, basestring):
-            if PY_3:
-                csv_dest = open(csv_dest, 'w', newline='', encoding=encoding)
-            else:
-                csv_dest = open(csv_dest, 'wb')
+        if isinstance(csv_dest, str):
+            csv_dest = open(csv_dest, 'w', newline='', encoding=encoding)
             close_on_exit = True
         try:
             if fieldnames is None:
                 fieldnames = self._attr_names()
-            if isinstance(fieldnames, basestring):
+            if isinstance(fieldnames, str):
                 fieldnames = fieldnames.split()
 
             csv_dest.write(delimiter.join(fieldnames) + NL)
@@ -1963,7 +1923,7 @@ class Table(object):
            @param row_class: class to construct for each imported row when populating table (default=DataObject)
            @type row_class: type
         """
-        class _JsonFileReader(object):
+        class _JsonFileReader:
             def __init__(self, src):
                 self.source = src
 
@@ -1997,14 +1957,11 @@ class Table(object):
            @type encoding: string
         """
         close_on_exit = False
-        if isinstance(dest, basestring):
-            if PY_3:
-                dest = open(dest, 'w', encoding=encoding)
-            else:
-                dest = open(dest, 'w')
+        if isinstance(dest, str):
+            dest = open(dest, 'w', encoding=encoding)
             close_on_exit = True
         try:
-            if isinstance(fieldnames, basestring):
+            if isinstance(fieldnames, str):
                 fieldnames = fieldnames.split()
 
             if fieldnames is None:
@@ -2057,7 +2014,7 @@ class Table(object):
            @type outexprs: callable, taking a sequence of objects as input and returning
            a single summary value
            """
-        if isinstance(keyexpr, basestring):
+        if isinstance(keyexpr, str):
             keyattrs = keyexpr.split()
             keyfn = lambda o: tuple(getattr(o, k) for k in keyattrs)
 
@@ -2119,7 +2076,7 @@ class Table(object):
         @type key: callable, takes the record as an argument, and returns the key value or tuple to be used
         to represent uniqueness.
         """
-        if isinstance(key, basestring):
+        if isinstance(key, str):
             key = lambda r, attr=key: getattr(r, attr, None)
         ret = self.copy_template()
         seen = set()
@@ -2186,55 +2143,26 @@ class Table(object):
         if not self:
             return ret
 
-        try:
-            import statistics
-        except ImportError:
-            statistics = None
-
         if field_names is None:
             field_names = self._parse_fields_string("*")
 
-        if statistics is not None:
-            accum = {fname: list(filter(lambda x: isinstance(x, _numeric_type), getattr(self.all, fname)))
-                     for fname in field_names}
+        accum = {fname: list(filter(lambda x: isinstance(x, _numeric_type), getattr(self.all, fname)))
+                 for fname in field_names}
 
-            def safe_fn(fn, seq):
-                try:
-                    return fn(seq)
-                except (ValueError, statistics.StatisticsError):
-                    return None
+        def safe_fn(fn, seq):
+            try:
+                return fn(seq)
+            except (ValueError, statistics.StatisticsError):
+                return None
 
-            stats = [
-                ('count', lambda seq: sum(isinstance(x, _numeric_type) for x in seq)),
-                ('min', partial(safe_fn, min)),
-                ('max', partial(safe_fn, max)),
-                ('mean', partial(safe_fn, getattr(statistics, "fmean", statistics.mean))),
-                ('variance', partial(safe_fn, statistics.variance)),
-                ('std_dev', partial(safe_fn, statistics.stdev))
-            ]
-        else:
-            accum = dict((name, [0, 0, 0, 1e300, -1e300]) for name in field_names)
-            for rec in self:
-                for name in field_names:
-                    value = getattr(rec, name, None)
-                    if value is not None and isinstance(value, _numeric_type):
-                        acc = accum[name]
-                        acc[0] += 1
-                        acc[1] += value
-                        acc[2] += value * value
-                        if value < acc[3]:
-                            acc[3] = value
-                        if value > acc[4]:
-                            acc[4] = value
-
-            stats = [
-                ('count', lambda x: x[0]),
-                ('min', lambda x: x[3] if x[0] != 0 else None),
-                ('max', lambda x: x[4] if x[0] != 0 else None),
-                ('mean', lambda x: x[1] / x[0] if x[0] != 0 else None),
-                ('variance', lambda x: (x[2] - x[1] ** 2 / x[0]) / x[0] if x[0] != 0 else None),
-                ('std_dev', lambda x: (x[0] * x[2] - x[1] * x[1]) ** 0.5 / x[0] if x[0] != 0 else None),
-            ]
+        stats = [
+            ('count', lambda seq: sum(isinstance(x, _numeric_type) for x in seq)),
+            ('min', partial(safe_fn, min)),
+            ('max', partial(safe_fn, max)),
+            ('mean', partial(safe_fn, getattr(statistics, "fmean", statistics.mean))),
+            ('variance', partial(safe_fn, statistics.variance)),
+            ('std_dev', partial(safe_fn, statistics.stdev))
+        ]
 
         if by_field:
             ret.create_index("name", unique=True)
@@ -2259,7 +2187,7 @@ class Table(object):
         :param field_names: str or list
         :return: expanded list of field names
         """
-        if isinstance(field_names, basestring):
+        if isinstance(field_names, str):
             field_names = field_names.split()
         if not self.obs:
             return field_names
@@ -2280,6 +2208,10 @@ class Table(object):
         return field_names
 
     def _rich_table(self, fields=None, empty="", **kwargs):
+        if rich is None:
+            raise Exception("rich module not installed")
+
+        from rich.table import Table as RichTable
 
         if fields is None:
             fields = self.info()["fields"]
@@ -2302,13 +2234,6 @@ class Table(object):
             if header is None:
                 header = name.title()
             field_settings.append((header, field_spec))
-
-        # rich-specific starts here
-        try:
-            from rich import box
-            from rich.table import Table as RichTable
-        except ImportError:
-            raise Exception("rich module not installed")
 
         table_defaults = dict(show_header=True, header_style="bold", box=box.ASCII)
         if sys.stdout.isatty():
@@ -2646,7 +2571,7 @@ class _PivotTable(Table):
         return _PivotTableSummary(self, self._pivot_attrs, count_fn, col_label)
 
 
-class _PivotTableSummary(object):
+class _PivotTableSummary:
     def __init__(self, pivot_table, pivot_attrs, count_fn=len, col_label=None):
         self._pt = pivot_table
         self._pivot_attrs = pivot_attrs
@@ -2709,7 +2634,7 @@ class _PivotTableSummary(object):
             raise Exception("no HTML output format for 3-attribute pivot tables at this time")
 
 
-class _JoinTerm(object):
+class _JoinTerm:
     """Temporary object created while composing a join across tables using
        L{Table.join_on} and '+' addition. JoinTerm's are usually created by
        calling join_on on a Table object, as in::
@@ -2822,15 +2747,15 @@ if __name__ == "__main__":
 
     amfm = Table()
     amfm.create_index("stn", unique=True)
-    amfm.insert(DataObject(stn="KPHY", band="AM"))
-    amfm.insert(DataObject(stn="KPHX", band="FM"))
-    amfm.insert(DataObject(stn="KPHA", band="FM"))
-    amfm.insert(DataObject(stn="KDFW", band="FM"))
+    amfm.insert(dict(stn="KPHY", band="AM"))
+    amfm.insert(dict(stn="KPHX", band="FM"))
+    amfm.insert(dict(stn="KPHA", band="FM"))
+    amfm.insert(dict(stn="KDFW", band="FM"))
     print(amfm.by.stn["KPHY"])
     print(amfm.by.stn["KPHY"].band)
 
     try:
-        amfm.insert(DataObject(stn="KPHA", band="AM"))
+        amfm.insert(dict(stn="KPHA", band="AM"))
     except KeyError:
         print("duplicate key not allowed")
 

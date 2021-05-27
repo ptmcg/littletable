@@ -19,7 +19,7 @@ before_install:
   - if [ $verint -ge 30600 ]; then pip install rich; fi
 
 script:
-  - python littletable.py
+  - python littletable_DELETE.py
   - python unit_tests.py
   - PYTHONPATH=. python examples/pivot_demo.py
   - PYTHONPATH=. python examples/fixed_width_demo.py
