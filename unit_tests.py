@@ -981,44 +981,77 @@ class TableOutputTests:
         from rich import box
         from io import StringIO
         table = lt.Table().csv_import(textwrap.dedent("""\
-        a,b
-        10,100
-        20,200
-        """))
+            a,b
+            10,100
+            20,200
+            """))
         table.present()
         out = StringIO()
         table.present(file=out, box=box.ASCII)
         expected = textwrap.dedent("""\
-        +----------+
-        | A  | B   |
-        |----+-----|
-        | 10 | 100 |
-        | 20 | 200 |
-        +----------+
-        """)
+            +----------+
+            | A  | B   |
+            |----+-----|
+            | 10 | 100 |
+            | 20 | 200 |
+            +----------+
+            """)
         self.assertEqual(expected, out.getvalue())
 
         # test bugfix when table has attribute "default"
         table = lt.Table().csv_import(textwrap.dedent("""\
-        a,b,default
-        10,100,purple
-        15,150,
-        20,200,orange
-        """))
+            a,b,default
+            10,100,purple
+            15,150,
+            20,200,orange
+            """))
         table.present()
         out = StringIO()
         table.present(file=out, box=box.ASCII)
         expected = textwrap.dedent("""\
-        +--------------------+
-        | A  | B   | Default |
-        |----+-----+---------|
-        | 10 | 100 | purple  |
-        | 15 | 150 |         |
-        | 20 | 200 | orange  |
-        +--------------------+
-        """)
+            +--------------------+
+            | A  | B   | Default |
+            |----+-----+---------|
+            | 10 | 100 | purple  |
+            | 15 | 150 |         |
+            | 20 | 200 | orange  |
+            +--------------------+
+            """)
         self.assertEqual(expected, out.getvalue())
 
+    def test_markdown(self):
+        table = lt.Table().csv_import(textwrap.dedent("""\
+            a,b
+            10,100
+            20,200
+            """))
+        out = table.as_markdown()
+        print(out)
+        expected = textwrap.dedent("""\
+            | a | b |
+            |---|---|
+            | 10 | 100 |
+            | 20 | 200 |
+            """)
+        self.assertEqual(expected, out)
+
+        # test bugfix when table has attribute "default"
+        table = lt.Table().csv_import(textwrap.dedent("""\
+            a,b,default
+            10,100,purple
+            15,150,
+            20,200,orange
+            """))
+        out = table.as_markdown()
+        print(out)
+        expected = textwrap.dedent("""\
+            | a | b | default |
+            |---|---|---|
+            | 10 | 100 | purple |
+            | 15 | 150 |  |
+            | 20 | 200 | orange |
+            """)
+        self.assertEqual(expected, out)
 
 class TableOutputTests_DataObjects(unittest.TestCase, TableOutputTests, UsingDataObjects):
     pass
