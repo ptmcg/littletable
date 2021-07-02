@@ -86,8 +86,9 @@ Performance tip: Calling `insert_many()` with a list of objects will perform bet
 `insert()` in a loop.
 
 `littletable` supports records that are user-defined types (including those defined
-using `__slots__`), `namedtuple`s, `SimpleNamespace`s. Python `dict`s can be used if
-they are converted to `SimpleNamespace`s or `littletable.DataObject`s.
+using `__slots__`), `namedtuple`s, `SimpleNamespace`s. Python `dict`s can also be used;
+they will be stored as `SimpleNamespace`s so that the `dict` fields
+will be accessible as object attributes.
 
 
 Importing data from CSV files
@@ -137,8 +138,8 @@ both support this form.
 
 Performance tip: For very large files, it is faster to load data using
 a `namedtuple` than to use the default `DataObject` class. Get the fields using
-a 10-item import using `limit=10`, and then getting the fields from 
-`table.info()["fields"]`.
+a 10-item import using `limit=10`, and then define the `namedtuple` using the 
+fields from `table.info()["fields"]`.
 
 Files containing JSON-formatted records can be similarly imported using 
 `Table.json_import()`, and tab-separated files can be imported using
@@ -183,9 +184,16 @@ the `rich` module, `as_html()` in Jupyter Notebook, or the `tabulate` module:
       # headers="keys" to auto-define headers
       print(tabulate(map(vars, table), headers="keys"))
 
+- Output as Markdown
+
+      print(table.as_markdown())
+
 
 DataObjects
 -----------
+_(DataObjects are a legacy type from Python 2.6 - Python 3 and later will
+use SimpleNamespace objects by default. The DataObject class will be deprecated
+in a future release.)_
 If your program does not have a type for inserting into your table, or if your
 records are Python `dict`s, you can use the `littletable` type `DataObject`:
 
@@ -276,17 +284,21 @@ returns a bool to indicate if the record is a match:
 write:
 
     # Comparators are:
-    # - Table.lt        attr=Table.lt(100)             attr < 100
-    # - Table.le        attr=Table.le(100)             attr <= 100
-    # - Table.gt        attr=Table.gt(100)             attr > 100
-    # - Table.ge        attr=Table.ge(100)             attr >= 100
-    # - Table.eq        attr=Table.eq(100)             attr == 100
-    # - Table.ne        attr=Table.ne(100)             attr != 100
-    # - Table.between   attr=Table.between(100, 200)   100 < attr < 200
-    # - Table.within    attr=Table.within(100, 200)    100 <= attr <= 200
-    # - Table.in_range  attr=Table.in_range(100, 200)  100 <= attr < 200
-    # - Table.is_in     attr=Table.is_in((1, 2, 3))    attr in (1,2,3)
-    # - Table.not_in    attr=Table.not_in((1, 2, 3))   attr not in (1,2,3)
+    # - Table.lt             attr=Table.lt(100)             attr < 100
+    # - Table.le             attr=Table.le(100)             attr <= 100
+    # - Table.gt             attr=Table.gt(100)             attr > 100
+    # - Table.ge             attr=Table.ge(100)             attr >= 100
+    # - Table.eq             attr=Table.eq(100)             attr == 100
+    # - Table.ne             attr=Table.ne(100)             attr != 100
+    # - Table.is_none        attr=Table.is_none())          attr is None
+    # - Table.is_not_none    attr=Table.is_not_none())      attr is not None
+    # - Table.is_null        attr=Table.is_null())          attr is None, "", or not defined
+    # - Table.is_not_null    attr=Table.is_not_null())      attr is not None or ""
+    # - Table.between        attr=Table.between(100, 200)   100 < attr < 200
+    # - Table.within         attr=Table.within(100, 200)    100 <= attr <= 200
+    # - Table.in_range       attr=Table.in_range(100, 200)  100 <= attr < 200
+    # - Table.is_in          attr=Table.is_in((1, 2, 3))    attr in (1,2,3)
+    # - Table.not_in         attr=Table.not_in((1, 2, 3))   attr not in (1,2,3)
 
     employees.where(salary=Table.gt(50000))
     employees.where(dept=Table.is_in(["Sales", "Marketing"]))
@@ -604,9 +616,9 @@ Some simple littletable recipes
 -------------------------------
 
 - Find objects with NULL attribute values (an object's attribute is considered 
-  NULL if the object does not have that attribute, or if its value is None):
+  NULL if the object does not have that attribute, or if its value is None or ""):
 
-      table.where(lambda rec: getattr(rec, keyattr, None) is None)
+      table.where(keyattr=Table.is_null())
     
 
 - Histogram of values of a particular attribute:
@@ -622,7 +634,8 @@ Some simple littletable recipes
 
 - Get a list of all key values for an indexed attribute:
 
-      customers.zipcode.keys()
+      customers.by.zipcode.keys()
+      list(customers.all.zipcode.unique)
 
 
 - Get a count of entries for each key value:
@@ -630,7 +643,7 @@ Some simple littletable recipes
       customers.pivot("zipcode").dump_counts()
     
 
-- Sorted table by attribute x
+- Sort table by attribute x
 
       employees.sort("salary")
     

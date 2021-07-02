@@ -149,7 +149,7 @@ __version__ = (
             __version_info__.releaseLevel == "final"
             ]
 )
-__version_time__ = "27 May 2021 05:45 UTC"
+__version_time__ = "2 July 2021 10:45 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -592,6 +592,31 @@ def _make_comparator(cmp_fn):
     return comparator_with_value
 
 
+def _make_comparator_none(cmp_fn):
+    """
+    Internal function to help define Table.is_none and Table.is_not_none.
+    """
+    def comparator_with_value():
+        def _Table_comparator_fn(attr):
+            return lambda table_rec: cmp_fn(getattr(table_rec, attr), None)
+        _Table_comparator_fn.fn = cmp_fn
+        _Table_comparator_fn.value = None
+        return _Table_comparator_fn
+    return comparator_with_value
+
+
+def _make_comparator_null(is_null):
+    """
+    Internal function to help define Table.is_null and Table.is_not_null.
+    """
+    def comparator_with_value():
+        def _Table_comparator_fn(attr):
+            return lambda table_rec: (getattr(table_rec, attr, None) in (None, "")) == is_null
+        _Table_comparator_fn.value = None
+        return _Table_comparator_fn
+    return comparator_with_value
+
+
 def _make_comparator2(cmp_fn):
     """
     Internal function to help define Table.within and between
@@ -632,6 +657,10 @@ class Table:
     ge = staticmethod(_make_comparator(operator.ge))
     ne = staticmethod(_make_comparator(operator.ne))
     eq = staticmethod(_make_comparator(operator.eq))
+    is_none = staticmethod(_make_comparator_none(operator.is_))
+    is_not_none = staticmethod(_make_comparator_none(operator.is_not))
+    is_null = staticmethod(_make_comparator_null(True))
+    is_not_null = staticmethod(_make_comparator_null(False))
     is_in = staticmethod(_make_comparator(lambda x, seq: x in seq))
     not_in = staticmethod(_make_comparator(lambda x, seq: x not in seq))
     between = staticmethod(_make_comparator2(lambda lower, x, upper: lower < x < upper))

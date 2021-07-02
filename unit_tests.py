@@ -269,6 +269,26 @@ class TableCreateTests:
         self.assertEqual(test_size*test_size*(test_size-4), len(table.where(a=lt.Table.not_in([2, 4, 6, 8]))))
         self.assertEqual(test_size*test_size*test_size, len(table.where(a=lt.Table.not_in([]))))
 
+        # add a record containing a None value to test is_none and is_not_none comparators
+        table.insert(self.make_data_object(a=1, b=2, c=None))
+        self.assertEqual(1, len(table.where(c=lt.Table.is_none())))
+        self.assertEqual(test_size*test_size*test_size, len(table.where(c=lt.Table.is_not_none())))
+
+        # add a record containing a missing value to test is_null and is_not_null comparators
+        table.insert(self.make_data_object(a=1, b=2, c=""))
+        self.assertEqual(2, len(table.where(c=lt.Table.is_null())))
+        self.assertEqual(test_size * test_size * test_size, len(table.where(c=lt.Table.is_not_null())))
+
+        try:
+            table.insert(self.make_data_object(a=1, b=2))
+        except TypeError:
+            # not all data object types being tested support missing attributes
+            pass
+        else:
+            self.assertEqual(3, len(table.where(c=lt.Table.is_null())))
+            self.assertEqual(test_size * test_size * test_size, len(table.where(c=lt.Table.is_not_null())))
+
+
     def test_get_slice(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
