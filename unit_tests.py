@@ -3,26 +3,17 @@
 #
 # unit tests for littletable library
 #
-import types
-import unittest
-import littletable as lt
+from collections import namedtuple
+import io
 import itertools
 import json
-from collections import namedtuple
 from operator import attrgetter
+import sys
 import textwrap
-try:
-    from types import SimpleNamespace
-except ImportError:
-    class SimpleNamespace(object):
-        def __init__(self, **kwargs):
-            self.__dict__.update(kwargs)
-        def __repr__(self):
-            keys = sorted(self.__dict__)
-            items = ("{}={!r}".format(k, self.__dict__[k]) for k in keys)
-            return "{}({})".format(type(self).__name__, ", ".join(items))
-        def __eq__(self, other):
-            return vars(self) == vars(other)
+from types import SimpleNamespace
+import unittest
+
+import littletable as lt
 
 try:
     import dataclasses
@@ -30,25 +21,13 @@ except ImportError:
     # pre Py3.7 (or 3.6 with backported dataclasses)
     dataclasses = None
 else:
-    # must be wrapped in exec, since this syntax is not legal in earlier Pythons
-    exec("""\
-@dataclasses.dataclass
-class DataDataclass:
-    a: int
-    b: int
-    c: int
-""")
+    @dataclasses.dataclass
+    class DataDataclass:
+        a: int
+        b: int
+        c: int
 
 DataTuple = namedtuple("DataTuple", "a b c")
-
-import sys
-PY_2 = sys.version_info[0] == 2
-PY_3 = sys.version_info[0] == 3
-
-if PY_3:
-    import io
-else:
-    import StringIO as io
 
 # if rich is not installed, disable table.present() calls
 try:
@@ -124,6 +103,38 @@ class TestTableTypes(unittest.TestCase):
             t.get_index("x")['a'] = 100
 
 
+def announce_test(fn):
+    def _inner(*args):
+        print("\n" + "-" * 50)
+        print(fn.__name__)
+        return fn(*args)
+
+    return _inner
+
+
+def make_test_class(*classes):
+
+    class_name = "_".join(c.__name__ for c in classes)
+    if not issubclass(classes[0], unittest.TestCase):
+        cls = type(class_name, (unittest.TestCase, *classes), {})
+    else:
+        cls = type(class_name, tuple(classes), {})
+    for attr in dir(cls):
+        attrvalue = getattr(cls, attr)
+        if attr.startswith("test_") and callable(attrvalue):
+            setattr(cls, attr, announce_test(attrvalue))
+    globals()[cls.__name__] = cls
+
+
+def make_test_classes(cls):
+    make_test_class(cls, UsingDataObjects)
+    make_test_class(cls, UsingNamedtuples)
+    make_test_class(cls, UsingSlottedObjects)
+    make_test_class(cls, UsingSimpleNamespace)
+    if dataclasses is not None:
+        make_test_class(cls, UsingDataclasses)
+
+
 class AbstractContentTypeFactory:
     data_object_type = None
 
@@ -131,14 +142,18 @@ class AbstractContentTypeFactory:
     def make_data_object(cls, a, b, c):
         return cls.data_object_type(a=a, b=b, c=c)
 
+
 class UsingDataObjects(AbstractContentTypeFactory):
     data_object_type = lt.DataObject
+
 
 class UsingNamedtuples(AbstractContentTypeFactory):
     data_object_type = DataTuple
 
+
 class UsingSlottedObjects(AbstractContentTypeFactory):
     data_object_type = Slotted
+
 
 class UsingSimpleNamespace(AbstractContentTypeFactory):
     data_object_type = SimpleNamespace
@@ -146,14 +161,14 @@ class UsingSimpleNamespace(AbstractContentTypeFactory):
 if dataclasses is not None:
     class UsingDataclasses(AbstractContentTypeFactory):
         data_object_type = DataDataclass
+else:
+    UsingDataclasses = AbstractContentTypeFactory
 
 
 def load_table(table, rec_factory_fn, table_size):
     test_size = table_size
-    for aa in range(test_size):
-        for bb in range(test_size):
-            for cc in range(test_size):
-                table.insert(rec_factory_fn(aa, bb, cc))
+    for aa, bb, cc in itertools.product(range(test_size), repeat=3):
+        table.insert(rec_factory_fn(aa, bb, cc))
 
 
 def make_test_table(rec_factory_fn, table_size):
@@ -166,6 +181,7 @@ def make_dataobject_from_ob(rec):
     return lt.DataObject(**dict((k, getattr(rec, k)) for k in lt._object_attrnames(rec)))
 
 
+@make_test_classes
 class TableCreateTests:
     def test_inserts(self):
         table = lt.Table()
@@ -414,23 +430,7 @@ class TableCreateTests:
                          t1_info, "invalid info results")
 
 
-class TableCreateTests_DataObjects(unittest.TestCase, TableCreateTests, UsingDataObjects):
-    pass
-
-class TableCreateTests_Namedtuples(unittest.TestCase, TableCreateTests, UsingNamedtuples):
-    pass
-
-class TableCreateTests_Slotted(unittest.TestCase, TableCreateTests, UsingSlottedObjects):
-    pass
-
-class TableCreateTests_SimpleNamespace(unittest.TestCase, TableCreateTests, UsingSimpleNamespace):
-    pass
-
-if dataclasses is not None:
-    class TableCreateTests_Dataclasses(unittest.TestCase, TableCreateTests, UsingDataclasses):
-        pass
-
-
+@make_test_classes
 class TableListTests:
     def _test_init(self):
         self.test_size = 3
@@ -666,23 +666,7 @@ class TableListTests:
         print(list(mults_of_3.all.a))
 
 
-class TableListTests_DataObjects(unittest.TestCase, TableListTests, UsingDataObjects):
-    pass
-
-class TableListTests_Namedtuples(unittest.TestCase, TableListTests, UsingNamedtuples):
-    pass
-
-class TableListTests_Slotted(unittest.TestCase, TableListTests, UsingSlottedObjects):
-    pass
-
-class TableListTests_SimpleNamespace(unittest.TestCase, TableListTests, UsingSimpleNamespace):
-    pass
-
-if dataclasses is not None:
-    class TableListTests_Dataclasses(unittest.TestCase, TableListTests, UsingDataclasses):
-        pass
-
-
+@make_test_classes
 class TableJoinTests:
     def test_simple_join(self):
         test_size = 10
@@ -832,23 +816,8 @@ class TableJoinTests:
         print(sorted(full.all.student_id))
         self.assertEqual(['0002', '0004', '0006'], sorted(full.all.student_id))
 
-class TableJoinTests_DataObjects(unittest.TestCase, TableJoinTests, UsingDataObjects):
-    pass
 
-class TableJoinTests_Namedtuples(unittest.TestCase, TableJoinTests, UsingNamedtuples):
-    pass
-
-class TableJoinTests_Slotted(unittest.TestCase, TableJoinTests, UsingSlottedObjects):
-    pass
-
-class TableJoinTests_SimpleNamespace(unittest.TestCase, TableJoinTests, UsingSimpleNamespace):
-    pass
-
-if dataclasses is not None:
-    class TableJoinTests_Dataclasses(unittest.TestCase, TableJoinTests, UsingDataclasses):
-        pass
-
-
+@make_test_classes
 class TableTransformTests:
     def test_sort(self):
         test_size = 10
@@ -954,23 +923,8 @@ class TableTransformTests:
         t3 = t1.unique(key=lambda rec: rec.c)
         self.assertEqual(test_size, len(t3))
 
-class TableTransformTests_DataObjects(unittest.TestCase, TableTransformTests, UsingDataObjects):
-    pass
 
-class TableTransformTests_Namedtuples(unittest.TestCase, TableTransformTests, UsingNamedtuples):
-    pass
-
-class TableTransformTests_Slotted(unittest.TestCase, TableTransformTests, UsingSlottedObjects):
-    pass
-
-class TableTransformTests_SimpleNamespace(unittest.TestCase, TableTransformTests, UsingSimpleNamespace):
-    pass
-
-if dataclasses is not None:
-    class TableTransformTests_Dataclasses(unittest.TestCase, TableTransformTests, UsingDataclasses):
-        pass
-
-
+@make_test_classes
 class TableOutputTests:
     def test_basic_present(self):
         if rich is None:
@@ -1052,22 +1006,6 @@ class TableOutputTests:
             | 20 | 200 | orange |
             """)
         self.assertEqual(expected, out)
-
-class TableOutputTests_DataObjects(unittest.TestCase, TableOutputTests, UsingDataObjects):
-    pass
-
-class TableOutputTests_Namedtuples(unittest.TestCase, TableOutputTests, UsingNamedtuples):
-    pass
-
-class TableOutputTests_Slotted(unittest.TestCase, TableOutputTests, UsingSlottedObjects):
-    pass
-
-class TableOutputTests_SimpleNamespace(unittest.TestCase, TableOutputTests, UsingSimpleNamespace):
-    pass
-
-if dataclasses is not None:
-    class TableOutputTests_Dataclasses(unittest.TestCase, TableOutputTests, UsingDataclasses):
-        pass
 
 
 # sample import data sets
@@ -1165,6 +1103,8 @@ fixed_width_data = """\
 
 """
 
+
+@make_test_classes
 class TableImportExportTests:
     def test_csv_export(self):
         from itertools import permutations
@@ -1231,9 +1171,11 @@ class TableImportExportTests:
         tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int))
         print("abc.csv", tt.info())
 
-        compressed_files = ["abc.csv.zip", "abc.csv.gz"]
-        if PY_3:
-            compressed_files.append("abc.csv.xz")
+        compressed_files = [
+            "abc.csv.zip",
+            "abc.csv.gz",
+            "abc.csv.xz",
+        ]
         for name in compressed_files:
             tt2 = lt.Table().csv_import("test/" + name, transforms=dict.fromkeys("abc", int))
             print(name, tt2.info())
@@ -1241,11 +1183,6 @@ class TableImportExportTests:
             self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
             self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
             self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
-
-        if PY_2:
-            with self.assertRaises(Exception):
-                name = "abc.csv.xz"
-                tt2 = lt.Table().csv_import("test/" + name, transforms=dict.fromkeys("abc", int))
 
         tt2 = lt.Table().json_import("test/abc.json.gz")
         print("abc.json.gz", tt2.info())
@@ -1406,23 +1343,8 @@ class TableImportExportTests:
         self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
         self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
 
-class TableImportExportTests_DataObjects(unittest.TestCase, TableImportExportTests, UsingDataObjects):
-    pass
 
-class TableImportExportTests_Namedtuples(unittest.TestCase, TableImportExportTests, UsingNamedtuples):
-    pass
-
-class TableImportExportTests_Slotted(unittest.TestCase, TableImportExportTests, UsingSlottedObjects):
-    pass
-
-class TableImportExportTests_SimpleNamespace(unittest.TestCase, TableImportExportTests, UsingSimpleNamespace):
-    pass
-
-if dataclasses is not None:
-    class TableImportExportTests_Dataclasses(unittest.TestCase, TableImportExportTests, UsingDataclasses):
-        pass
-
-
+@make_test_classes
 class TablePivotTests:
     def test_pivot(self):
         test_size = 5
@@ -1441,22 +1363,6 @@ class TablePivotTests:
 
         # TODO - add asserts
 
-class TablePivotTests_DataObjects(unittest.TestCase, TablePivotTests, UsingDataObjects):
-    pass
-
-class TablePivotTests_Namedtuples(unittest.TestCase, TablePivotTests, UsingNamedtuples):
-    pass
-
-class TablePivotTests_Slotted(unittest.TestCase, TablePivotTests, UsingSlottedObjects):
-    pass
-
-class TablePivotTests_SimpleNamespace(unittest.TestCase, TablePivotTests, UsingSimpleNamespace):
-    pass
-
-if dataclasses is not None:
-    class TablePivotTests_Dataclasses(unittest.TestCase, TablePivotTests, UsingDataclasses):
-        pass
-
 
 class TableSearchTests(unittest.TestCase):
     recipe_data = textwrap.dedent("""\
@@ -1474,19 +1380,22 @@ class TableSearchTests(unittest.TestCase):
         11,Hamburger,ground beef bun lettuce ketchup mustard pickle
         12,Cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese
         13,Bacon cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese bacon
-        """).splitlines()
+        """)
 
     def setUp(self):
         self.recipes = lt.Table().csv_import(self.recipe_data, transforms=dict(id=int))
         self.recipes.create_search_index("ingredients")
 
+    @announce_test
     def test_access_non_existent_search_attribute(self):
         with self.assertRaises(ValueError, msg="failed to raise ValueError when accessing non-existent search index"):
             self.recipes.search.title("xyz")
 
+    @announce_test
     def test_search_dir(self):
         self.assertEqual(['ingredients'], dir(self.recipes.search), "failed to generate correct dir() response")
 
+    @announce_test
     def test_text_search(self):
         for query, expected in [
             ("", []),
@@ -1507,12 +1416,14 @@ class TableSearchTests(unittest.TestCase):
             self.assertEqual(expected, match_ids,
                              "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
 
+    @announce_test
     def test_invalidate_index(self):
         self.recipes.pop(0)
         with self.assertRaises(lt.SearchIndexInconsistentError,
                                msg="failed to raise exception when searching modified table"):
             self.recipes.search.ingredients("bacon")
 
+    @announce_test
     def test_search_with_keywords(self):
         for query, expected, expected_words in [
                 ("tuna", [1, 6], [{'tuna', 'noodles', 'cream', 'of', 'mushroom', 'soup'},
@@ -1529,6 +1440,7 @@ class TableSearchTests(unittest.TestCase):
                                                                                               expected_words,
                                                                                               match_words))
 
+    @announce_test
     def test_search_with_limit(self):
         for query, expected in [
             ("", []),
@@ -1549,6 +1461,7 @@ class TableSearchTests(unittest.TestCase):
             self.assertEqual(expected, match_ids,
                              "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
 
+    @announce_test
     def test_search_with_min_score(self):
         for query, expected in [
             ("", []),
@@ -1588,10 +1501,6 @@ if dataclasses is not None:
 
 
 class InitialTest(unittest.TestCase):
-    if sys.version_info[:2] <= (2, 6):
-        print('unit_tests.py only runs on Python 2.7 or later')
-        sys.exit(0)
-
     from littletable import (
         __version__ as littletable_version,
         __version_time__ as littletable_version_time,
@@ -1599,9 +1508,7 @@ class InitialTest(unittest.TestCase):
     )
 
     print(
-        "Beginning test of littletable, version",
-        littletable_version,
-        littletable_version_time,
+        f"Beginning test of littletable, version {littletable_version}, {littletable_version_time}",
     )
     print(littletable_version_info)
     print("Python version", sys.version)
