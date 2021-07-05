@@ -661,3 +661,7 @@ Some simple littletable recipes
 
       # top 5 sales employees
       employees.where(dept="Sales").sort("sales desc")[:5]
+
+- Find all employees whose first name starts with "X"
+
+      employees.where(first_name=Table.startswith("X"))
