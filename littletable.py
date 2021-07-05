@@ -1383,7 +1383,7 @@ class Table:
             raw_tuples.append(attrvalues)
 
         all_names = tuple(fields) + tuple(exprs.keys())
-        ret = Table()
+        ret = Table(self.table_name)
         ret._indexes.update(dict((k, v.copy_template()) for k, v in self._indexes.items() if k in all_names))
         if self:
             ret.insert_many(default_row_class(**dict(zip(all_names, out_tuple))) for out_tuple in raw_tuples)
@@ -2261,6 +2261,9 @@ class Table:
                 next_v = next((v for v in getattr(self.all, name) if v is not None), None)
                 if isinstance(next_v, _numeric_type):
                     field_spec["justify"] = "right"
+                else:
+                    if all(len(v) in (0, 1) for v in getattr(self.all, name) if v is not None):
+                        field_spec["justify"] = "center"
             else:
                 # use field settings form caller
                 name, field_spec = field_spec
