@@ -288,6 +288,46 @@ class TableCreateTests:
             self.assertEqual(3, len(table.where(c=lt.Table.is_null())))
             self.assertEqual(test_size * test_size * test_size, len(table.where(c=lt.Table.is_not_null())))
 
+    def test_where_str_comparator(self):
+        unicode_numbers = lt.Table().csv_import(textwrap.dedent("""\
+            name,code_value,numeric_value
+            ROMAN NUMERAL ONE,8544,1
+            ROMAN NUMERAL TWO,8545,2
+            ROMAN NUMERAL THREE,8546,3
+            ROMAN NUMERAL FOUR,8547,4
+            ROMAN NUMERAL FIVE,8548,5
+            ROMAN NUMERAL SIX,8549,6
+            ROMAN NUMERAL SEVEN,8550,7
+            ROMAN NUMERAL EIGHT,8551,8
+            ROMAN NUMERAL NINE,8552,9
+            ROMAN NUMERAL TEN,8553,10
+            SUPERSCRIPT TWO,178,2
+            SUPERSCRIPT THREE,179,3
+            SUPERSCRIPT ONE,185,1
+            SUPERSCRIPT ZERO,8304,0
+            SUPERSCRIPT FOUR,8308,4
+            SUPERSCRIPT FIVE,8309,5
+            SUPERSCRIPT SIX,8310,6
+            SUPERSCRIPT SEVEN,8311,7
+            SUPERSCRIPT EIGHT,8312,8
+            SUPERSCRIPT NINE,8313,9
+            CIRCLED DIGIT ONE,9312,1
+            CIRCLED DIGIT TWO,9313,2
+            CIRCLED DIGIT THREE,9314,3
+            CIRCLED DIGIT FOUR,9315,4
+            CIRCLED DIGIT FIVE,9316,5
+            CIRCLED DIGIT SIX,9317,6
+            CIRCLED DIGIT SEVEN,9318,7
+            CIRCLED DIGIT EIGHT,9319,8
+            CIRCLED DIGIT NINE,9320,9
+            CIRCLED DIGIT ZERO,9450,0
+            """))
+
+        ones = unicode_numbers.where(name=lt.Table.endswith("ONE"))
+        self.assertEqual(3, len(ones))
+
+        supers = unicode_numbers.where(name=lt.Table.startswith("SUPERSCRIPT"))
+        self.assertEqual(10, len(supers))
 
     def test_get_slice(self):
         test_size = 10

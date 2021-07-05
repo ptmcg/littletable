@@ -6,12 +6,14 @@ Version 2.0.0
 - Drop support for Python 2.x, and Python 3 versions earlier than
   Python 3.6.
 
-- Added comparators for is_none, is_not_none, is_null, and is_not_null:
+- Added new comparators:
 
     is_none - attribute value is None
     is_not_none - attribute value is not None
     is_null - attribute value is None, "", or not defined
     is_not_null - attribute value is defined, and is not None or ""
+    startswith - attribute value starts with a given string
+    endswith - attribute value ends with a given string
 
     # get customers whose address includes an apartment number
     has_apt = customers.where(address_apt_no=Table.is_not_null())

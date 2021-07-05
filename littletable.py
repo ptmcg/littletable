@@ -663,6 +663,8 @@ class Table:
     is_not_null = staticmethod(_make_comparator_null(False))
     is_in = staticmethod(_make_comparator(lambda x, seq: x in seq))
     not_in = staticmethod(_make_comparator(lambda x, seq: x not in seq))
+    startswith = staticmethod(_make_comparator(lambda x, s: x.startswith(s)))
+    endswith = staticmethod(_make_comparator(lambda x, s: x.endswith(s)))
     between = staticmethod(_make_comparator2(lambda lower, x, upper: lower < x < upper))
     within = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x <= upper))
     in_range = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x < upper))
