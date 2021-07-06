@@ -294,6 +294,9 @@ write:
     # - Table.is_not_none    attr=Table.is_not_none())      attr is not None
     # - Table.is_null        attr=Table.is_null())          attr is None, "", or not defined
     # - Table.is_not_null    attr=Table.is_not_null())      attr is not None or ""
+    # - Table.startswith     attr=Table.startswith("ABC")   attr.startswith("ABC")
+    # - Table.endswith       attr=Table.endswith("XYZ")     attr.endswith("XYZ")
+    # - Table.re_match       attr=Table.re_match(r".*%.*")  re.match(r".*%.*", attr)             
     # - Table.between        attr=Table.between(100, 200)   100 < attr < 200
     # - Table.within         attr=Table.within(100, 200)    100 <= attr <= 200
     # - Table.in_range       attr=Table.in_range(100, 200)  100 <= attr < 200

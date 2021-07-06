@@ -14,6 +14,7 @@ Version 2.0.0
     is_not_null - attribute value is defined, and is not None or ""
     startswith - attribute value starts with a given string
     endswith - attribute value ends with a given string
+    re_match - attribute value matches a regular expression
 
     # get customers whose address includes an apartment number
     has_apt = customers.where(address_apt_no=Table.is_not_null())

@@ -632,6 +632,17 @@ def _make_comparator2(cmp_fn):
     return comparator_with_value
 
 
+def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
+    regex = re.compile(*reg_expr_args, **reg_expr_flags)
+    cmp_fn = regex.match
+
+    def _Table_comparator_fn(attr):
+        return lambda table_rec: cmp_fn(str(getattr(table_rec, attr, "")))
+
+    _Table_comparator_fn.fn = cmp_fn
+    return _Table_comparator_fn
+
+
 class Table:
     """Table is the main class in C{littletable}, for representing a collection of DataObjects or
        user-defined objects with publicly accessible attributes or properties.  Tables can be:
@@ -665,6 +676,7 @@ class Table:
     not_in = staticmethod(_make_comparator(lambda x, seq: x not in seq))
     startswith = staticmethod(_make_comparator(lambda x, s: x.startswith(s)))
     endswith = staticmethod(_make_comparator(lambda x, s: x.endswith(s)))
+    re_match = staticmethod(_make_comparator_regex)
     between = staticmethod(_make_comparator2(lambda lower, x, upper: lower < x < upper))
     within = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x <= upper))
     in_range = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x < upper))
@@ -1778,8 +1790,10 @@ class Table:
                             lower = getattr(v, "lower", no_object)
                             if value is not no_object:
                                 csvdata = filter(lambda rec_dict: fn(rec_dict.get(k), value), csvdata)
-                            else:
+                            elif upper is not no_object:
                                 csvdata = filter(lambda rec_dict: fn(lower, rec_dict.get(k), upper), csvdata)
+                            else:
+                                csvdata = filter(lambda rec_dict: fn(rec_dict.get(k), csvdata))
 
                         else:
                             csvdata = filter(lambda rec: v(rec.get(k)), csvdata)

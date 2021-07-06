@@ -329,6 +329,12 @@ class TableCreateTests:
         supers = unicode_numbers.where(name=lt.Table.startswith("SUPERSCRIPT"))
         self.assertEqual(10, len(supers))
 
+        # import re
+        # sevens = unicode_numbers.where(lambda rec: re.compile(r".*SEVEN$").match(rec.name))
+
+        sevens = unicode_numbers.where(name=lt.Table.re_match(r".*SEVEN$"))
+        self.assertEqual(3, len(sevens))
+
     def test_get_slice(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
