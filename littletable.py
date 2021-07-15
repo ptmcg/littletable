@@ -609,10 +609,14 @@ def _make_comparator_null(is_null):
     """
     Internal function to help define Table.is_null and Table.is_not_null.
     """
+    def is_null_fn(a, value):
+        return (a in (None, "")) == value
+
     def comparator_with_value():
         def _Table_comparator_fn(attr):
-            return lambda table_rec: (getattr(table_rec, attr, None) in (None, "")) == is_null
-        _Table_comparator_fn.value = None
+            return lambda table_rec: is_null_fn(getattr(table_rec, attr, None), is_null)
+        _Table_comparator_fn.fn = is_null_fn
+        _Table_comparator_fn.value = is_null
         return _Table_comparator_fn
     return comparator_with_value
 
@@ -1793,7 +1797,7 @@ class Table:
                             elif upper is not no_object:
                                 csvdata = filter(lambda rec_dict: fn(lower, rec_dict.get(k), upper), csvdata)
                             else:
-                                csvdata = filter(lambda rec_dict: fn(rec_dict.get(k), csvdata))
+                                csvdata = filter(lambda rec_dict: fn(rec_dict.get(k)), csvdata)
 
                         else:
                             csvdata = filter(lambda rec: v(rec.get(k)), csvdata)

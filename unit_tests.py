@@ -335,6 +335,13 @@ class TableCreateTests:
         sevens = unicode_numbers.where(name=lt.Table.re_match(r".*SEVEN$"))
         self.assertEqual(3, len(sevens))
 
+        # make names all title case
+        unicode_numbers.add_field("name", lambda rec: rec.name.title())
+        # use regex with re flag
+        import re
+        circled = unicode_numbers.where(name=lt.Table.re_match(r"circled", flags=re.I))
+        self.assertEqual(10, len(circled))
+
     def test_get_slice(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
@@ -1276,6 +1283,105 @@ class TableImportExportTests:
                                    filters={"c": lambda x: 0 < x < 2})
         print(tt.info())
         self.assertEqual(test_size * test_size, len(tt))
+
+        # test all special comparators when used as filters
+        #     is_none - attribute value is None
+        #     is_not_none - attribute value is not None
+        #     is_null - attribute value is None, "", or not defined
+        #     is_not_null - attribute value is defined, and is not None or ""
+        #     startswith - attribute value starts with a given string
+        #     endswith - attribute value ends with a given string
+        #     re_match - attribute value matches a regular expression
+
+        print()
+        input_data = textwrap.dedent("""\
+        name,a,b,c
+        "A",100,100,100
+        "B",200,,200
+        "A1",101,101,101
+        "B1",201,,201
+        "C1",301,,301
+        ,99,99,99
+        """)
+        lt.Table().csv_import(input_data,
+                              transforms=dict.fromkeys("abc", int),
+                              ).present()
+
+        """
+        +-------------------------+
+        | Name |   A |    B |   C |
+        |------+-----+------+-----|
+        | A    | 100 |  100 | 100 |
+        | B    | 200 | None | 200 |
+        | A1   | 101 |  101 | 101 |
+        | B1   | 201 | None | 201 |
+        | C1   | 301 | None | 301 |
+        |      |  99 |   99 |  99 |
+        +-------------------------+
+        """
+
+        print("is_none()")
+        x = lt.Table().csv_import(input_data,
+                                         transforms=dict.fromkeys("abc", int),
+                                         filters={"b": lt.Table.is_none()})
+        self.assertEqual(3, len(x))
+        self.assertTrue(all(b is None for b in x.all.b))
+
+        print("is_not_none()")
+        x = lt.Table().csv_import(input_data,
+                                  transforms=dict.fromkeys("abc", int),
+                                  filters={"b": lt.Table.is_not_none()})
+        self.assertEqual(3, len(x))
+        self.assertEqual(300, sum(x.all.b))
+
+        print("b is_null()")
+        x = lt.Table().csv_import(input_data,
+                                  transforms=dict.fromkeys("abc", int),
+                                  filters={"b": lt.Table.is_null()})
+        self.assertEqual(3, len(x))
+        self.assertTrue(all(b is None for b in x.all.b))
+
+        print("b is_not_null()")
+        x = lt.Table().csv_import(input_data,
+                                  transforms=dict.fromkeys("abc", int),
+                                  filters={"b": lt.Table.is_not_null()})
+        self.assertEqual(3, len(x))
+        self.assertEqual(300, sum(x.all.b))
+
+        print("name is_null()")
+        x = lt.Table().csv_import(input_data,
+                                  transforms=dict.fromkeys("abc", int),
+                                  filters={"name": lt.Table.is_null()})
+        self.assertEqual(1, len(x))
+        self.assertEqual(3*99, x[0].a + x[0].b + x[0].c)
+
+        print("name is_not_null()")
+        x = lt.Table().csv_import(input_data,
+                                  transforms=dict.fromkeys("abc", int),
+                                  filters={"name": lt.Table.is_not_null()})
+        self.assertEqual(5, len(x))
+        self.assertEqual("A B A1 B1 C1".split(), list(x.all.name))
+
+        print("name startswith('B')")
+        x = lt.Table().csv_import(input_data,
+                                  transforms=dict.fromkeys("abc", int),
+                                  filters={"name": lt.Table.startswith("B")})
+        self.assertEqual(2, len(x))
+        self.assertEqual("B B1".split(), list(x.all.name))
+
+        print("name endswith('1')")
+        x = lt.Table().csv_import(input_data,
+                                  transforms=dict.fromkeys("abc", int),
+                                  filters={"name": lt.Table.endswith("1")})
+        self.assertEqual(3, len(x))
+        self.assertEqual("A1 B1 C1".split(), list(x.all.name))
+
+        print(r"name re_match(r'[AB]\d')")
+        x = lt.Table().csv_import(input_data,
+                                  transforms=dict.fromkeys("abc", int),
+                                  filters={"name": lt.Table.re_match(r"[AB]\d")})
+        self.assertEqual(2, len(x))
+        self.assertEqual("A1 B1".split(), list(x.all.name))
 
     def test_csv_string_import(self):
         data = csv_data
