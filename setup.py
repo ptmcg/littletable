@@ -1,14 +1,9 @@
-
 #!/usr/bin/env python
 
 """Setup script for the littletable module distribution."""
 from setuptools import setup
 
-import sys
-import os
 from littletable import __version__ as littletable_version
-
-_PY3 = sys.version_info[0] > 2
 
 with open('README.md') as readme:
     long_description_text = readme.read()
