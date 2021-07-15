@@ -149,7 +149,7 @@ __version__ = (
             __version_info__.releaseLevel == "final"
             ]
 )
-__version_time__ = "2 July 2021 10:45 UTC"
+__version_time__ = "15 July 2021 21:30 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -810,9 +810,6 @@ class Table:
 
     def __bool__(self):
         return bool(self.obs)
-
-    # Py2 compat
-    __nonzero__ = __bool__
 
     def __reversed__(self):
         return reversed(self.obs)
@@ -1921,7 +1918,7 @@ class Table:
                string with space-delimited names, or as a list of attribute names
            @type fieldnames: list of strings
            @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
-               representing an output filename, an encoding argument can be provided (Python 3 only)
+               representing an output filename, an encoding argument can be provided
            @type encoding: string
            @param delimiter: string (default=",") - overridable delimiter for value separator
            @type delimiter: string
@@ -2007,7 +2004,7 @@ class Table:
                string with space-delimited names, or as a list of attribute names
            @type fieldnames: list of strings
            @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
-               representing an output filename, an encoding argument can be provided (Python 3 only)
+               representing an output filename, an encoding argument can be provided
            @type encoding: string
         """
         close_on_exit = False
