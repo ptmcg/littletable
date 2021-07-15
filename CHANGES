@@ -19,6 +19,20 @@ Version 2.0.0
     # get customers whose address includes an apartment number
     has_apt = customers.where(address_apt_no=Table.is_not_null())
 
+    # get employees whose first name starts with "X"
+    x_names = employees.where(name=Table.startswith("X"))
+
+    # get log records that match a regex (any word starts with
+    # "warn" in the log description)
+    # (re_match will accept re flags argument)
+    warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
+
+- Example code for exploring subset of the Unicode database, showing
+  several interesting symbol groups.
+
+- Nicer present() output - auto-center columns where all values
+  are single characters (centers "X", "Y", "N", etc. values).
+
 
 Version 1.5.0
 -------------
