@@ -313,6 +313,17 @@ write:
     first_qtr_sales = sales.where(date=Table.within(jan_01, mar_31))
     first_qtr_sales = sales.where(date=Table.in_range(jan_01, apr_01))
 
+    # get customers whose address includes an apartment number
+    has_apt = customers.where(address_apt_no=Table.is_not_null())
+
+    # get employees whose first name starts with "X"
+    x_names = employees.where(name=Table.startswith("X"))
+
+    # get log records that match a regex (any word starts with 
+    # "warn" in the log description)
+    # (re_match will accept re flags argument)
+    warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
+
 Comparators can also be used as filter functions for import methods.
 
 
