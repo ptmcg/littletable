@@ -106,7 +106,7 @@ class TestTableTypes(unittest.TestCase):
 def announce_test(fn):
     def _inner(*args):
         print("\n" + "-" * 50)
-        print(fn.__name__)
+        print(fn.__qualname__)
         return fn(*args)
 
     return _inner

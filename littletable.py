@@ -149,7 +149,7 @@ __version__ = (
             __version_info__.releaseLevel == "final"
             ]
 )
-__version_time__ = "15 July 2021 21:30 UTC"
+__version_time__ = "20 July 2021 00:02 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2874,8 +2874,8 @@ if __name__ == "__main__":
     # do some simple stats with common ML data set
     url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
     names = ['sepal-length', 'sepal-width', 'petal-length', 'petal-width', 'class']
-    transforms = dict.fromkeys(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'], float)
-    iris_table = Table('iris').csv_import(url, fieldnames=names, transforms=transforms)
+    iris_transforms = dict.fromkeys(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'], float)
+    iris_table = Table('iris').csv_import(url, fieldnames=names, transforms=iris_transforms)
 
     print(iris_table.info())
     for rec in iris_table[:5]:
