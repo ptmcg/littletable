@@ -34,6 +34,7 @@ try:
     import rich
 except ImportError:
     rich = None
+    # disable present() method, since rich is not available
     lt.Table.present = lambda *args, **kwargs: None
 
 
@@ -709,6 +710,9 @@ class TableListTests:
             self.t1.insert(new_rec)
 
         t1_stats = self.t1.stats()
+        t1_stats("t1_stats")
+        t1_stats.csv_export(sys.stdout)
+        t1_stats.present()
         self.assertEqual(self.test_size ** num_fields - 1, t1_stats.by.name["a"].count)
 
     def test_splitby(self):
