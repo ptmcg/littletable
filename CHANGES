@@ -27,6 +27,8 @@ Version 2.0.0
     # (re_match will accept re flags argument)
     warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
 
+- Added type annotations for public API methods.
+
 - New examples: code for exploring subset of the Unicode database, showing
   several interesting symbol groups; joining 3 tables to create a table
   showing the casts of the 3 studio productions of Dune.

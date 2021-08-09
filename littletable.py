@@ -1,7 +1,7 @@
 #
 #
 # littletable.py
-# 
+#
 # littletable is a simple in-memory database for ad-hoc or user-defined objects,
 # supporting simple query and join operations - useful for ORM-like access
 # to a collection of data objects, without dealing with SQL
@@ -131,8 +131,9 @@ from contextlib import closing
 from functools import partial
 from itertools import starmap, repeat, takewhile, chain, product, tee, groupby
 from pathlib import Path
-from types import SimpleNamespace
+from types import SimpleNamespace, Union
 import urllib.request
+from typing import Tuple, NoReturn, List, Callable, Any, TextIO, Dict, Union
 
 try:
     import rich
@@ -141,13 +142,13 @@ except ImportError:
     rich = None
     box = None
 
-version_info = namedtuple("version_info", "major minor micro releaseLevel serial")
+version_info = namedtuple("version_info", "major minor micro release_level serial")
 __version_info__ = version_info(2, 0, 0, "final", 0)
 __version__ = (
-        "{}.{}.{}".format(*__version_info__[:3])
-        + ("{}{}".format(__version_info__.releaseLevel[0], __version_info__.serial), "")[
-            __version_info__.releaseLevel == "final"
-            ]
+    "{}.{}.{}".format(*__version_info__[:3])
+    + ("{}{}".format(__version_info__.release_level[0], __version_info__.serial), "")[
+        __version_info__.release_level == "final"
+    ]
 )
 __version_time__ = "20 July 2021 00:02 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
@@ -166,7 +167,8 @@ _numeric_type = (int, float)
 __all__ = ["DataObject", "Table", "FixedWidthReader"]
 
 # define default stopwords for full_text_search
-_stopwords = set("""\
+_stopwords = set(
+    """\
 a about above after again against all am an and any are aren't as at be because been 
 before being below between both but by can't cannot could couldn't did didn't do does 
 doesn't doing don't down during each few for from further had hadn't has hasn't have 
@@ -177,7 +179,8 @@ she'll she's should shouldn't so some such than that that's the their theirs the
 then there there's these they they'd they'll they're they've this those through to too under 
 until up very was wasn't we we'd we'll we're we've were weren't what what's when when's 
 where where's which while who who's whom why why's with won't would wouldn't you 
-you'd you'll you're you've your yours yourself yourselves""".split())
+you'd you'll you're you've your yours yourself yourselves""".split()
+)
 
 
 def _object_attrnames(obj):
@@ -201,7 +204,10 @@ def _to_dict(obj):
         # namedtuple
         return ODict(zip(obj._fields, obj))
     elif hasattr(obj, "__slots__"):
-        return ODict((k, v) for k, v in zip(obj.__slots__, (getattr(obj, a) for a in obj.__slots__)))
+        return ODict(
+            (k, v)
+            for k, v in zip(obj.__slots__, (getattr(obj, a) for a in obj.__slots__))
+        )
     else:
         raise ValueError("object with unknown attributes")
 
@@ -219,10 +225,13 @@ class SearchIndexInconsistentError(Exception):
 
 
 class DataObject:
-    """A generic semi-mutable object for storing data values in a table. Attributes
-       can be set by passing in named arguments in the constructor, or by setting them
-       as C{object.attribute = value}. New attributes can be added any time, but updates
-       are ignored.  Table joins are returned as a Table of DataObjects."""
+    """
+    A generic semi-mutable object for storing data values in a table. Attributes
+    can be set by passing in named arguments in the constructor, or by setting them
+    as C{object.attribute = value}. New attributes can be added any time, but updates
+    are ignored.  Table joins are returned as a Table of DataObjects.
+    """
+
     def __init__(self, **kwargs):
         if kwargs:
             self.__dict__.update(kwargs)
@@ -423,8 +432,10 @@ class _TableAttributeValueLister:
             return next(self.__iter)
 
         def __getattr__(self, attr):
-            if attr == 'unique':
-                self.__iter = filter(lambda x, seen=set(): x not in seen and not seen.add(x), self.__iter)
+            if attr == "unique":
+                self.__iter = filter(
+                    lambda x, seen=set(): x not in seen and not seen.add(x), self.__iter
+                )
                 return self
             raise AttributeError(f"no such attribute {attr!r} defined")
 
@@ -440,12 +451,13 @@ class _TableAttributeValueLister:
             if table_index.is_unique:
                 vals = table_index.keys()
             else:
-                vals = chain.from_iterable(repeat(k, len(table_index[k])) for k in table_index.keys())
+                vals = chain.from_iterable(
+                    repeat(k, len(table_index[k])) for k in table_index.keys()
+                )
         return _TableAttributeValueLister.UniquableIterator(vals)
 
 
 class _TableSearcher:
-
     def __init__(self, table):
         self.__table = table
 
@@ -465,25 +477,26 @@ class _IndexAccessor:
         return ret
 
     def __getattr__(self, attr):
-        """A quick way to query for matching records using their indexed attributes. The attribute
-           name is used to locate the index, and returns a wrapper on the index.  This wrapper provides
-           dict-like access to the underlying records in the table, as in::
+        """
+        A quick way to query for matching records using their indexed attributes. The attribute
+        name is used to locate the index, and returns a wrapper on the index.  This wrapper provides
+        dict-like access to the underlying records in the table, as in::
 
-              employees.by.socsecnum["000-00-0000"]
-              customers.by.zipcode["12345"]
+           employees.by.socsecnum["000-00-0000"]
+           customers.by.zipcode["12345"]
 
-           (C{'by'} is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
-           are not attributes of the table, but of items in the table.)
+        (C{'by'} is added as a pseudo-attribute on tables, to help indicate that the indexed attributes
+        are not attributes of the table, but of items in the table.)
 
-           The behavior differs slightly for unique and non-unique indexes:
-             - if the index is unique, then retrieving a matching object, will return just the object;
-               if there is no matching object, C{KeyError} is raised (making a table with a unique
-               index behave very much like a Python dict)
-             - if the index is non-unique, then all matching objects will be returned in a new Table,
-               just as if a regular query had been performed; if no objects match the key value, an empty
-               Table is returned and no exception is raised.
+        The behavior differs slightly for unique and non-unique indexes:
+          - if the index is unique, then retrieving a matching object, will return just the object;
+            if there is no matching object, C{KeyError} is raised (making a table with a unique
+            index behave very much like a Python dict)
+          - if the index is non-unique, then all matching objects will be returned in a new Table,
+            just as if a regular query had been performed; if no objects match the key value, an empty
+            Table is returned and no exception is raised.
 
-           If there is no index defined for the given attribute, then C{AttributeError} is raised.
+        If there is no index defined for the given attribute, then C{AttributeError} is raised.
         """
         if attr in self._table._indexes:
             ret = self._table._indexes[attr]
@@ -496,25 +509,28 @@ class _IndexAccessor:
 
 
 class _multi_iterator:
-    def __init__(self, seqobj, encoding='utf-8'):
+    def __init__(self, seqobj, encoding="utf-8"):
         def _decoder(seq):
             for line in seq:
                 yield line.decode(encoding)
 
         if isinstance(seqobj, str):
-            if '\n' in seqobj:
+            if "\n" in seqobj:
                 self._iterobj = iter(StringIO(seqobj))
             elif seqobj.startswith("http"):
                 self._iterobj = _decoder(urllib.request.urlopen(seqobj))
             else:
                 if seqobj.endswith(".gz"):
                     import gzip
+
                     self._iterobj = _decoder(gzip.GzipFile(filename=seqobj))
                 elif seqobj.endswith((".xz", ".lzma")):
                     import lzma
+
                     self._iterobj = lzma.open(seqobj, "rt", encoding=encoding)
                 elif seqobj.endswith(".zip"):
                     import zipfile
+
                     # assume file name inside zip is the same as the zip file without the trailing ".zip"
                     inner_name = Path(seqobj).stem
                     self._iterobj = _decoder(zipfile.ZipFile(seqobj).open(inner_name))
@@ -530,7 +546,7 @@ class _multi_iterator:
         return next(self._iterobj)
 
     def close(self):
-        if hasattr(self._iterobj, 'close'):
+        if hasattr(self._iterobj, "close"):
             self._iterobj.close()
 
 
@@ -553,7 +569,8 @@ class FixedWidthReader:
     - src_file: a string filename or a file-like object containing the
         fixed-width data to be loaded
     """
-    def __init__(self, slice_spec, src_file, encoding='utf-8'):
+
+    def __init__(self, slice_spec, src_file, encoding="utf-8"):
         def parse_spec(spec):
             ret = []
             for cur, next_ in zip(spec, spec[1:] + [("", None, None, None)]):
@@ -583,12 +600,15 @@ def _make_comparator(cmp_fn):
     """
     Internal function to help define Table.le, Table.lt, etc.
     """
+
     def comparator_with_value(value):
         def _Table_comparator_fn(attr):
             return lambda table_rec: cmp_fn(getattr(table_rec, attr), value)
+
         _Table_comparator_fn.fn = cmp_fn
         _Table_comparator_fn.value = value
         return _Table_comparator_fn
+
     return comparator_with_value
 
 
@@ -596,12 +616,15 @@ def _make_comparator_none(cmp_fn):
     """
     Internal function to help define Table.is_none and Table.is_not_none.
     """
+
     def comparator_with_value():
         def _Table_comparator_fn(attr):
             return lambda table_rec: cmp_fn(getattr(table_rec, attr), None)
+
         _Table_comparator_fn.fn = cmp_fn
         _Table_comparator_fn.value = None
         return _Table_comparator_fn
+
     return comparator_with_value
 
 
@@ -609,15 +632,18 @@ def _make_comparator_null(is_null):
     """
     Internal function to help define Table.is_null and Table.is_not_null.
     """
+
     def is_null_fn(a, value):
         return (a in (None, "")) == value
 
     def comparator_with_value():
         def _Table_comparator_fn(attr):
             return lambda table_rec: is_null_fn(getattr(table_rec, attr, None), is_null)
+
         _Table_comparator_fn.fn = is_null_fn
         _Table_comparator_fn.value = is_null
         return _Table_comparator_fn
+
     return comparator_with_value
 
 
@@ -625,9 +651,11 @@ def _make_comparator2(cmp_fn):
     """
     Internal function to help define Table.within and between
     """
+
     def comparator_with_value(lower, upper):
         def _Table_comparator_fn(attr):
             return lambda table_rec: cmp_fn(lower, getattr(table_rec, attr), upper)
+
         _Table_comparator_fn.fn = cmp_fn
         _Table_comparator_fn.lower = lower
         _Table_comparator_fn.upper = upper
@@ -648,24 +676,26 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
 
 
 class Table:
-    """Table is the main class in C{littletable}, for representing a collection of DataObjects or
-       user-defined objects with publicly accessible attributes or properties.  Tables can be:
-        - created, with an optional name, using standard Python L{C{Table() constructor}<__init__>}
-        - indexed, with multiple indexes, with unique or non-unique values, see L{create_index}
-        - queried, specifying values to exact match in the desired records, see L{where}
-        - filtered (using L{where}), using a simple predicate function to match desired records;
-          useful for selecting using inequalities or compound conditions
-        - accessed directly for keyed values, using C{table.indexattribute[key]} - see L{__getattr__}
-        - joined, using L{join_on} to identify attribute to be used for joining with another table, and
-          L{join} or operator '+' to perform the actual join
-        - pivoted, using L{pivot} to create a nested structure of sub-tables grouping objects
-          by attribute values
-        - grouped, using L{groupby} to create a summary table of computed values, grouped by a key
-          attribute
-        - L{imported<csv_import>}/L{exported<csv_export>} to CSV-format files
-       Queries and joins return their results as new Table objects, so that queries and joins can
-       be easily performed as a succession of operations.
     """
+    Table is the main class in C{littletable}, for representing a collection of DataObjects or
+    user-defined objects with publicly accessible attributes or properties.  Tables can be:
+     - created, with an optional name, using standard Python L{C{Table() constructor}<__init__>}
+     - indexed, with multiple indexes, with unique or non-unique values, see L{create_index}
+     - queried, specifying values to exact match in the desired records, see L{where}
+     - filtered (using L{where}), using a simple predicate function to match desired records;
+       useful for selecting using inequalities or compound conditions
+     - accessed directly for keyed values, using C{table.indexattribute[key]} - see L{__getattr__}
+     - joined, using L{join_on} to identify attribute to be used for joining with another table, and
+       L{join} or operator '+' to perform the actual join
+     - pivoted, using L{pivot} to create a nested structure of sub-tables grouping objects
+       by attribute values
+     - grouped, using L{groupby} to create a summary table of computed values, grouped by a key
+       attribute
+     - L{imported<csv_import>}/L{exported<csv_export>} to CSV-format files
+    Queries and joins return their results as new Table objects, so that queries and joins can
+    be easily performed as a succession of operations.
+    """
+
     lt = staticmethod(_make_comparator(operator.lt))
     le = staticmethod(_make_comparator(operator.le))
     gt = staticmethod(_make_comparator(operator.gt))
@@ -682,8 +712,12 @@ class Table:
     endswith = staticmethod(_make_comparator(lambda x, s: x.endswith(s)))
     re_match = staticmethod(_make_comparator_regex)
     between = staticmethod(_make_comparator2(lambda lower, x, upper: lower < x < upper))
-    within = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x <= upper))
-    in_range = staticmethod(_make_comparator2(lambda lower, x, upper: lower <= x < upper))
+    within = staticmethod(
+        _make_comparator2(lambda lower, x, upper: lower <= x <= upper)
+    )
+    in_range = staticmethod(
+        _make_comparator2(lambda lower, x, upper: lower <= x < upper)
+    )
 
     INNER_JOIN = object()
     LEFT_OUTER_JOIN = object()
@@ -691,10 +725,11 @@ class Table:
     FULL_OUTER_JOIN = object()
     OUTER_JOIN_TYPES = (LEFT_OUTER_JOIN, RIGHT_OUTER_JOIN, FULL_OUTER_JOIN)
 
-    def __init__(self, table_name=''):
-        """Create a new, empty Table.
-           @param table_name: name for Table
-           @type table_name: string (optional)
+    def __init__(self, table_name: str = ""):
+        """
+        Create a new, empty Table.
+        @param table_name: name for Table
+        @type table_name: string (optional)
         """
         self(table_name)
         self.obs = []
@@ -798,7 +833,7 @@ class Table:
         for idx in delidxs:
             self.pop(idx)
 
-    def pop(self, i):
+    def pop(self, i: int):
         ret = self.obs.pop(i)
 
         # remove from indexes
@@ -817,10 +852,10 @@ class Table:
     def __contains__(self, item):
         return item in self.obs
 
-    def index(self, item):
+    def index(self, item) -> int:
         return self.obs.index(item)
 
-    def count(self, item):
+    def count(self, item) -> int:
         return self.obs.count(item)
 
     def __add__(self, other):
@@ -839,61 +874,73 @@ class Table:
         """Support UNION of 2 tables using "+=" operator."""
         return self.insert_many(other)
 
-    def union(self, other):
+    def union(self, other: "Table") -> "Table":
         return self.clone().insert_many(other.obs)
 
-    def __call__(self, table_name=None):
-        """A simple way to assign a name to a table, such as those
-           dynamically created by joins and queries.
-           @param table_name: name for Table
-           @type table_name: string
+    def __call__(self, table_name: str = None):
+        """
+        A simple way to assign a name to a table, such as those
+        dynamically created by joins and queries.
+        @param table_name: name for Table
+        @type table_name: string
         """
         if table_name is not None:
             self.table_name = table_name
         return self
 
     def _attr_names(self):
-        return list(_object_attrnames(self.obs[0]) if self.obs else self._indexes.keys())
+        return list(
+            _object_attrnames(self.obs[0]) if self.obs else self._indexes.keys()
+        )
 
-    def copy_template(self, name=None):
-        """Create empty copy of the current table, with copies of all
-           index definitions.
+    def copy_template(self, name: str = None) -> "Table":
+        """
+        Create empty copy of the current table, with copies of all
+        index definitions.
         """
         ret = Table(self.table_name)
-        ret._indexes.update(dict((k, v.copy_template()) for k, v in self._indexes.items()))
+        ret._indexes.update(
+            dict((k, v.copy_template()) for k, v in self._indexes.items())
+        )
         ret(name)
         return ret
 
-    def clone(self, name=None):
-        """Create full copy of the current table, including table contents
-           and index definitions.
+    def clone(self, name: str = None) -> "Table":
+        """
+        Create full copy of the current table, including table contents
+        and index definitions.
         """
         ret = self.copy_template().insert_many(self.obs)(name)
         return ret
 
-    def create_index(self, attr, unique=False, accept_none=False):
-        """Create a new index on a given attribute.
-           If C{unique} is True and records are found in the table with duplicate
-           attribute values, the index is deleted and C{KeyError} is raised.
+    def create_index(
+        self, attr: str, unique: bool = False, accept_none: bool = False
+    ) -> "Table":
+        """
+        Create a new index on a given attribute.
+        If C{unique} is True and records are found in the table with duplicate
+        attribute values, the index is deleted and C{KeyError} is raised.
 
-           If the table already has an index on the given attribute, then
-           ValueError is raised.
-           @param attr: the attribute to be used for indexed access and joins
-           @type attr: string
-           @param unique: flag indicating whether the indexed field values are
-               expected to be unique across table entries
-           @type unique: boolean
-           @param accept_none: flag indicating whether None is an acceptable
-               unique key value for this attribute (always True for non-unique
-               indexes, default=False for unique indexes)
-           @type accept_none: boolean
+        If the table already has an index on the given attribute, then
+        ValueError is raised.
+        @param attr: the attribute to be used for indexed access and joins
+        @type attr: string
+        @param unique: flag indicating whether the indexed field values are
+            expected to be unique across table entries
+        @type unique: boolean
+        @param accept_none: flag indicating whether None is an acceptable
+            unique key value for this attribute (always True for non-unique
+            indexes, default=False for unique indexes)
+        @type accept_none: boolean
         """
         if attr in self._indexes:
-            raise ValueError('index {!r} already defined for table'.format(attr))
+            raise ValueError("index {!r} already defined for table".format(attr))
 
         if unique:
             self._indexes[attr] = _UniqueObjIndex(attr, accept_none)
-            self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
+            self._uniqueIndexes = [
+                ind for ind in self._indexes.values() if ind.is_unique
+            ]
         else:
             self._indexes[attr] = _ObjIndex(attr)
             accept_none = True
@@ -910,18 +957,23 @@ class Table:
 
         except KeyError:
             del self._indexes[attr]
-            self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
+            self._uniqueIndexes = [
+                ind for ind in self._indexes.values() if ind.is_unique
+            ]
             raise
 
-    def delete_index(self, attr):
-        """Deletes an index from the Table.  Can be used to drop and rebuild an index,
-           or to convert a non-unique index to a unique index, or vice versa.
-           @param attr: name of an indexed attribute
-           @type attr: string
+    def delete_index(self, attr: str) -> "Table":
+        """
+        Deletes an index from the Table.  Can be used to drop and rebuild an index,
+        or to convert a non-unique index to a unique index, or vice versa.
+        @param attr: name of an indexed attribute
+        @type attr: string
         """
         if attr in self._indexes:
             del self._indexes[attr]
-            self._uniqueIndexes = [ind for ind in self._indexes.values() if ind.is_unique]
+            self._uniqueIndexes = [
+                ind for ind in self._indexes.values() if ind.is_unique
+            ]
         return self
 
     def get_index(self, attr):
@@ -943,7 +995,9 @@ class Table:
     def _normalize_split(self, s):
         return [self._normalize_word(wd) for wd in s.split()]
 
-    def create_search_index(self, attrname, stopwords=None, force=False):
+    def create_search_index(
+        self, attrname: str, stopwords: List[str] = None, force: bool = False
+    ) -> "Table":
         """
         Create a text search index for the given attribute.
         Regular indexes can perform range or equality checks against the
@@ -982,7 +1036,7 @@ class Table:
                 # stale search index, rebuild
                 self._search_indexes.pop(attrname)
             else:
-                return
+                return self
 
         if stopwords is None:
             stopwords = _stopwords
@@ -1004,14 +1058,18 @@ class Table:
 
         return self
 
-    def _search(self, attrname, query, limit=int(1e9), min_score=0, include_words=False):
+    def _search(
+        self, attrname, query, limit=int(1e9), min_score=0, include_words=False
+    ):
         if attrname not in self._search_indexes:
             raise ValueError(f"no search index defined for attribute {attrname!r}")
 
         search_index = self._search_indexes[attrname]
         if not search_index["VALID"]:
-            msg = (f"table has been modified since the search index for {attrname!r} was created,"
-                   " rebuild using create_search_index()")
+            msg = (
+                f"table has been modified since the search index for {attrname!r} was created,"
+                " rebuild using create_search_index()"
+            )
             raise SearchIndexInconsistentError(msg)
         stopwords = search_index["STOPWORDS"]
 
@@ -1075,7 +1133,11 @@ class Table:
                 opt_matches[kwd] = set(search_index.get(kwd, []))
 
         tally = Counter()
-        for match_type, score in ((plus_matches, 1000), (minus_matches, -1000), (opt_matches, 100)):
+        for match_type, score in (
+            (plus_matches, 1000),
+            (minus_matches, -1000),
+            (opt_matches, 100),
+        ):
             for obj_set in match_type.values():
                 if reqd_matches:
                     obj_set &= reqd_matches
@@ -1089,42 +1151,49 @@ class Table:
                     for rec_idx, score in tally.most_common(limit)
                     if score > min_score]
         else:
-            return [(self[rec_idx], score) for rec_idx, score in tally.most_common(limit)
-                    if score > min_score]
+            return [
+                (self[rec_idx], score)
+                for rec_idx, score in tally.most_common(limit)
+                if score > min_score
+            ]
 
-    def delete_search_index(self, attrname):
+    def delete_search_index(self, attrname: str):
         """
         Deletes a previously-created search index on a particular attribute.
         """
         self._search_indexes.pop(attrname, None)
 
-    def insert(self, obj):
-        """Insert a new object into this Table.
-           @param obj: any Python object -
-           Objects can be constructed using the defined DataObject type, or they can
-           be any Python object that does not use the Python C{__slots__} feature; C{littletable}
-           introspects the object's C{__dict__} or C{_fields} attributes to obtain join and
-           index attributes and values.
+    def insert(self, obj) -> "Table":
+        """
+        Insert a new object into this Table.
+        @param obj: any Python object -
+        Objects can be constructed using the defined DataObject type, or they can
+        be any Python object that does not use the Python C{__slots__} feature; C{littletable}
+        introspects the object's C{__dict__} or C{_fields} attributes to obtain join and
+        index attributes and values.
 
-           If the table contains a unique index, and the record to be inserted would add
-           a duplicate value for the indexed attribute, then C{KeyError} is raised, and the
-           object is not inserted.
+        If the table contains a unique index, and the record to be inserted would add
+        a duplicate value for the indexed attribute, then C{KeyError} is raised, and the
+        object is not inserted.
 
-           If the table has no unique indexes, then it is possible to insert duplicate
-           objects into the table.
-           """
+        If the table has no unique indexes, then it is possible to insert duplicate
+        objects into the table.
+        """
         return self.insert_many([obj])
 
-    def insert_many(self, it):
+    def insert_many(self, it) -> "Table":
         """Inserts a collection of objects into the table."""
         unique_indexes = self._uniqueIndexes
         NO_SUCH_ATTR = object()
 
         def wrap_dict(dd):
             # do recursive wrap of dicts to namespace types
-            ret = default_row_class(**{k: v if not isinstance(v, dict)
-                                            else wrap_dict(v)
-                                       for k, v in dd.items()})
+            ret = default_row_class(
+                **{
+                    k: v if not isinstance(v, dict) else wrap_dict(v)
+                    for k, v in dd.items()
+                }
+            )
             return ret
 
         new_objs = it
@@ -1136,23 +1205,37 @@ class Table:
                 new_objs = (wrap_dict(obj) for obj in new_objs)
         except StopIteration:
             # iterator is empty, nothing to insert
-            return
+            return self
 
         if unique_indexes:
             new_objs = list(new_objs)
             for ind in unique_indexes:
                 ind_attr = ind.attr
-                new_keys = dict((getattr(obj, ind_attr, NO_SUCH_ATTR), obj) for obj in new_objs)
-                if not ind.accept_none and (None in new_keys or NO_SUCH_ATTR in new_keys):
-                    raise KeyError(f"unique key cannot be None or blank for index {ind_attr!r}",
-                                   [ob for ob in new_objs if getattr(ob, ind_attr, NO_SUCH_ATTR) is None])
+                new_keys = dict(
+                    (getattr(obj, ind_attr, NO_SUCH_ATTR), obj) for obj in new_objs
+                )
+                if not ind.accept_none and (
+                    None in new_keys or NO_SUCH_ATTR in new_keys
+                ):
+                    raise KeyError(
+                        f"unique key cannot be None or blank for index {ind_attr!r}",
+                        [
+                            ob
+                            for ob in new_objs
+                            if getattr(ob, ind_attr, NO_SUCH_ATTR) is None
+                        ],
+                    )
                 if len(new_keys) < len(new_objs):
-                    raise KeyError(f"given sequence contains duplicate keys for index {ind_attr!r}")
+                    raise KeyError(
+                        f"given sequence contains duplicate keys for index {ind_attr!r}"
+                    )
                 for key in new_keys:
                     if key in ind:
                         obj = new_keys[key]
-                        raise KeyError(f"duplicate unique key value {getattr(obj, ind_attr)!r} for index {ind_attr!r}",
-                                       new_keys[key])
+                        raise KeyError(
+                            f"duplicate unique key value {getattr(obj, ind_attr)!r} for index {ind_attr!r}",
+                            new_keys[key],
+                        )
 
         if self._indexes:
             for obj in new_objs:
@@ -1166,24 +1249,25 @@ class Table:
         self._contents_changed()
         return self
 
-    def remove(self, ob):
-        """Removes an object from the table. If object is not in the table, then
-           no action is taken and no exception is raised."""
+    def remove(self, ob) -> "Table":
+        """
+        Removes an object from the table. If object is not in the table, then
+        no action is taken and no exception is raised."""
         return self.remove_many([ob])
 
-    def remove_many(self, it):
+    def remove_many(self, it) -> "Table":
         """Removes a collection of objects from the table."""
 
         # if table is empty, there is nothing to remove
         if not self.obs:
-            return
+            return self
 
         # find indicies of objects in iterable
         to_be_deleted = list(it)
 
         # if list of items to delete is empty, there is nothing to remove
         if not to_be_deleted:
-            return
+            return self
 
         del_indices = []
         for i, ob in enumerate(self.obs):
@@ -1207,7 +1291,7 @@ class Table:
 
         return self
 
-    def clear(self):
+    def clear(self) -> "Table":
         """
         Remove all contents from a Table and all indexes, but leave index definitions intact.
         """
@@ -1237,7 +1321,7 @@ class Table:
         else:
             return 1e9
 
-    def where(self, wherefn=None, **kwargs):
+    def where(self, wherefn: Callable[[Any], bool] = None, **kwargs) -> "Table":
         """
         Retrieves matching objects from the table, based on given
         named parameters.  If multiple named parameters are given, then
@@ -1269,7 +1353,7 @@ class Table:
             ret = self
             NO_SUCH_ATTR = object()
             for k, v in kwargs:
-                if callable(v) and v.__name__ == '_Table_comparator_fn':
+                if callable(v) and v.__name__ == "_Table_comparator_fn":
                     wherefn_k = v(k)
                     newret = ret.where(wherefn_k)
                 else:
@@ -1277,7 +1361,9 @@ class Table:
                     if k in ret._indexes:
                         newret.insert_many(ret._indexes[k][v])
                     else:
-                        newret.insert_many(r for r in ret.obs if getattr(r, k, NO_SUCH_ATTR) == v)
+                        newret.insert_many(
+                            r for r in ret.obs if getattr(r, k, NO_SUCH_ATTR) == v
+                        )
 
                 ret = newret
                 if not ret:
@@ -1295,14 +1381,15 @@ class Table:
 
         return ret
 
-    def delete(self, **kwargs):
-        """Deletes matching objects from the table, based on given
-           named parameters.  If multiple named parameters are given, then
-           only objects that satisfy all of the query criteria will be removed.
-           @param kwargs: attributes for selecting records, given as additional
-              named arguments of the form C{attrname="attrvalue"}, or
-              C{attrname=Table.lt(value)} (see doc for L{Table.where}).
-           @return: the number of objects removed from the table
+    def delete(self, **kwargs) -> int:
+        """
+        Deletes matching objects from the table, based on given
+        named parameters.  If multiple named parameters are given, then
+        only objects that satisfy all of the query criteria will be removed.
+        @param kwargs: attributes for selecting records, given as additional
+           named arguments of the form C{attrname="attrvalue"}, or
+           C{attrname=Table.lt(value)} (see doc for L{Table.where}).
+        @return: the number of objects removed from the table
         """
         if not kwargs:
             return 0
@@ -1311,7 +1398,7 @@ class Table:
         self.remove_many(affected)
         return len(affected)
 
-    def shuffle(self):
+    def shuffle(self) -> "Table":
         """
         In-place random shuffle of the records in the table.
         """
@@ -1319,40 +1406,43 @@ class Table:
         self._contents_changed()
         return self
 
-    def sort(self, key, reverse=False):
-        """Sort Table in place, using given fields as sort key.
-           @param key: if this is a string, it is a comma-separated list of field names,
-              optionally followed by 'desc' to indicate descending sort instead of the
-              default ascending sort; if a list or tuple, it is a list or tuple of field names
-              or field names with ' desc' appended; if it is a function, then it is the
-              function to be used as the sort key function
-           @param reverse: (default=False) set to True if results should be in reverse order
-           @type reverse: bool
-           @return: self
+    def sort(self, key, reverse: bool = False) -> "Table":
+        """
+        Sort Table in place, using given fields as sort key.
+        @param key: if this is a string, it is a comma-separated list of field names,
+           optionally followed by 'desc' to indicate descending sort instead of the
+           default ascending sort; if a list or tuple, it is a list or tuple of field names
+           or field names with ' desc' appended; if it is a function, then it is the
+           function to be used as the sort key function
+        @param reverse: (default=False) set to True if results should be in reverse order
+        @type reverse: bool
+        @return: self
         """
         if isinstance(key, (str, list, tuple)):
             if isinstance(key, str):
-                attrdefs = [s.strip() for s in key.split(',')]
-                attr_orders = [(a.split() + ['asc', ])[:2] for a in attrdefs]
+                attrdefs = [s.strip() for s in key.split(",")]
+                attr_orders = [(a.split() + ["asc", ])[:2] for a in attrdefs]
             else:
                 # attr definitions were already resolved to a sequence by the caller
                 if isinstance(key[0], str):
-                    attr_orders = [(a.split() + ['asc', ])[:2] for a in key]
+                    attr_orders = [(a.split() + ["asc", ])[:2] for a in key]
                 else:
                     attr_orders = key
             attrs = [attr for attr, order in attr_orders]
 
             # special optimization if all orders are ascending or descending
-            if all(order == 'asc' for attr, order in attr_orders):
+            if all(order == "asc" for attr, order in attr_orders):
                 self.obs.sort(key=operator.attrgetter(*attrs), reverse=reverse)
-            elif all(order == 'desc' for attr, order in attr_orders):
+            elif all(order == "desc" for attr, order in attr_orders):
                 self.obs.sort(key=operator.attrgetter(*attrs), reverse=not reverse)
             else:
                 # mix of ascending and descending sorts, have to do succession of sorts
                 # leftmost attr is the most primary sort key, so reverse attr_orders to do
                 # succession of sorts from right to left
                 for attr, order in reversed(attr_orders):
-                    self.obs.sort(key=operator.attrgetter(attr), reverse=(order == "desc"))
+                    self.obs.sort(
+                        key=operator.attrgetter(attr), reverse=(order == "desc")
+                    )
         else:
             # sorting given a sort key function
             keyfn = key
@@ -1361,7 +1451,7 @@ class Table:
         self._contents_changed()
         return self
 
-    def select(self, fields=None, **exprs):
+    def select(self, fields: Union[List[str], str] = None, **exprs) -> "Table":
         """
         Create a new table containing a subset of attributes, with optionally
         newly-added fields computed from each rec in the original table.
@@ -1382,7 +1472,11 @@ class Table:
 
         def _make_string_callable(expr):
             if isinstance(expr, str):
-                return lambda r: expr.format(r) if not isinstance(r, (list, tuple)) else expr.format(*r)
+                return (
+                    lambda r: expr.format(r)
+                    if not isinstance(r, (list, tuple))
+                    else expr.format(*r)
+                )
             else:
                 return expr
 
@@ -1397,12 +1491,21 @@ class Table:
 
         all_names = tuple(fields) + tuple(exprs.keys())
         ret = Table(self.table_name)
-        ret._indexes.update(dict((k, v.copy_template()) for k, v in self._indexes.items() if k in all_names))
+        ret._indexes.update(
+            dict(
+                (k, v.copy_template())
+                for k, v in self._indexes.items()
+                if k in all_names
+            )
+        )
         if self:
-            ret.insert_many(default_row_class(**dict(zip(all_names, out_tuple))) for out_tuple in raw_tuples)
+            ret.insert_many(
+                default_row_class(**dict(zip(all_names, out_tuple)))
+                for out_tuple in raw_tuples
+            )
         return ret
 
-    def formatted_table(self, *fields, **exprs):
+    def formatted_table(self, *fields, **exprs) -> "Table":
         """
         Create a new table with all string formatted attribute values, typically in preparation for
         formatted output.
@@ -1418,17 +1521,19 @@ class Table:
 
         for ename, expr in exprs.items():
             if isinstance(expr, str):
-                if re.match(r'[a-zA-Z_][a-zA-Z0-9_]*$', expr):
+                if re.match(r"[a-zA-Z_][a-zA-Z0-9_]*$", expr):
                     select_exprs[ename] = lambda r: str(getattr(r, expr, "None"))
                 else:
                     if "{}" in expr or "{0}" or "{0:" in expr:
                         select_exprs[ename] = lambda r: expr.format(r)
                     else:
-                        select_exprs[ename] = lambda r: expr.format(getattr(r, ename, "None"))
+                        select_exprs[ename] = lambda r: expr.format(
+                            getattr(r, ename, "None")
+                        )
 
         return self.select(**select_exprs)
 
-    def format(self, fmt):
+    def format(self, fmt: str):
         """
         Generates a list of strings, one for each row in the table, using the input string
         as a format template for printing out a single row.
@@ -1436,7 +1541,13 @@ class Table:
         for line in self:
             yield fmt.format(**_to_dict(line))
 
-    def join(self, other, attrlist=None, auto_create_indexes=True, **kwargs):
+    def join(
+        self,
+        other,
+        attrlist: List[str] = None,
+        auto_create_indexes: bool = True,
+        **kwargs,
+    ):
         """
         Join the objects of one table with the objects of another, based on the given
         matching attributes in the named arguments.  The attrlist specifies the attributes to
@@ -1464,17 +1575,21 @@ class Table:
         @returns: a new Table containing the joined data as new DataObjects
         """
         if not kwargs:
-            raise TypeError("must specify at least one join attribute as a named argument")
+            raise TypeError(
+                "must specify at least one join attribute as a named argument"
+            )
         this_cols, other_cols = list(kwargs.keys()), list(kwargs.values())
 
-        if (not all(isinstance(col, str) for col in this_cols)
-                or not all(isinstance(col, str) for col in other_cols)):
+        if not all(isinstance(col, str) for col in this_cols) or not all(
+            isinstance(col, str) for col in other_cols
+        ):
             raise TypeError("all join keywords must be of type str")
 
-        retname = (f"({self.table_name}:{'/'.join(this_cols)}"
-                   "^"
-                   f"{other.table_name}:{'/'.join(other_cols)})"
-                   )
+        retname = (
+            f"({self.table_name}:{'/'.join(this_cols)}"
+            "^"
+            f"{other.table_name}:{'/'.join(other_cols)})"
+        )
 
         # if inner join, make sure both tables contain records to join - if not, just return empty list
         if not (self.obs and other.obs):
@@ -1482,7 +1597,7 @@ class Table:
 
         attr_spec_list = attrlist
         if isinstance(attrlist, str):
-            attr_spec_list = re.split(r'[,\s]+', attrlist)
+            attr_spec_list = re.split(r"[,\s]+", attrlist)
 
         # expand attrlist to full (table, name, alias) tuples
         if attr_spec_list is None:
@@ -1509,8 +1624,12 @@ class Table:
                         raise ValueError(f"join attribute not found: {name!r}")
 
         # regroup attribute specs by table
-        this_attr_specs = [attr_spec for attr_spec in full_attr_specs if attr_spec[0] is self]
-        other_attr_specs = [attr_spec for attr_spec in full_attr_specs if attr_spec[0] is other]
+        this_attr_specs = [
+            attr_spec for attr_spec in full_attr_specs if attr_spec[0] is self
+        ]
+        other_attr_specs = [
+            attr_spec for attr_spec in full_attr_specs if attr_spec[0] is other
+        ]
 
         if auto_create_indexes:
             for tbl, col_list in ((self, this_cols), (other, other_cols)):
@@ -1521,13 +1640,19 @@ class Table:
             # make sure all join columns are indexed
             unindexed_cols = []
             for tbl, col_list in ((self, this_cols), (other, other_cols)):
-                unindexed_cols.extend(col for col in col_list if col not in tbl._indexes)
+                unindexed_cols.extend(
+                    col for col in col_list if col not in tbl._indexes
+                )
             if unindexed_cols:
-                raise ValueError(f"indexed attributes required for join: {','.join(unindexed_cols)}")
+                raise ValueError(
+                    f"indexed attributes required for join: {','.join(unindexed_cols)}"
+                )
 
         # find matching rows
         matchingrows = []
-        key_map_values = list(zip(this_cols, other_cols, (self._indexes[key].keys() for key in this_cols)))
+        key_map_values = list(
+            zip(this_cols, other_cols, (self._indexes[key].keys() for key in this_cols))
+        )
         for join_values in product(*(kmv[-1] for kmv in key_map_values)):
             base_this_where_dict = dict(zip(this_cols, join_values))
             base_other_where_dict = dict(zip(other_cols, join_values))
@@ -1540,8 +1665,11 @@ class Table:
 
         # remove attr_specs from other_attr_specs if alias is duplicate of any alias in this_attr_specs
         this_attr_specs_aliases = set(alias for tbl, col, alias in this_attr_specs)
-        other_attr_specs = [(tbl, col, alias) for tbl, col, alias in other_attr_specs
-                            if alias not in this_attr_specs_aliases]
+        other_attr_specs = [
+            (tbl, col, alias)
+            for tbl, col, alias in other_attr_specs
+            if alias not in this_attr_specs_aliases
+        ]
 
         joinrows = []
         for thisrows, otherrows in matchingrows:
@@ -1564,7 +1692,14 @@ class Table:
 
         return ret
 
-    def outer_join(self, join_type, other, attrlist=None, auto_create_indexes=True, **kwargs):
+    def outer_join(
+        self,
+        join_type,
+        other: "Table",
+        attrlist: Union[List[str], str] = None,
+        auto_create_indexes: bool = True,
+        **kwargs,
+    ):
         """
         Join the objects of one table with the objects of another, based on the given
         matching attributes in the named arguments.  The attrlist specifies the attributes to
@@ -1594,28 +1729,38 @@ class Table:
         @returns: a new Table containing the joined data as new DataObjects
         """
         if join_type not in (Table.OUTER_JOIN_TYPES):
-            join_names = [nm for nm, join_var in vars(Table).items() if join_var in Table.OUTER_JOIN_TYPES]
-            raise ValueError(f"join argument must be one of [{', '.join(f'Table.{nm}' for nm in join_names)}]")
+            join_names = [
+                nm
+                for nm, join_var in vars(Table).items()
+                if join_var in Table.OUTER_JOIN_TYPES
+            ]
+            raise ValueError(
+                f"join argument must be one of [{', '.join(f'Table.{nm}' for nm in join_names)}]"
+            )
 
         if not kwargs:
-            raise TypeError("must specify at least one join attribute as a named argument")
+            raise TypeError(
+                "must specify at least one join attribute as a named argument"
+            )
         this_cols, other_cols = list(kwargs.keys()), list(kwargs.values())
 
-        if (not all(isinstance(col, str) for col in this_cols)
-                or not all(isinstance(col, str) for col in other_cols)):
+        if not all(isinstance(col, str) for col in this_cols) or not all(
+            isinstance(col, str) for col in other_cols
+        ):
             raise TypeError("all join keywords must be of type str")
 
-        retname = (f"({self.table_name}:{'/'.join(this_cols)}"
-                   "|"
-                   f"{other.table_name}:{'/'.join(other_cols)})"
-                   )
+        retname = (
+            f"({self.table_name}:{'/'.join(this_cols)}"
+            "|"
+            f"{other.table_name}:{'/'.join(other_cols)})"
+        )
 
         if self is other:
             return self.clone()(retname)
 
         attr_spec_list = attrlist
         if isinstance(attrlist, str):
-            attr_spec_list = re.split(r'[,\s]+', attrlist)
+            attr_spec_list = re.split(r"[,\s]+", attrlist)
 
         # expand attrlist to full (table, name, alias) tuples
         if attr_spec_list is None:
@@ -1642,8 +1787,12 @@ class Table:
                         raise ValueError(f"join attribute not found: {name!r}")
 
         # regroup attribute specs by table
-        this_attr_specs = [attr_spec for attr_spec in full_attr_specs if attr_spec[0] is self]
-        other_attr_specs = [attr_spec for attr_spec in full_attr_specs if attr_spec[0] is other]
+        this_attr_specs = [
+            attr_spec for attr_spec in full_attr_specs if attr_spec[0] is self
+        ]
+        other_attr_specs = [
+            attr_spec for attr_spec in full_attr_specs if attr_spec[0] is other
+        ]
 
         if auto_create_indexes:
             for tbl, col_list in ((self, this_cols), (other, other_cols)):
@@ -1654,20 +1803,44 @@ class Table:
             # make sure all join columns are indexed
             unindexed_cols = []
             for tbl, col_list in ((self, this_cols), (other, other_cols)):
-                unindexed_cols.extend(col for col in col_list if col not in tbl._indexes)
+                unindexed_cols.extend(
+                    col for col in col_list if col not in tbl._indexes
+                )
             if unindexed_cols:
-                raise ValueError(f"indexed attributes required for join: {','.join(unindexed_cols)}")
+                raise ValueError(
+                    f"indexed attributes required for join: {','.join(unindexed_cols)}"
+                )
 
         # find matching rows
         matchingrows = []
         if join_type == Table.RIGHT_OUTER_JOIN:
-            key_map_values = list(zip(this_cols, other_cols, (self._indexes[key].keys() for key in this_cols)))
+            key_map_values = list(
+                zip(
+                    this_cols,
+                    other_cols,
+                    (self._indexes[key].keys() for key in this_cols),
+                )
+            )
         elif join_type == Table.LEFT_OUTER_JOIN:
-            key_map_values = list(zip(this_cols, other_cols, (other._indexes[key].keys() for key in other_cols)))
+            key_map_values = list(
+                zip(
+                    this_cols,
+                    other_cols,
+                    (other._indexes[key].keys() for key in other_cols),
+                )
+            )
         else:
-            key_map_values = list(zip(this_cols, other_cols,
-                                      (set(self._indexes[this_key].keys()) | set(other._indexes[other_key].keys())
-                                       for this_key, other_key in zip(this_cols, other_cols))))
+            key_map_values = list(
+                zip(
+                    this_cols,
+                    other_cols,
+                    (
+                        set(self._indexes[this_key].keys())
+                        | set(other._indexes[other_key].keys())
+                        for this_key, other_key in zip(this_cols, other_cols)
+                    ),
+                )
+            )
 
         for join_values in product(*(kmv[-1] for kmv in key_map_values)):
             base_this_where_dict = dict(zip(this_cols, join_values))
@@ -1693,8 +1866,11 @@ class Table:
 
         # remove attr_specs from other_attr_specs if alias is duplicate of any alias in this_attr_specs
         this_attr_specs_aliases = set(alias for tbl, col, alias in this_attr_specs)
-        other_attr_specs = [(tbl, col, alias) for tbl, col, alias in other_attr_specs
-                            if alias not in this_attr_specs_aliases]
+        other_attr_specs = [
+            (tbl, col, alias)
+            for tbl, col, alias in other_attr_specs
+            if alias not in this_attr_specs_aliases
+        ]
 
         joinrows = []
         for thisrows, otherrows in matchingrows:
@@ -1717,22 +1893,24 @@ class Table:
 
         return ret
 
-    def join_on(self, attr, join="inner"):
-        """Creates a JoinTerm in preparation for joining with another table, to
-           indicate what attribute should be used in the join.  Only indexed attributes
-           may be used in a join.
-           @param attr: attribute name to join from this table (may be different
-               from the attribute name in the table being joined to)
-           @type attr: string
-           @returns: L{JoinTerm}"""
+    def join_on(self, attr: str, join="inner"):
+        """
+        Creates a JoinTerm in preparation for joining with another table, to
+        indicate what attribute should be used in the join.  Only indexed attributes
+        may be used in a join.
+        @param attr: attribute name to join from this table (may be different
+            from the attribute name in the table being joined to)
+        @type attr: string
+        @returns: L{JoinTerm}"""
         if attr not in self._indexes:
             raise ValueError("can only join on indexed attributes")
         return _JoinTerm(self, attr, join)
 
-    def pivot(self, attrlist):
-        """Pivots the data using the given attributes, returning a L{PivotTable}.
-            @param attrlist: list of attributes to be used to construct the pivot table
-            @type attrlist: list of strings, or string of space-delimited attribute names
+    def pivot(self, attrlist: Union[List[str], str]) -> "_PivotTable":
+        """
+        Pivots the data using the given attributes, returning a L{PivotTable}.
+        @param attrlist: list of attributes to be used to construct the pivot table
+        @type attrlist: list of strings, or string of space-delimited attribute names
         """
         if isinstance(attrlist, str):
             attrlist = attrlist.split()
@@ -1741,14 +1919,16 @@ class Table:
         else:
             raise ValueError("pivot can only be called using indexed attributes")
 
-    def _import(self,
-                source,
-                encoding="utf-8",
-                transforms=None,
-                filters=None,
-                reader=csv.DictReader,
-                row_class=None,
-                limit=None):
+    def _import(
+        self,
+        source,
+        encoding="utf-8",
+        transforms=None,
+        filters=None,
+        reader=csv.DictReader,
+        row_class=None,
+        limit=None,
+    ):
 
         if row_class is None:
             row_class = default_row_class
@@ -1775,6 +1955,7 @@ class Table:
                         except Exception:
                             rec[k] = default
                     return rec
+
                 csvdata = map(transformer, csvdata)
 
             if filters:
@@ -1790,11 +1971,18 @@ class Table:
                             upper = getattr(v, "upper", no_object)
                             lower = getattr(v, "lower", no_object)
                             if value is not no_object:
-                                csvdata = filter(lambda rec_dict: fn(rec_dict.get(k), value), csvdata)
+                                csvdata = filter(
+                                    lambda rec_dict: fn(rec_dict.get(k), value), csvdata
+                                )
                             elif upper is not no_object:
-                                csvdata = filter(lambda rec_dict: fn(lower, rec_dict.get(k), upper), csvdata)
+                                csvdata = filter(
+                                    lambda rec_dict: fn(lower, rec_dict.get(k), upper),
+                                    csvdata,
+                                )
                             else:
-                                csvdata = filter(lambda rec_dict: fn(rec_dict.get(k)), csvdata)
+                                csvdata = filter(
+                                    lambda rec_dict: fn(rec_dict.get(k)), csvdata
+                                )
 
                         else:
                             csvdata = filter(lambda rec: v(rec.get(k)), csvdata)
@@ -1802,136 +1990,192 @@ class Table:
                         csvdata = filter(lambda rec: rec.get(k) == v, csvdata)
 
             if limit is not None:
+
                 def limiter(n, iter):
                     for i, obj in enumerate(iter, start=1):
                         if i > n:
                             break
                         yield obj
+
                 csvdata = limiter(limit, csvdata)
 
             self.insert_many(row_class(**s) for s in csvdata)
         return self
 
-    def csv_import(self,
-                   csv_source,
-                   encoding='utf-8',
-                   transforms=None,
-                   filters=None,
-                   row_class=None,
-                   limit=None,
-                   **kwargs):
-        """Imports the contents of a CSV-formatted file into this table.
-           @param csv_source: CSV file - if a string is given, the file with that name will be
-               opened, read, and closed; if a file object is given, then that object
-               will be read as-is, and left for the caller to be closed.
-           @type csv_source: string or file
-           @param encoding: encoding to be used for reading source text if C{csv_source} is
-               passed as a string filename
-           @type encoding: string (default='UTF-8')
-           @param transforms: dict of functions by attribute name; if given, each
-               attribute will be transformed using the corresponding transform; if there is no
-               matching transform, the attribute will be read as a string (default); the
-               transform function can also be defined as a (function, default-value) tuple; if
-               there is an Exception raised by the transform function, then the attribute will
-               be set to the given default value
-           @type transforms: dict (optional)
-           @param filters: dict of functions by attribute name; if given, each
-               newly-read record will be filtered before being added to the table, with each
-               filter function run using the corresponding attribute; if any filter function
-               returns False, the record is not added to the table. Useful when reading large
-               input files, to pre-screen only for data matching one or more filters
-           @type filters: dict (optional)
-           @param row_class: class to construct for each imported row when populating table (default=DataObject)
-           @type row_class: type
-           @param limit: number of records to import
-           @type limit: int (optional)
-           @param kwargs: additional constructor arguments for csv C{DictReader} objects, such as C{delimiter}
-               or C{fieldnames}; these are passed directly through to the csv C{DictReader} constructor
-           @type kwargs: named arguments (optional)
+    def csv_import(
+        self,
+        csv_source: Union[str | TextIO],
+        encoding: str = "utf-8",
+        transforms: Dict = None,
+        filters: Dict = None,
+        row_class: type = None,
+        limit: int = None,
+        **kwargs,
+    ) -> "Table":
         """
-        reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
-                                                                          'csv_source',
-                                                                          'transforms',
-                                                                          'row_class',
-                                                                          'limit',
-                                                                          ])
+        Imports the contents of a CSV-formatted file into this table.
+        @param csv_source: CSV file - if a string is given, the file with that name will be
+            opened, read, and closed; if a file object is given, then that object
+            will be read as-is, and left for the caller to be closed.
+        @type csv_source: string or file
+        @param encoding: encoding to be used for reading source text if C{csv_source} is
+            passed as a string filename
+        @type encoding: string (default='UTF-8')
+        @param transforms: dict of functions by attribute name; if given, each
+            attribute will be transformed using the corresponding transform; if there is no
+            matching transform, the attribute will be read as a string (default); the
+            transform function can also be defined as a (function, default-value) tuple; if
+            there is an Exception raised by the transform function, then the attribute will
+            be set to the given default value
+        @type transforms: dict (optional)
+        @param filters: dict of functions by attribute name; if given, each
+            newly-read record will be filtered before being added to the table, with each
+            filter function run using the corresponding attribute; if any filter function
+            returns False, the record is not added to the table. Useful when reading large
+            input files, to pre-screen only for data matching one or more filters
+        @type filters: dict (optional)
+        @param row_class: class to construct for each imported row when populating table (default=DataObject)
+        @type row_class: type
+        @param limit: number of records to import
+        @type limit: int (optional)
+        @param kwargs: additional constructor arguments for csv C{DictReader} objects, such as C{delimiter}
+            or C{fieldnames}; these are passed directly through to the csv C{DictReader} constructor
+        @type kwargs: named arguments (optional)
+        """
+        reader_args = dict(
+            (k, v)
+            for k, v in kwargs.items()
+            if k
+            not in [
+                "encoding",
+                "csv_source",
+                "transforms",
+                "row_class",
+                "limit",
+            ]
+        )
         reader = lambda src: csv.DictReader(src, **reader_args)
-        return self._import(csv_source,
-                            encoding=encoding,
-                            transforms=transforms,
-                            filters=filters,
-                            reader=reader,
-                            row_class=row_class,
-                            limit=limit)
+        return self._import(
+            csv_source,
+            encoding=encoding,
+            transforms=transforms,
+            filters=filters,
+            reader=reader,
+            row_class=row_class,
+            limit=limit,
+        )
 
-    def _xsv_import(self, xsv_source, encoding='utf-8', transforms=None, filters=None, row_class=None, limit=None, **kwargs):
-        reader_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
-                                                                          'xsv_source',
-                                                                          'transforms',
-                                                                          'row_class',
-                                                                          'limit',
-                                                                          'filters,'
-                                                                          ])
+    def _xsv_import(
+        self,
+        xsv_source: Union[str | TextIO],
+        encoding: str = "utf-8",
+        transforms: Dict = None,
+        filters: Dict = None,
+        row_class: type = None,
+        limit: int = None,
+        **kwargs,
+    ):
+        reader_args = dict(
+            (k, v)
+            for k, v in kwargs.items()
+            if k
+            not in [
+                "encoding",
+                "xsv_source",
+                "transforms",
+                "row_class",
+                "limit",
+                "filters,",
+            ]
+        )
         xsv_reader = lambda src: csv.DictReader(src, **reader_args)
-        return self._import(xsv_source,
-                            encoding=encoding,
-                            transforms=transforms,
-                            filters=filters,
-                            reader=xsv_reader,
-                            row_class=row_class,
-                            limit=limit)
+        return self._import(
+            xsv_source,
+            encoding=encoding,
+            transforms=transforms,
+            filters=filters,
+            reader=xsv_reader,
+            row_class=row_class,
+            limit=limit,
+        )
 
-    def tsv_import(self, xsv_source, encoding="utf-8", transforms=None, filters=None, row_class=None, limit=None, **kwargs):
-        """Imports the contents of a tab-separated data file into this table.
-           @param xsv_source: tab-separated data file - if a string is given, the file with that name will be
-               opened, read, and closed; if a file object is given, then that object
-               will be read as-is, and left for the caller to be closed.
-           @type xsv_source: string or file
-           @param transforms: dict of functions by attribute name; if given, each
-               attribute will be transformed using the corresponding transform; if there is no
-               matching transform, the attribute will be read as a string (default); the
-               transform function can also be defined as a (function, default-value) tuple; if
-               there is an Exception raised by the transform function, then the attribute will
-               be set to the given default value
-           @type transforms: dict (optional)
-           @param row_class: class to construct for each imported row when populating table (default=DataObject)
-           @type row_class: type
-           @param limit: number of records to import
-           @type limit: int (optional)
+    def tsv_import(
+        self,
+        xsv_source: Union[str | TextIO],
+        encoding: str = "utf-8",
+        transforms: Dict = None,
+        filters: Dict = None,
+        row_class: type = None,
+        limit: int = None,
+        **kwargs,
+    ) -> "Table":
         """
-        return self._xsv_import(xsv_source,
-                                encoding=encoding,
-                                transforms=transforms,
-                                filters=filters,
-                                row_class=row_class,
-                                limit=limit,
-                                delimiter="\t",
-                                **kwargs)
+        Imports the contents of a tab-separated data file into this table.
+        @param xsv_source: tab-separated data file - if a string is given, the file with that name will be
+            opened, read, and closed; if a file object is given, then that object
+            will be read as-is, and left for the caller to be closed.
+        @type xsv_source: string or file
+        @param transforms: dict of functions by attribute name; if given, each
+            attribute will be transformed using the corresponding transform; if there is no
+            matching transform, the attribute will be read as a string (default); the
+            transform function can also be defined as a (function, default-value) tuple; if
+            there is an Exception raised by the transform function, then the attribute will
+            be set to the given default value
+        @type transforms: dict (optional)
+        @param row_class: class to construct for each imported row when populating table (default=DataObject)
+        @type row_class: type
+        @param limit: number of records to import
+        @type limit: int (optional)
+        """
+        return self._xsv_import(
+            xsv_source,
+            encoding=encoding,
+            transforms=transforms,
+            filters=filters,
+            row_class=row_class,
+            limit=limit,
+            delimiter="\t",
+            **kwargs,
+        )
 
-    def csv_export(self, csv_dest, fieldnames=None, encoding="utf-8", delimiter=",", **kwargs):
-        """Exports the contents of the table to a CSV-formatted file.
-           @param csv_dest: CSV file - if a string is given, the file with that name will be
-               opened, written, and closed; if a file object is given, then that object
-               will be written as-is, and left for the caller to be closed.
-           @type csv_dest: string or file
-           @param fieldnames: attribute names to be exported; can be given as a single
-               string with space-delimited names, or as a list of attribute names
-           @type fieldnames: list of strings
-           @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
-               representing an output filename, an encoding argument can be provided
-           @type encoding: string
-           @param delimiter: string (default=",") - overridable delimiter for value separator
-           @type delimiter: string
-           @param kwargs: additional keyword args to pass through to csv.DictWriter
-           @type kwargs: named arguments (optional)
+    def csv_export(
+        self,
+        csv_dest: Union[str | TextIO],
+        fieldnames: List[str] = None,
+        encoding: str = "utf-8",
+        delimiter: str = ",",
+        **kwargs,
+    ):
         """
-        writer_args = dict((k, v) for k, v in kwargs.items() if k not in ['encoding',
-                                                                          'csv_dest',
-                                                                          'fieldnames',
-                                                                          ])
+        Exports the contents of the table to a CSV-formatted file.
+        @param csv_dest: CSV file - if a string is given, the file with that name will be
+            opened, written, and closed; if a file object is given, then that object
+            will be written as-is, and left for the caller to be closed.
+        @type csv_dest: string or file
+        @param fieldnames: attribute names to be exported; can be given as a single
+            string with space-delimited names, or as a list of attribute names
+        @type fieldnames: list of strings
+        @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
+            representing an output filename, an encoding argument can be provided
+        @type encoding: string
+        @param delimiter: string (default=",") - overridable delimiter for value separator
+        @type delimiter: string
+        @param kwargs: additional keyword args to pass through to csv.DictWriter
+        @type kwargs: named arguments (optional)
+        """
+        writer_args = dict(
+            (k, v)
+            for k, v in kwargs.items()
+            if k
+            not in [
+                "encoding",
+                "csv_dest",
+                "fieldnames",
+            ]
+        )
         close_on_exit = False
         if isinstance(csv_dest, str):
-            csv_dest = open(csv_dest, 'w', newline='', encoding=encoding)
+            csv_dest = open(csv_dest, "w", newline="", encoding=encoding)
             close_on_exit = True
         try:
             if fieldnames is None:
@@ -1940,76 +2184,116 @@ class Table:
                 fieldnames = fieldnames.split()
 
             csv_dest.write(delimiter.join(fieldnames) + NL)
-            csvout = csv.DictWriter(csv_dest, fieldnames, extrasaction='ignore',
-                                    lineterminator=NL, delimiter=delimiter, **writer_args)
+            csvout = csv.DictWriter(
+                csv_dest,
+                fieldnames,
+                extrasaction="ignore",
+                lineterminator=NL,
+                delimiter=delimiter,
+                **writer_args,
+            )
             if self.obs and hasattr(self.obs[0], "__dict__"):
                 csvout.writerows(o.__dict__ for o in self.obs)
             else:
                 for o in self.obs:
-                    csvout.writerow(ODict(starmap(lambda obj, fld: (fld, getattr(obj, fld)),
-                                                  zip(repeat(o), fieldnames))))
+                    csvout.writerow(
+                        ODict(
+                            starmap(
+                                lambda obj, fld: (fld, getattr(obj, fld)),
+                                zip(repeat(o), fieldnames),
+                            )
+                        )
+                    )
         finally:
             if close_on_exit:
                 csv_dest.close()
 
-    def tsv_export(self, tsv_dest, fieldnames=None, encoding="UTF-8", **kwargs):
+    def tsv_export(
+        self,
+        tsv_dest: Union[str | TextIO],
+        fieldnames: List[str] = None,
+        encoding: str = "UTF-8",
+        **kwargs,
+    ):
         r"""
         Similar to csv_export, with delimiter="\t"
         """
-        return self.csv_export(tsv_dest, fieldnames=fieldnames, encoding=encoding, delimiter='\t', **kwargs)
+        return self.csv_export(
+            tsv_dest, fieldnames=fieldnames, encoding=encoding, delimiter="\t", **kwargs
+        )
 
-    def json_import(self, source, encoding="UTF-8", transforms=None, row_class=None):
-        """Imports the contents of a JSON data file into this table.
-           @param source: JSON data file - if a string is given, the file with that name will be
-               opened, read, and closed; if a file object is given, then that object
-               will be read as-is, and left for the caller to be closed.
-           @type source: string or file
-           @param transforms: dict of functions by attribute name; if given, each
-               attribute will be transformed using the corresponding transform; if there is no
-               matching transform, the attribute will be read as a string (default); the
-               transform function can also be defined as a (function, default-value) tuple; if
-               there is an Exception raised by the transform function, then the attribute will
-               be set to the given default value
-           @type transforms: dict (optional)
-           @param row_class: class to construct for each imported row when populating table (default=DataObject)
-           @type row_class: type
+    def json_import(
+        self,
+        source: Union[str | TextIO],
+        encoding: str = "UTF-8",
+        transforms: Dict = None,
+        row_class: type = None,
+    ) -> "Table":
         """
+        Imports the contents of a JSON data file into this table.
+        @param source: JSON data file - if a string is given, the file with that name will be
+            opened, read, and closed; if a file object is given, then that object
+            will be read as-is, and left for the caller to be closed.
+        @type source: string or file
+        @param transforms: dict of functions by attribute name; if given, each
+            attribute will be transformed using the corresponding transform; if there is no
+            matching transform, the attribute will be read as a string (default); the
+            transform function can also be defined as a (function, default-value) tuple; if
+            there is an Exception raised by the transform function, then the attribute will
+            be set to the given default value
+        @type transforms: dict (optional)
+        @param row_class: class to construct for each imported row when populating table (default=DataObject)
+        @type row_class: type
+        """
+
         class _JsonFileReader:
             def __init__(self, src):
                 self.source = src
 
             def __iter__(self):
-                current = ''
+                current = ""
                 for line in self.source:
                     if current:
-                        current += ' '
+                        current += " "
                     current += line
                     try:
                         yield json.loads(current)
-                        current = ''
+                        current = ""
                     except Exception:
                         pass
 
         if row_class is None:
             row_class = default_row_class
-        return self._import(source, encoding, transforms=transforms, reader=_JsonFileReader, row_class=row_class)
+        return self._import(
+            source,
+            encoding,
+            transforms=transforms,
+            reader=_JsonFileReader,
+            row_class=row_class,
+        )
 
-    def json_export(self, dest, fieldnames=None, encoding="UTF-8"):
-        """Exports the contents of the table to a JSON-formatted file.
-           @param dest: output file - if a string is given, the file with that name will be
-               opened, written, and closed; if a file object is given, then that object
-               will be written as-is, and left for the caller to be closed.
-           @type dest: string or file
-           @param fieldnames: attribute names to be exported; can be given as a single
-               string with space-delimited names, or as a list of attribute names
-           @type fieldnames: list of strings
-           @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
-               representing an output filename, an encoding argument can be provided
-           @type encoding: string
+    def json_export(
+        self,
+        dest: Union[str | TextIO],
+        fieldnames: Union[List[str], str] = None,
+        encoding: str = "UTF-8",
+    ):
+        """
+        Exports the contents of the table to a JSON-formatted file.
+        @param dest: output file - if a string is given, the file with that name will be
+            opened, written, and closed; if a file object is given, then that object
+            will be written as-is, and left for the caller to be closed.
+        @type dest: string or file
+        @param fieldnames: attribute names to be exported; can be given as a single
+            string with space-delimited names, or as a list of attribute names
+        @type fieldnames: list of strings
+        @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
+            representing an output filename, an encoding argument can be provided
+        @type encoding: string
         """
         close_on_exit = False
         if isinstance(dest, str):
-            dest = open(dest, 'w', encoding=encoding)
+            dest = open(dest, "w", encoding=encoding)
             close_on_exit = True
         try:
             if isinstance(fieldnames, str):
@@ -2017,28 +2301,33 @@ class Table:
 
             if fieldnames is None:
                 for o in self.obs:
-                    dest.write(_to_json(o) + '\n')
+                    dest.write(_to_json(o) + "\n")
             else:
                 for o in self.obs:
-                    dest.write(json.dumps(ODict((f, getattr(o, f)) for f in fieldnames)) + '\n')
+                    dest.write(
+                        json.dumps(ODict((f, getattr(o, f)) for f in fieldnames)) + "\n"
+                    )
         finally:
             if close_on_exit:
                 dest.close()
 
-    def add_field(self, attrname, fn, default=None):
-        """Computes a new attribute for each object in table, or replaces an
-           existing attribute in each record with a computed value
-           @param attrname: attribute to compute for each object
-           @type attrname: string
-           @param fn: function used to compute new attribute value, based on
-           other values in the object, as in::
+    def add_field(
+        self, attrname: str, fn: Callable[[Any], Any], default: Any = None
+    ) -> "Table":
+        """
+        Computes a new attribute for each object in table, or replaces an
+        existing attribute in each record with a computed value
+        @param attrname: attribute to compute for each object
+        @type attrname: string
+        @param fn: function used to compute new attribute value, based on
+        other values in the object, as in::
 
-               lambda ob : ob.commission_pct/100.0 * ob.gross_sales
+            lambda ob : ob.commission_pct/100.0 * ob.gross_sales
 
-           @type fn: function(obj) returns value
-           @param default: value to use if an exception is raised while trying
-           to evaluate fn
-           """
+        @type fn: function(obj) returns value
+        @param default: value to use if an exception is raised while trying
+        to evaluate fn
+        """
 
         try:
             for rec_ in self:
@@ -2051,20 +2340,23 @@ class Table:
                 else:
                     setattr(rec_, attrname, val)
         except AttributeError:
-            raise AttributeError(f"cannot add/modify attribute {attrname!r} in table records")
+            raise AttributeError(
+                f"cannot add/modify attribute {attrname!r} in table records"
+            )
         return self
 
     def groupby(self, keyexpr, **outexprs):
-        """simple prototype of group by, with support for expressions in the group-by clause
-           and outputs
-           @param keyexpr: grouping field and optional expression for computing the key value;
-                if a string is passed
-           @type keyexpr: string or tuple
-           @param outexprs: named arguments describing one or more summary values to
-           compute per key
-           @type outexprs: callable, taking a sequence of objects as input and returning
-           a single summary value
-           """
+        """
+        simple prototype of group by, with support for expressions in the group-by clause
+        and outputs
+        @param keyexpr: grouping field and optional expression for computing the key value;
+             if a string is passed
+        @type keyexpr: string or tuple
+        @param outexprs: named arguments describing one or more summary values to
+        compute per key
+        @type outexprs: callable, taking a sequence of objects as input and returning
+        a single summary value
+        """
         if isinstance(keyexpr, str):
             keyattrs = keyexpr.split()
             keyfn = lambda o: tuple(getattr(o, k) for k in keyattrs)
@@ -2090,7 +2382,7 @@ class Table:
             tbl.insert(group_obj)
         return tbl
 
-    def splitby(self, pred):
+    def splitby(self, pred: Callable[[Any], bool]) -> Tuple["Table", "Table"]:
         """
         Takes a predicate function (takes a table record and returns True or False)
         and returns two tables: a table with all the rows that returned False and
@@ -2118,7 +2410,7 @@ class Table:
 
         return ret
 
-    def unique(self, key=None):
+    def unique(self, key=None) -> "Table":
         """
         Create a new table of objects,containing no duplicate values.
 
@@ -2142,20 +2434,23 @@ class Table:
                 ret.insert(ob)
         return ret
 
-    def info(self):
+    def info(self) -> Dict:
         """
         Quick method to list informative table statistics
         :return: dict listing table information and statistics
         """
         unique_indexes = set(self._uniqueIndexes)
         return {
-            'len': len(self),
-            'name': self.table_name,
-            'fields': self._attr_names(),
-            'indexes': [(idx_name, self._indexes[idx_name] in unique_indexes) for idx_name in self._indexes],
+            "len": len(self),
+            "name": self.table_name,
+            "fields": self._attr_names(),
+            "indexes": [
+                (idx_name, self._indexes[idx_name] in unique_indexes)
+                for idx_name in self._indexes
+            ],
         }
 
-    def head(self, n=10):
+    def head(self, n: int = 10) -> "Table":
         """
         Return a table of the first 'n' records in a table.
         :param n: (int, default=10) number of records to return
@@ -2163,7 +2458,7 @@ class Table:
         """
         return self[:n](self.table_name)
 
-    def tail(self, n=10):
+    def tail(self, n: int = 10) -> "Table":
         """
         Return a table of the last 'n' records in a table.
         :param n: (int, default=10) number of records to return
@@ -2171,7 +2466,7 @@ class Table:
         """
         return self[-n:](self.table_name)
 
-    def stats(self, field_names=None, by_field=True):
+    def stats(self, field_names=None, by_field: bool = True) -> "Table":
         """
         Return a summary Table of statistics for numeric data in a Table.
         For each field in the source table, returns:
@@ -2197,8 +2492,12 @@ class Table:
         if field_names is None:
             field_names = self._parse_fields_string("*")
 
-        accum = {fname: list(filter(lambda x: isinstance(x, _numeric_type), getattr(self.all, fname)))
-                 for fname in field_names}
+        accum = {
+            fname: list(
+                filter(lambda x: isinstance(x, _numeric_type), getattr(self.all, fname))
+            )
+            for fname in field_names
+        }
 
         def safe_fn(fn, seq):
             try:
@@ -2207,12 +2506,12 @@ class Table:
                 return None
 
         stats = [
-            ('count', lambda seq: sum(isinstance(x, _numeric_type) for x in seq)),
-            ('min', partial(safe_fn, min)),
-            ('max', partial(safe_fn, max)),
-            ('mean', partial(safe_fn, getattr(statistics, "fmean", statistics.mean))),
-            ('variance', partial(safe_fn, statistics.variance)),
-            ('std_dev', partial(safe_fn, statistics.stdev))
+            ("count", lambda seq: sum(isinstance(x, _numeric_type) for x in seq)),
+            ("min", partial(safe_fn, min)),
+            ("max", partial(safe_fn, max)),
+            ("mean", partial(safe_fn, getattr(statistics, "fmean", statistics.mean))),
+            ("variance", partial(safe_fn, statistics.variance)),
+            ("std_dev", partial(safe_fn, statistics.stdev)),
         ]
 
         if by_field:
@@ -2243,18 +2542,24 @@ class Table:
         if not self.obs:
             return field_names
 
-        suppress_names = [nm[1:] for nm in field_names if nm.startswith('-')]
-        field_names = [nm for nm in field_names if not nm.startswith('-')]
+        suppress_names = [nm[1:] for nm in field_names if nm.startswith("-")]
+        field_names = [nm for nm in field_names if not nm.startswith("-")]
         if not field_names:
-            field_names = ['*']
-        if '*' in field_names:
+            field_names = ["*"]
+        if "*" in field_names:
             if self:
-                star_fields = [name for name in self._attr_names() if name not in field_names]
+                star_fields = [
+                    name for name in self._attr_names() if name not in field_names
+                ]
             else:
                 # no records to look at, just use names of any defined indexes
                 star_fields = list(self._indexes.keys())
             fn_iter = iter(field_names)
-            field_names = list(takewhile(lambda x: x != '*', fn_iter)) + star_fields + list(fn_iter)
+            field_names = (
+                list(takewhile(lambda x: x != "*", fn_iter))
+                + star_fields
+                + list(fn_iter)
+            )
         field_names = [nm for nm in field_names if nm not in suppress_names]
         return field_names
 
@@ -2273,11 +2578,17 @@ class Table:
             if isinstance(field_spec, str):
                 name, field_spec = field_spec, {}
                 # find a value for this attribute, and if numeric, make column right-justified
-                next_v = next((v for v in getattr(self.all, name) if v is not None), None)
+                next_v = next(
+                    (v for v in getattr(self.all, name) if v is not None), None
+                )
                 if isinstance(next_v, _numeric_type):
                     field_spec["justify"] = "right"
                 else:
-                    if all(len(v) in (0, 1) for v in getattr(self.all, name) if v is not None):
+                    if all(
+                        len(v) in (0, 1)
+                        for v in getattr(self.all, name)
+                        if v is not None
+                    ):
                         field_spec["justify"] = "center"
             else:
                 # use field settings form caller
@@ -2310,7 +2621,9 @@ class Table:
 
         return rt
 
-    def present(self, fields=None, file=None, **kwargs):
+    def present(
+        self, fields: List[str] = None, file: TextIO = None, **kwargs
+    ) -> NoReturn:
         """
         Print a nicely-formatted table of the records in the Table, using the `rich`
         Python module. If the Table has a title, then that will be displayed as the
@@ -2330,13 +2643,13 @@ class Table:
             raise Exception("rich module not installed")
 
         console = Console(file=file)
-        table_kwargs = {'header_style': "bold yellow"}
+        table_kwargs = {"header_style": "bold yellow"}
         table_kwargs.update(kwargs)
         table = self._rich_table(fields, empty="", **table_kwargs)
         print()
         console.print(table)
 
-    def as_html(self, fields='*', formats=None):
+    def as_html(self, fields="*", formats: Dict = None) -> str:
         """
         Output the table as a rudimentary HTML table.
         @param fields: fields in the table to be shown in the table
@@ -2360,7 +2673,7 @@ class Table:
             ret_tr = ["<tr>"]
             for fld in fields:
                 v = getattr(r, fld, "")
-                align = 'right' if isinstance(v, _numeric_type) else 'left'
+                align = "right" if isinstance(v, _numeric_type) else "left"
                 if fld not in field_format_map:
                     field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
                 v_format = field_format_map[fld]
@@ -2369,7 +2682,7 @@ class Table:
             ret_tr.append("</tr>\n")
             return "".join(ret_tr)
 
-        headers = ''.join(f'<th><div align="center">{fld}</div></th>' for fld in fields)
+        headers = "".join(f'<th><div align="center">{fld}</div></th>' for fld in fields)
         ret = (
             "<table>\n<thead>\n"
             f"<tr>{headers}</tr>\n"
@@ -2379,7 +2692,7 @@ class Table:
         )
         return ret
 
-    def as_markdown(self, fields='*', formats=None):
+    def as_markdown(self, fields="*", formats: Dict = None) -> str:
         """
         Output the table as a Markdown table.
         @param fields: fields in the table to be shown in the table
@@ -2402,7 +2715,7 @@ class Table:
         center_vals = (True, False, 'Y', 'N', 'X', 'YES', 'NO', 'y', 'n', 'x', 'yes', 'no', 0, 1, None)
         field_align_map = {}
         for f in fields:
-            align = '---'
+            align = "---"
             align_center = True
             align_right = True
             for v in getattr(self.all, f):
@@ -2414,9 +2727,9 @@ class Table:
                 if not align_right and not align_center:
                     break
             if align_center:
-                align = ':---:'
+                align = ":---:"
             elif align_right:
-                align = '---:'
+                align = "---:"
             field_align_map[f] = align
 
         def row_to_tr(r):
@@ -2427,7 +2740,7 @@ class Table:
                     field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
                 v_format = field_format_map[fld]
                 str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
-                ret_tr.append(' {} |'.format(str_v))
+                ret_tr.append(" {} |".format(str_v))
             ret_tr.append("\n")
             return "".join(ret_tr)
 
@@ -2443,11 +2756,11 @@ Sequence.register(Table)
 
 
 class _PivotTable(Table):
-    """Enhanced Table containing pivot results from calling table.pivot().
-    """
+    """Enhanced Table containing pivot results from calling table.pivot()."""
+
     def __init__(self, parent, attr_val_path, attrlist):
         """PivotTable initializer - do not create these directly, use
-           L{Table.pivot}.
+        L{Table.pivot}.
         """
         super(_PivotTable, self).__init__()
         self._attr_path = attr_val_path[:]
@@ -2456,7 +2769,9 @@ class _PivotTable(Table):
 
         # for k,v in parent._indexes.items():
         #     self._indexes[k] = v.copy_template()
-        self._indexes.update(dict((k, v.copy_template()) for k, v in parent._indexes.items()))
+        self._indexes.update(
+            dict((k, v.copy_template()) for k, v in parent._indexes.items())
+        )
         if not attr_val_path:
             self.insert_many(parent.obs)
         else:
@@ -2468,8 +2783,10 @@ class _PivotTable(Table):
             this_attr = attrlist[0]
             sub_attrlist = attrlist[1:]
             ind = parent._indexes[this_attr]
-            self.subtables = [_PivotTable(self, attr_val_path + [(this_attr, k)], sub_attrlist)
-                              for k in sorted(ind.keys())]
+            self.subtables = [
+                _PivotTable(self, attr_val_path + [(this_attr, k)], sub_attrlist)
+                for k in sorted(ind.keys())
+            ]
         else:
             self.subtables = []
 
@@ -2489,27 +2806,27 @@ class _PivotTable(Table):
         return [self._subtable_dict[k] for k in self.keys()]
 
     def pivot_key(self):
-        """Return the set of attribute-value pairs that define the contents of this
-           table within the original source table.
+        """
+        Return the set of attribute-value pairs that define the contents of this
+        table within the original source table.
         """
         return self._attr_path
 
     def pivot_key_str(self):
-        """Return the pivot_key as a displayable string.
-        """
-        return '/'.join(f"{attr}:{key}" for attr, key in self._attr_path)
+        """Return the pivot_key as a displayable string."""
+        return "/".join(f"{attr}:{key}" for attr, key in self._attr_path)
 
     def has_subtables(self):
-        """Return whether this table has further subtables.
-        """
+        """Return whether this table has further subtables."""
         return bool(self.subtables)
 
     def dump(self, out=sys.stdout, row_fn=repr, limit=-1, indent=0):
-        """Dump out the contents of this table in a nested listing.
-           @param out: output stream to write to
-           @param row_fn: function to call to display individual rows
-           @param limit: number of records to show at deepest level of pivot (-1=show all)
-           @param indent: current nesting level
+        """
+        Dump out the contents of this table in a nested listing.
+        @param out: output stream to write to
+        @param row_fn: function to call to display individual rows
+        @param limit: number of records to show at deepest level of pivot (-1=show all)
+        @param indent: current nesting level
         """
         if indent:
             out.write("  " * indent + self.pivot_key_str())
@@ -2530,10 +2847,11 @@ class _PivotTable(Table):
         out.flush()
 
     def dump_counts(self, out=sys.stdout, count_fn=len, colwidth=10):
-        """Dump out the summary counts of entries in this pivot table as a tabular listing.
-           @param out: output stream to write to
-           @param count_fn: (default=len) function for computing value for each pivot cell
-           @param colwidth: (default=10)
+        """
+        Dump out the summary counts of entries in this pivot table as a tabular listing.
+        @param out: output stream to write to
+        @param count_fn: (default=len) function for computing value for each pivot cell
+        @param colwidth: (default=10)
         """
         if len(self._pivot_attrs) == 1:
             out.write(f"Pivot: {','.join(self._pivot_attrs)}\n")
@@ -2545,14 +2863,23 @@ class _PivotTable(Table):
                 maxvallen = max(maxvallen, len(str(sub_v)))
                 keytally[k] = sub_v
             for k, sub in self.items():
-                out.write(f"{str(k):<{maxkeylen}.{maxkeylen}s} {keytally[k]:{maxvallen}}\n")
+                out.write(
+                    f"{str(k):<{maxkeylen}.{maxkeylen}s} {keytally[k]:{maxvallen}}\n"
+                )
         elif len(self._pivot_attrs) == 2:
             out.write(f"Pivot: {','.join(self._pivot_attrs)}\n")
             maxkeylen = max(max(len(str(k)) for k in self.keys()), 5)
-            maxvallen = max(max(len(str(k)) for k in self.subtables[0].keys()), colwidth)
+            maxvallen = max(
+                max(len(str(k)) for k in self.subtables[0].keys()), colwidth
+            )
             keytally = dict((k, 0) for k in self.subtables[0].keys())
             out.write(f"{' ' * maxkeylen} ")
-            out.write(' '.join(f"{str(k):{maxvallen}.{maxvallen}s}" for k in self.subtables[0].keys()))
+            out.write(
+                " ".join(
+                    f"{str(k):{maxvallen}.{maxvallen}s}"
+                    for k in self.subtables[0].keys()
+                )
+            )
             out.write(f' {"Total":{maxvallen}s}\n')
 
             for k, sub in self.items():
@@ -2566,20 +2893,23 @@ class _PivotTable(Table):
                 maxvallen = max(maxvallen, len(str(sub_v)))
                 out.write(f"{sub_v:{maxvallen}d}\n")
             out.write(f'{"Total":{maxkeylen}.{maxkeylen}s} ')
-            out.write(' '.join(f"{tally:{maxvallen}d}" for k, tally in sorted(keytally.items())))
+            out.write(
+                " ".join(
+                    f"{tally:{maxvallen}d}" for k, tally in sorted(keytally.items())
+                )
+            )
             out.write(f" {sum(tally for k, tally in keytally.items()):{maxvallen}d}\n")
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
 
     def as_table(self, fn=None, col=None, col_label=None):
-        """Dump out the summary counts of this pivot table as a Table.
-        """
+        """Dump out the summary counts of this pivot table as a Table."""
         if col_label is None:
             col_label = col
         if fn is None:
             fn = len
             if col_label is None:
-                col_label = 'count'
+                col_label = "count"
         ret = Table()
 
         for attr in self._pivot_attrs:
@@ -2610,7 +2940,9 @@ class _PivotTable(Table):
                         if col is None or fn is len:
                             attrdict[col_label] = fn(sssub)
                         else:
-                            attrdict[col_label] = fn([getattr(s, col, None) for s in sssub])
+                            attrdict[col_label] = fn(
+                                [getattr(s, col, None) for s in sssub]
+                            )
                         ret.insert(default_row_class(**attrdict))
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
@@ -2623,7 +2955,7 @@ class _PivotTable(Table):
             if len(self._pivot_attrs) == 1:
                 col_label = self._pivot_attrs[0]
             else:
-                col_label = 'value'
+                col_label = "value"
         return _PivotTableSummary(self, self._pivot_attrs, count_fn, col_label)
 
 
@@ -2635,25 +2967,31 @@ class _PivotTableSummary:
         self._label = col_label
 
     def as_html(self, *args, **kwargs):
-        formats = kwargs.get('formats', {})
+        formats = kwargs.get("formats", {})
         if len(self._pivot_attrs) == 1:
             col = self._pivot_attrs[0]
             col_label = self._label
             data = Table().insert_many(
-                default_row_class(**{col: k, col_label: self._fn(sub)}) for k, sub in self._pt.items())
+                default_row_class(**{col: k, col_label: self._fn(sub)})
+                for k, sub in self._pt.items()
+            )
             return data.as_html((col, col_label), formats=formats)
 
         elif len(self._pivot_attrs) == 2:
             keytally = dict((k, 0) for k in self._pt.subtables[0].keys())
-            hdgs = [self._pivot_attrs[0]] + sorted(keytally) + ['Total']
+            hdgs = [self._pivot_attrs[0]] + sorted(keytally) + ["Total"]
 
             def row_to_tr(r):
                 ret_tr = ["<tr>"]
                 for v, hdg in zip(r, hdgs):
                     v_format = formats.get(hdg, formats.get(type(v), "{}"))
-                    v_align = 'right' if isinstance(v, _numeric_type) else 'left'
-                    str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
-                    ret_tr.append('<td><div align="{}">{}</div></td>'.format(v_align, str_v))
+                    v_align = "right" if isinstance(v, _numeric_type) else "left"
+                    str_v = (
+                        v_format.format(v) if isinstance(v_format, str) else v_format(v)
+                    )
+                    ret_tr.append(
+                        '<td><div align="{}">{}</div></td>'.format(v_align, str_v)
+                    )
                 ret_tr.append("</tr>\n")
                 return "".join(ret_tr)
 
@@ -2662,9 +3000,11 @@ class _PivotTableSummary:
             ret += "<thead>\n"
             keytally = dict((k, 0) for k in self._pt.subtables[0].keys())
             hdgs = sorted(keytally)
-            ret += ("<tr>"
-                    + "".join(map('<th><div align="center">{}</div></th>'.format, hdgs))
-                    + '</tr>\n')
+            ret += (
+                "<tr>"
+                + "".join(map('<th><div align="center">{}</div></th>'.format, hdgs))
+                + "</tr>\n"
+            )
             ret += "</thead>\n<tbody>\n"
 
             for k, sub in self._pt.items():
@@ -2678,7 +3018,7 @@ class _PivotTableSummary:
                 sub_v = ssub_v_accum  # count_fn(sub)
                 row.append(sub_v)
                 ret += row_to_tr(row)
-            row = ['Total']
+            row = ["Total"]
             row.extend(v for k, v in sorted(keytally.items()))
             row.append(sum(keytally.values()))
             ret += row_to_tr(row)
@@ -2687,37 +3027,41 @@ class _PivotTableSummary:
             return ret
 
         else:  # if len(self._pivot_attrs) >= 3:
-            raise Exception("no HTML output format for 3-attribute pivot tables at this time")
+            raise Exception(
+                "no HTML output format for 3-attribute pivot tables at this time"
+            )
 
 
 class _JoinTerm:
-    """Temporary object created while composing a join across tables using
-       L{Table.join_on} and '+' addition. JoinTerm's are usually created by
-       calling join_on on a Table object, as in::
-
-           customers.join_on("id") + orders.join_on("custid")
-
-       This join expression would set up the join relationship
-       equivalent to::
-
-           customers.join(orders, id="custid")
-
-       If tables are being joined on attributes that have the same name in
-       both tables, then a join expression could be created by adding a
-       JoinTerm of one table directly to the other table::
-
-           customers.join_on("custid") + orders
-
-       Once the join expression is composed, the actual join is performed
-       using function call notation::
-
-           customerorders = customers.join_on("custid") + orders
-           for custord in customerorders():
-               print custord
-
-       When calling the join expression, you can optionally specify a
-       list of attributes as defined in L{Table.join}.
     """
+    Temporary object created while composing a join across tables using
+    L{Table.join_on} and '+' addition. JoinTerm's are usually created by
+    calling join_on on a Table object, as in::
+
+        customers.join_on("id") + orders.join_on("custid")
+
+    This join expression would set up the join relationship
+    equivalent to::
+
+        customers.join(orders, id="custid")
+
+    If tables are being joined on attributes that have the same name in
+    both tables, then a join expression could be created by adding a
+    JoinTerm of one table directly to the other table::
+
+        customers.join_on("custid") + orders
+
+    Once the join expression is composed, the actual join is performed
+    using function call notation::
+
+        customerorders = customers.join_on("custid") + orders
+        for custord in customerorders():
+            print custord
+
+    When calling the join expression, you can optionally specify a
+    list of attributes as defined in L{Table.join}.
+    """
+
     def __init__(self, source_table, join_field, join_type=None):
         self.source_table = source_table
         self.join_field = join_field
@@ -2745,20 +3089,25 @@ class _JoinTerm:
                     return self() + other
                 else:
                     return self() + other()
-        raise ValueError(f"cannot add object of type {type(other).__name__!r} to JoinTerm")
+        raise ValueError(
+            f"cannot add object of type {type(other).__name__!r} to JoinTerm"
+        )
 
     def __radd__(self, other):
         if isinstance(other, Table):
             return other.join_on(self.join_field) + self
-        raise ValueError(f"cannot add object of type {type(other).__name__!r} to JoinTerm")
+        raise ValueError(
+            f"cannot add object of type {type(other).__name__!r} to JoinTerm"
+        )
 
     def __call__(self, attrs=None):
         if self.join_to:
             other = self.join_to
             if isinstance(other, Table):
                 other = other.join_on(self.join_field)
-            ret = self.source_table.join(other.source_table, attrs,
-                                         **{self.join_field: other.join_field})
+            ret = self.source_table.join(
+                other.source_table, attrs, **{self.join_field: other.join_field}
+            )
             return ret
         else:
             return self.source_table.query()
@@ -2769,27 +3118,32 @@ class _JoinTerm:
 
 if __name__ == "__main__":
     import textwrap
+
     json_dumps = partial(json.dumps, indent=2)
 
-    rawdata = textwrap.dedent("""\
+    rawdata = textwrap.dedent(
+        """\
     Phoenix:AZ:85001:KPHX
     Phoenix:AZ:85001:KPHY
     Phoenix:AZ:85001:KPHA
-    Dallas:TX:75201:KDFW""")
+    Dallas:TX:75201:KDFW"""
+    )
 
     # load miniDB
-    stations = Table().csv_import(rawdata, delimiter=':', fieldnames=['city', 'state', 'zip', 'stn'])
+    stations = Table().csv_import(
+        rawdata, delimiter=":", fieldnames=["city", "state", "zip", "stn"]
+    )
     # stations.create_index("city")
     stations.create_index("stn", unique=True)
 
     # perform some queries and deletes
     for queryargs in [
-            dict(city="Phoenix"),
-            dict(city="Phoenix", stn="KPHX"),
-            dict(stn="KPHA", city="Phoenix"),
-            dict(state="TX"),
-            dict(city="New York"),
-            ]:
+        dict(city="Phoenix"),
+        dict(city="Phoenix", stn="KPHX"),
+        dict(stn="KPHA", city="Phoenix"),
+        dict(state="TX"),
+        dict(city="New York"),
+    ]:
         print(queryargs)
         result = stations.where(**queryargs)
         print(len(result))
@@ -2817,14 +3171,15 @@ if __name__ == "__main__":
         print("duplicate key not allowed")
 
     print()
-    for rec in (stations.join_on("stn") + amfm.join_on("stn")
-                )(["stn", "city", (amfm, "band", "AMFM"),
-                   (stations, "state", "st")]).sort("AMFM"):
+    for rec in (stations.join_on("stn") + amfm.join_on("stn"))(
+        ["stn", "city", (amfm, "band", "AMFM"), (stations, "state", "st")]
+    ).sort("AMFM"):
         print(repr(rec))
 
     print()
-    for rec in (stations.join_on("stn") + amfm.join_on("stn")
-                )(["stn", "city", (amfm, "band"), (stations, "state", "st")]):
+    for rec in (stations.join_on("stn") + amfm.join_on("stn"))(
+        ["stn", "city", (amfm, "band"), (stations, "state", "st")]
+    ):
         print(json_dumps(vars(rec)))
 
     print()
@@ -2833,7 +3188,7 @@ if __name__ == "__main__":
 
     print()
     stations.create_index("state")
-    for az_stn in stations.by.state['AZ']:
+    for az_stn in stations.by.state["AZ"]:
         print(az_stn)
 
     print()
@@ -2852,7 +3207,7 @@ if __name__ == "__main__":
 
     print(list(amfm.all.stn))
     print(list(amfm.all.band))
-    print(list(amfm.unique('band').all.band))
+    print(list(amfm.unique("band").all.band))
     print(list(amfm.all.band.unique))
     print()
 
@@ -2863,9 +3218,9 @@ if __name__ == "__main__":
     print()
     print(amfm.pop(-1))
     print(len(amfm))
-    print(amfm.by.stn['KPHX'])
+    print(amfm.by.stn["KPHX"])
     try:
-        print(amfm.by.stn['KPHY'])
+        print(amfm.by.stn["KPHY"])
     except KeyError:
         print("no station 'KPHY' in table")
 
@@ -2873,14 +3228,20 @@ if __name__ == "__main__":
 
     # do some simple stats with common ML data set
     url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
-    names = ['sepal-length', 'sepal-width', 'petal-length', 'petal-width', 'class']
-    iris_transforms = dict.fromkeys(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'], float)
-    iris_table = Table('iris').csv_import(url, fieldnames=names, transforms=iris_transforms)
+    names = ["sepal-length", "sepal-width", "petal-length", "petal-width", "class"]
+    iris_transforms = dict.fromkeys(
+        ["petal-length", "petal-width", "sepal-length", "sepal-width"], float
+    )
+    iris_table = Table("iris").csv_import(
+        url, fieldnames=names, transforms=iris_transforms
+    )
 
     print(iris_table.info())
     for rec in iris_table[:5]:
         print(rec)
 
-    stats = iris_table.stats(['petal-length', 'petal-width', 'sepal-length', 'sepal-width'])
+    stats = iris_table.stats(
+        ["petal-length", "petal-width", "sepal-length", "sepal-width"]
+    )
     for rec in stats:
         print(rec)
