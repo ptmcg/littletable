@@ -16,8 +16,9 @@ columns = [
     ("tech_skill_score", 59, None, float),
     ]
 
-characters_table = lt.Table().insert_many(lt.DataObject(**rec)
-                                              for rec in lt.FixedWidthReader(columns, data))
+characters_table = lt.Table().insert_many(
+    lt.DataObject(**rec) for rec in lt.FixedWidthReader(columns, data)
+)
 
 print(len(characters_table))
 print(characters_table[0])

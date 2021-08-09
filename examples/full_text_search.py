@@ -11,7 +11,8 @@ import littletable as lt
 import textwrap
 
 # create table of recipes, by title and ingredients
-recipe_data = textwrap.dedent("""\
+recipe_data = textwrap.dedent(
+    """\
     title,ingredients
     Tuna casserole,tuna noodles cream of mushroom soup
     Hawaiian pizza,pizza dough pineapple ham tomato sauce
@@ -26,7 +27,8 @@ recipe_data = textwrap.dedent("""\
     Hamburger,ground beef bun lettuce ketchup mustard pickle
     Cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese
     Bacon cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese bacon
-    """)
+    """
+)
 recipes = lt.Table().csv_import(recipe_data)
 
 # define search index on "ingredients" attribute
@@ -57,7 +59,9 @@ for query in queries:
     print()
 
 # redo last match, getting the words for each match
-matches = recipes.search.ingredients(query, limit=5, min_score=-100000, include_words=True)
+matches = recipes.search.ingredients(
+    query, limit=5, min_score=-100000, include_words=True
+)
 print(query)
 for rec, score, search_words in matches:
     print(" -", rec.title, score, search_words)

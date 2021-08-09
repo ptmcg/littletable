@@ -129,14 +129,16 @@ fieldnames = [
 ]
 unicode_url = "https://www.unicode.org/Public/3.2-Update/UnicodeData-3.2.0.txt"
 unicode_file = "unicode_320.txt.zip"
-unicode = lt.Table().csv_import(unicode_file,
-                                delimiter=";",
-                                transforms={
-                                    "decimal_digit_value": int,
-                                    "digit_value": int,
-                                    "numeric_value": int,
-                                },
-                                fieldnames=fieldnames)
+unicode = lt.Table().csv_import(
+    unicode_file,
+    delimiter=";",
+    transforms={
+        "decimal_digit_value": int,
+        "digit_value": int,
+        "numeric_value": int,
+    },
+    fieldnames=fieldnames,
+)
 unicode.add_field("code_value", lambda r: int(r.code_value_hex, 16))
 unicode.add_field("uppercase", lambda r: int(r.uppercase_hex, 16))
 unicode.add_field("lowercase", lambda r: int(r.lowercase_hex, 16))
@@ -154,9 +156,10 @@ unicode.create_index("code_value", unique=True)
 # Explore some interesting groups of symbols in the Unicode set
 #
 
-def present_symbol_group(start_str: str,
-                         title: str,
-                         source_table: lt.Table = unicode) -> lt.Table:
+
+def present_symbol_group(
+    start_str: str, title: str, source_table: lt.Table = unicode
+) -> lt.Table:
     """
     Function to search for Unicode characters that match a starting string, and
     presents a table showing name, character, and decimal code value
@@ -179,17 +182,15 @@ tai_xuan_jing = present_symbol_group("TETRAGRAM FOR", "Tai Xuan Jing")
 # display all the Roman numerals
 numerics = unicode.where(numeric_value=lt.Table.ne(None))
 numerics.sort("numeric_value")
-roman_numerals = present_symbol_group("ROMAN NUMERAL",
-                                      "Roman Numerals",
-                                      numerics)
+roman_numerals = present_symbol_group("ROMAN NUMERAL", "Roman Numerals", numerics)
 
 # display all Braille characters
 braille = present_symbol_group("BRAILLE PATTERN", "Braille")
 
 # display all Box Drawing characters
-box_drawing = present_symbol_group("BOX DRAWINGS",
-                                   "Box Drawing",
-                                   unicode.where(code_value=lt.Table.lt(10000)))
+box_drawing = present_symbol_group(
+    "BOX DRAWINGS", "Box Drawing", unicode.where(code_value=lt.Table.lt(10000))
+)
 
 # clock faces
 clock_faces = present_symbol_group("CLOCK FACE", "Clock Faces")

@@ -32,7 +32,7 @@ MAGLS-001,Magnifying glass,EA,12
 ANVIL-001,1000lb anvil,EA,100
 ROPE-001,1 in. heavy rope,100FT,10
 ROBOT-001,Domestic robot,EA,5000"""
-catalog.csv_import(catalog_data, row_class=CatalogItem, transforms={'unitprice': int})
+catalog.csv_import(catalog_data, row_class=CatalogItem, transforms={"unitprice": int})
 
 wishitems = Table("wishitems")
 wishitems.create_index("custid")
@@ -95,7 +95,9 @@ print()
 
 # display formatted tabular output (only on Python 3.6 and later)
 if sys.version_info >= (3, 6):
-    wishlists().sort("custid, unitprice desc")("Wishlists").select("custid name sku descr").present()
+    wishlists().sort("custid, unitprice desc")("Wishlists").select(
+        "custid name sku descr"
+    ).present()
 
 # create simple pivot table, grouping wishlist data by customer name
 wishlistsdata = wishlists()
