@@ -131,7 +131,7 @@ from contextlib import closing
 from functools import partial
 from itertools import starmap, repeat, takewhile, chain, product, tee, groupby
 from pathlib import Path
-from types import SimpleNamespace, Union
+from types import SimpleNamespace
 import urllib.request
 from typing import Tuple, NoReturn, List, Callable, Any, TextIO, Dict, Union
 
@@ -2004,7 +2004,7 @@ class Table:
 
     def csv_import(
         self,
-        csv_source: Union[str | TextIO],
+        csv_source: Union[str, TextIO],
         encoding: str = "utf-8",
         transforms: Dict = None,
         filters: Dict = None,
@@ -2067,7 +2067,7 @@ class Table:
 
     def _xsv_import(
         self,
-        xsv_source: Union[str | TextIO],
+        xsv_source: Union[str, TextIO],
         encoding: str = "utf-8",
         transforms: Dict = None,
         filters: Dict = None,
@@ -2101,7 +2101,7 @@ class Table:
 
     def tsv_import(
         self,
-        xsv_source: Union[str | TextIO],
+        xsv_source: Union[str, TextIO],
         encoding: str = "utf-8",
         transforms: Dict = None,
         filters: Dict = None,
@@ -2140,7 +2140,7 @@ class Table:
 
     def csv_export(
         self,
-        csv_dest: Union[str | TextIO],
+        csv_dest: Union[str, TextIO],
         fieldnames: List[str] = None,
         encoding: str = "utf-8",
         delimiter: str = ",",
@@ -2210,7 +2210,7 @@ class Table:
 
     def tsv_export(
         self,
-        tsv_dest: Union[str | TextIO],
+        tsv_dest: Union[str, TextIO],
         fieldnames: List[str] = None,
         encoding: str = "UTF-8",
         **kwargs,
@@ -2224,7 +2224,7 @@ class Table:
 
     def json_import(
         self,
-        source: Union[str | TextIO],
+        source: Union[str, TextIO],
         encoding: str = "UTF-8",
         transforms: Dict = None,
         row_class: type = None,
@@ -2274,7 +2274,7 @@ class Table:
 
     def json_export(
         self,
-        dest: Union[str | TextIO],
+        dest: Union[str, TextIO],
         fieldnames: Union[List[str], str] = None,
         encoding: str = "UTF-8",
     ):
