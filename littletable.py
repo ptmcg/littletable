@@ -150,7 +150,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "20 July 2021 00:02 UTC"
+__version_time__ = "10 August 2021 02:24 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
