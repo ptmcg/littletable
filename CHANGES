@@ -3,7 +3,7 @@ Change History
 
 Version 2.0.0
 -------------
-- Drop support for Python 2.x, and Python 3 versions earlier than
+- Discontinued support for Python 2.x, and Python 3 versions earlier than
   Python 3.6.
 
 - Added new comparators:
@@ -16,6 +16,7 @@ Version 2.0.0
     endswith - attribute value ends with a given string
     re_match - attribute value matches a regular expression
 
+    Examples:
     # get customers whose address includes an apartment number
     has_apt = customers.where(address_apt_no=Table.is_not_null())
 
@@ -29,9 +30,11 @@ Version 2.0.0
 
 - Added type annotations for public API methods.
 
-- New examples: code for exploring subset of the Unicode database, showing
-  several interesting symbol groups; joining 3 tables to create a table
-  showing the casts of the 3 studio productions of Dune.
+- New examples:
+  - explore_unicode.py - code for exploring subset of the Unicode database,
+    showing several interesting symbol groups
+  - dune_casts.py - joining 3 tables to create a table showing the casts of
+    the 3 studio productions of Dune
 
 - Nicer present() output - auto-center columns where all values
   are single characters (centers "X", "Y", "N", etc. values).
