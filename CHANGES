@@ -3,6 +3,11 @@ Change History
 
 Version 2.0.1
 -------------
+- Added unit tests to support using pydantic.BaseModel as Table contents.
+
+
+Version 2.0.1
+-------------
 - Fixed setup.py and setup.cfg to generate Py3-only wheel.
 
 

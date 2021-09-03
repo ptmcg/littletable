@@ -12,6 +12,7 @@ import sys
 import textwrap
 from types import SimpleNamespace
 import unittest
+from typing import Optional, Union
 
 import littletable as lt
 
@@ -26,6 +27,33 @@ else:
         a: int
         b: int
         c: int
+
+try:
+    import pydantic
+except ImportError:
+    pydantic = None
+else:
+    class DataPydanticModel(pydantic.BaseModel):
+        a: Optional[Union[int, str]]
+        b: Optional[Union[int, str]]
+        c: Optional[Union[int, str]]
+
+    class DataPydanticImmutableModel(pydantic.BaseModel):
+        class Config:
+            allow_mutation = False
+
+        a: Optional[Union[int, str]]
+        b: Optional[Union[int, str]]
+        c: Optional[Union[int, str]]
+
+    class DataPydanticORMModel(pydantic.BaseModel):
+        class Config:
+            orm_mode = True
+
+        a: Optional[Union[int, str]]
+        b: Optional[Union[int, str]]
+        c: Optional[Union[int, str]]
+
 
 DataTuple = namedtuple("DataTuple", "a b c")
 
@@ -49,7 +77,7 @@ class Slotted(object):
     def __eq__(self, other):
         return (isinstance(other, Slotted) and
                 all(getattr(self, attr) == getattr(other, attr) for attr in self.__slots__))
-    
+
     def __repr__(self):
         return "{}:(a={}, b={}, c={})".format(type(self).__name__, self.a, self.b, self.c)
 
@@ -91,11 +119,11 @@ class TestDataObjects(unittest.TestCase):
 
 class TestTableTypes(unittest.TestCase):
     def test_types(self):
-        
+
         # check that Table and Index are recognized as Sequence and Mapping types
         t = lt.Table()
         self.assertTrue(isinstance(t, lt.Sequence))
-        
+
         t.create_index("x")
         self.assertTrue(isinstance(t.get_index('x'), lt.Mapping))
 
@@ -134,6 +162,10 @@ def make_test_classes(cls):
     make_test_class(cls, UsingSimpleNamespace)
     if dataclasses is not None:
         make_test_class(cls, UsingDataclasses)
+    if pydantic is not None:
+        make_test_class(cls, UsingPydanticModel)
+        make_test_class(cls, UsingPydanticImmutableModel)
+        make_test_class(cls, UsingPydanticORMModel)
 
 
 class AbstractContentTypeFactory:
@@ -159,11 +191,28 @@ class UsingSlottedObjects(AbstractContentTypeFactory):
 class UsingSimpleNamespace(AbstractContentTypeFactory):
     data_object_type = SimpleNamespace
 
+
 if dataclasses is not None:
     class UsingDataclasses(AbstractContentTypeFactory):
         data_object_type = DataDataclass
 else:
     UsingDataclasses = AbstractContentTypeFactory
+
+
+if pydantic is not None:
+    class UsingPydanticModel(AbstractContentTypeFactory):
+        data_object_type = DataPydanticModel
+
+    class UsingPydanticImmutableModel(AbstractContentTypeFactory):
+        data_object_type = DataPydanticImmutableModel
+
+    class UsingPydanticORMModel(AbstractContentTypeFactory):
+        data_object_type = DataPydanticORMModel
+
+else:
+    UsingPydanticModel = AbstractContentTypeFactory
+    UsingPydanticImmutableModel = AbstractContentTypeFactory
+    UsingPydanticORMModel = AbstractContentTypeFactory
 
 
 def load_table(table, rec_factory_fn, table_size):
