@@ -3,7 +3,8 @@ Change History
 
 Version 2.0.1
 -------------
-- Released to distribute Py3-only wheel.
+- Fixed setup.py and setup.cfg to generate Py3-only wheel.
+
 
 Version 2.0.0
 -------------
