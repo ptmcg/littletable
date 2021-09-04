@@ -133,7 +133,7 @@ from itertools import starmap, repeat, takewhile, chain, product, tee, groupby
 from pathlib import Path
 from types import SimpleNamespace
 import urllib.request
-from typing import Tuple, NoReturn, List, Callable, Any, TextIO, Dict, Union, Optional, Iterable
+from typing import Tuple, List, Callable, Any, TextIO, Dict, Union, Optional, Iterable
 
 try:
     import rich
@@ -2646,7 +2646,7 @@ class Table:
 
     def present(
         self, fields: Iterable[str] = None, file: TextIO = None, **kwargs
-    ) -> NoReturn:
+    ) -> None:
         """
         Print a nicely-formatted table of the records in the Table, using the `rich`
         Python module. If the Table has a title, then that will be displayed as the
