@@ -133,7 +133,7 @@ from itertools import starmap, repeat, takewhile, chain, product, tee, groupby
 from pathlib import Path
 from types import SimpleNamespace
 import urllib.request
-from typing import Tuple, NoReturn, List, Callable, Any, TextIO, Dict, Union
+from typing import Tuple, NoReturn, List, Callable, Any, TextIO, Dict, Union, Optional, Iterable
 
 try:
     import rich
@@ -163,6 +163,7 @@ else:
 
 default_row_class = SimpleNamespace
 _numeric_type = (int, float)
+PredicateFunction = Callable[[Any], bool]
 
 __all__ = ["DataObject", "Table", "FixedWidthReader"]
 
@@ -508,7 +509,17 @@ class _IndexAccessor:
         raise AttributeError(f"Table {self._table.table_name!r} has no index {attr!r}")
 
 
-class _multi_iterator:
+class _MultiIterator:
+    """
+    Internal wrapper class to put a consistent iterator and
+    closeable interface on any of the types that might be used
+    as import sources:
+    - a str containing raw xSV data (denoted by a containing \n)
+    - a str URL (denoted by a leading "http")
+    - a str file name (containing the data, or a compressed
+      file containing data)
+    - any iterable
+    """
     def __init__(self, seqobj, encoding="utf-8"):
         def _decoder(seq):
             for line in seq:
@@ -550,6 +561,12 @@ class _multi_iterator:
             self._iterobj.close()
 
 
+FixedWidthParseSpec = Union[
+    Tuple[str, int],
+    Tuple[str, int, Optional[int]],
+    Tuple[str, int, Optional[int], Optional[Callable[[str], Any]]],
+]
+
 class FixedWidthReader:
     """
     Helper class to read fixed-width data and yield a sequence of dicts
@@ -569,12 +586,15 @@ class FixedWidthReader:
     - src_file: a string filename or a file-like object containing the
         fixed-width data to be loaded
     """
-
-    def __init__(self, slice_spec, src_file, encoding="utf-8"):
-        def parse_spec(spec):
+    def __init__(self,
+                 slice_spec: List[FixedWidthParseSpec],
+                 src_file: Union[str, Iterable, TextIO],
+                 encoding: str = "utf-8"):
+        def parse_spec(spec: List[FixedWidthParseSpec]
+                       ) -> List[Tuple[str, slice, Callable[[str], Any]]]:
             ret = []
-            for cur, next_ in zip(spec, spec[1:] + [("", None, None, None)]):
-                label, col, endcol, fn = (cur + (None,) * 2)[:4]
+            for cur, next_ in zip(spec, spec[1:] + [("", sys.maxsize)]):
+                label, col, endcol, fn = (cur + (None, None,))[:4]
                 if label is None:
                     continue
                 if endcol is None:
@@ -589,7 +609,7 @@ class FixedWidthReader:
         self._encoding = encoding
 
     def __iter__(self):
-        with closing(_multi_iterator(self._src_file, self._encoding)) as _srciter:
+        with closing(_MultiIterator(self._src_file, self._encoding)) as _srciter:
             for line in _srciter:
                 if not line.strip():
                     continue
@@ -732,10 +752,10 @@ class Table:
         @type table_name: string (optional)
         """
         self(table_name)
-        self.obs = []
-        self._indexes = {}
-        self._uniqueIndexes = []
-        self._search_indexes = {}
+        self.obs: List = []
+        self._indexes: Dict[str, Any] = {}
+        self._uniqueIndexes: Dict[str, Any] = []
+        self._search_indexes: Dict[str, Dict[str, List]] = {}
 
         """
         C{'by'} is added as a pseudo-attribute on tables, to provide
@@ -976,27 +996,30 @@ class Table:
             ]
         return self
 
-    def get_index(self, attr):
+    def get_index(self, attr: str):
         return _ReadonlyObjIndexWrapper(self._indexes[attr], self.copy_template())
 
-    def _normalize_word(self, s):
+    @staticmethod
+    def _normalize_word(s):
         match_res = [
-            r"((?:\w\.)+)",
-            r"[^\w_-]?((?:\w|[-_]\w)+)",
+            # an acronym of 2 or more "X." sequences, such as G.E. or I.B.M.
+            re.compile(r"((?:\w\.){2,})"),
+            # words that may be hyphenated or snake-case
+            # (strip off any leading single non-word character)
+            re.compile(r"[^\w_-]?((?:\w|[-_]\w)+)"),
         ]
         for match_re in match_res:
-            match = re.match(match_re, s)
+            match = match_re.match(s)
             if match:
                 ret = match.group(1).lower().replace(".", "")
                 return ret
-        else:
-            return ""
+        return ""
 
     def _normalize_split(self, s):
         return [self._normalize_word(wd) for wd in s.split()]
 
     def create_search_index(
-        self, attrname: str, stopwords: List[str] = None, force: bool = False
+        self, attrname: str, stopwords: Optional[Iterable[str]] = None, force: bool = False
     ) -> "Table":
         """
         Create a text search index for the given attribute.
@@ -1163,7 +1186,7 @@ class Table:
         """
         self._search_indexes.pop(attrname, None)
 
-    def insert(self, obj) -> "Table":
+    def insert(self, obj: Any) -> "Table":
         """
         Insert a new object into this Table.
         @param obj: any Python object -
@@ -1181,7 +1204,7 @@ class Table:
         """
         return self.insert_many([obj])
 
-    def insert_many(self, it) -> "Table":
+    def insert_many(self, it: Iterable) -> "Table":
         """Inserts a collection of objects into the table."""
         unique_indexes = self._uniqueIndexes
         NO_SUCH_ATTR = object()
@@ -1249,13 +1272,13 @@ class Table:
         self._contents_changed()
         return self
 
-    def remove(self, ob) -> "Table":
+    def remove(self, ob: Any) -> "Table":
         """
         Removes an object from the table. If object is not in the table, then
         no action is taken and no exception is raised."""
         return self.remove_many([ob])
 
-    def remove_many(self, it) -> "Table":
+    def remove_many(self, it: Iterable) -> "Table":
         """Removes a collection of objects from the table."""
 
         # if table is empty, there is nothing to remove
@@ -1321,7 +1344,7 @@ class Table:
         else:
             return 1e9
 
-    def where(self, wherefn: Callable[[Any], bool] = None, **kwargs) -> "Table":
+    def where(self, wherefn: PredicateFunction = None, **kwargs) -> "Table":
         """
         Retrieves matching objects from the table, based on given
         named parameters.  If multiple named parameters are given, then
@@ -1406,7 +1429,7 @@ class Table:
         self._contents_changed()
         return self
 
-    def sort(self, key, reverse: bool = False) -> "Table":
+    def sort(self, key: Union[str, Iterable[str], Callable[[Any], Any]], reverse: bool = False) -> "Table":
         """
         Sort Table in place, using given fields as sort key.
         @param key: if this is a string, it is a comma-separated list of field names,
@@ -1451,7 +1474,7 @@ class Table:
         self._contents_changed()
         return self
 
-    def select(self, fields: Union[List[str], str] = None, **exprs) -> "Table":
+    def select(self, fields: Union[Iterable[str], str] = None, **exprs) -> "Table":
         """
         Create a new table containing a subset of attributes, with optionally
         newly-added fields computed from each rec in the original table.
@@ -1544,7 +1567,7 @@ class Table:
     def join(
         self,
         other,
-        attrlist: List[str] = None,
+        attrlist: Union[str, Iterable[str]] = None,
         auto_create_indexes: bool = True,
         **kwargs,
     ):
@@ -1696,7 +1719,7 @@ class Table:
         self,
         join_type,
         other: "Table",
-        attrlist: Union[List[str], str] = None,
+        attrlist: Union[Iterable[str], str] = None,
         auto_create_indexes: bool = True,
         **kwargs,
     ):
@@ -1728,7 +1751,7 @@ class Table:
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
         @returns: a new Table containing the joined data as new DataObjects
         """
-        if join_type not in (Table.OUTER_JOIN_TYPES):
+        if join_type not in Table.OUTER_JOIN_TYPES:
             join_names = [
                 nm
                 for nm, join_var in vars(Table).items()
@@ -1906,7 +1929,7 @@ class Table:
             raise ValueError("can only join on indexed attributes")
         return _JoinTerm(self, attr, join)
 
-    def pivot(self, attrlist: Union[List[str], str]) -> "_PivotTable":
+    def pivot(self, attrlist: Union[Iterable[str], str]) -> "_PivotTable":
         """
         Pivots the data using the given attributes, returning a L{PivotTable}.
         @param attrlist: list of attributes to be used to construct the pivot table
@@ -1933,7 +1956,7 @@ class Table:
         if row_class is None:
             row_class = default_row_class
 
-        with closing(_multi_iterator(source, encoding)) as _srciter:
+        with closing(_MultiIterator(source, encoding)) as _srciter:
             csvdata = reader(_srciter)
 
             if transforms:
@@ -2004,7 +2027,7 @@ class Table:
 
     def csv_import(
         self,
-        csv_source: Union[str, TextIO],
+        csv_source: Union[str, Iterable[str], TextIO],
         encoding: str = "utf-8",
         transforms: Dict = None,
         filters: Dict = None,
@@ -2141,7 +2164,7 @@ class Table:
     def csv_export(
         self,
         csv_dest: Union[str, TextIO],
-        fieldnames: List[str] = None,
+        fieldnames: Iterable[str] = None,
         encoding: str = "utf-8",
         delimiter: str = ",",
         **kwargs,
@@ -2211,7 +2234,7 @@ class Table:
     def tsv_export(
         self,
         tsv_dest: Union[str, TextIO],
-        fieldnames: List[str] = None,
+        fieldnames: Iterable[str] = None,
         encoding: str = "UTF-8",
         **kwargs,
     ):
@@ -2224,7 +2247,7 @@ class Table:
 
     def json_import(
         self,
-        source: Union[str, TextIO],
+        source: Union[str, Iterable[str], TextIO],
         encoding: str = "UTF-8",
         transforms: Dict = None,
         row_class: type = None,
@@ -2275,7 +2298,7 @@ class Table:
     def json_export(
         self,
         dest: Union[str, TextIO],
-        fieldnames: Union[List[str], str] = None,
+        fieldnames: Union[Iterable[str], str] = None,
         encoding: str = "UTF-8",
     ):
         """
@@ -2382,7 +2405,7 @@ class Table:
             tbl.insert(group_obj)
         return tbl
 
-    def splitby(self, pred: Callable[[Any], bool]) -> Tuple["Table", "Table"]:
+    def splitby(self, pred: Union[str, PredicateFunction]) -> Tuple["Table", "Table"]:
         """
         Takes a predicate function (takes a table record and returns True or False)
         and returns two tables: a table with all the rows that returned False and
@@ -2528,7 +2551,7 @@ class Table:
                             for stat_name, stat_fn in stats)
         return ret
 
-    def _parse_fields_string(self, field_names):
+    def _parse_fields_string(self, field_names: Union[str, Iterable[str]]) -> List[str]:
         """
         Convert raw string or list of names to actual column names:
         - names starting with '-' indicate to suppress that field
@@ -2622,7 +2645,7 @@ class Table:
         return rt
 
     def present(
-        self, fields: List[str] = None, file: TextIO = None, **kwargs
+        self, fields: Iterable[str] = None, file: TextIO = None, **kwargs
     ) -> NoReturn:
         """
         Print a nicely-formatted table of the records in the Table, using the `rich`
@@ -2649,7 +2672,7 @@ class Table:
         print()
         console.print(table)
 
-    def as_html(self, fields="*", formats: Dict = None) -> str:
+    def as_html(self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None) -> str:
         """
         Output the table as a rudimentary HTML table.
         @param fields: fields in the table to be shown in the table
@@ -2692,7 +2715,7 @@ class Table:
         )
         return ret
 
-    def as_markdown(self, fields="*", formats: Dict = None) -> str:
+    def as_markdown(self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None) -> str:
         """
         Output the table as a Markdown table.
         @param fields: fields in the table to be shown in the table

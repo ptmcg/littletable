@@ -169,7 +169,7 @@ def make_test_classes(cls):
 
 
 class AbstractContentTypeFactory:
-    data_object_type = None
+    data_object_type: Optional[type] = None
 
     @classmethod
     def make_data_object(cls, a, b, c):
@@ -606,7 +606,7 @@ class TableListTests:
         self._test_init()
         self.t1.create_index("a")
         self.t1.create_index("c")
-        self.assertEqual(set(["a", "c"]), set(self.t1._indexes.keys()), "failed to create indexes")
+        self.assertEqual({"a", "c"}, set(self.t1._indexes.keys()), "failed to create indexes")
 
         self.assertEqual(set(self.t1._indexes.keys()),
                          set(self.t1.head()._indexes.keys()),
