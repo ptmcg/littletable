@@ -129,7 +129,7 @@ from collections import defaultdict, namedtuple, Counter
 from collections.abc import Mapping, Sequence
 from contextlib import closing
 from functools import partial
-from itertools import starmap, repeat, takewhile, chain, product, tee, groupby
+from itertools import repeat, takewhile, chain, product, tee, groupby
 from pathlib import Path
 from types import SimpleNamespace
 import urllib.request
@@ -509,6 +509,9 @@ class _IndexAccessor:
         raise AttributeError(f"Table {self._table.table_name!r} has no index {attr!r}")
 
 
+_ImportExportDataContainer = Union[str, Path, Iterable[str], TextIO]
+
+
 class _MultiIterator:
     """
     Internal wrapper class to put a consistent iterator and
@@ -518,12 +521,17 @@ class _MultiIterator:
     - a str URL (denoted by a leading "http")
     - a str file name (containing the data, or a compressed
       file containing data)
+    - a path to a file
     - any iterable
     """
-    def __init__(self, seqobj, encoding="utf-8"):
+
+    def __init__(self, seqobj: _ImportExportDataContainer, encoding: str = "utf-8"):
         def _decoder(seq):
             for line in seq:
                 yield line.decode(encoding)
+
+        if isinstance(seqobj, Path):
+            seqobj = str(seqobj)
 
         if isinstance(seqobj, str):
             if "\n" in seqobj:
@@ -567,6 +575,7 @@ FixedWidthParseSpec = Union[
     Tuple[str, int, Optional[int], Optional[Callable[[str], Any]]],
 ]
 
+
 class FixedWidthReader:
     """
     Helper class to read fixed-width data and yield a sequence of dicts
@@ -586,12 +595,16 @@ class FixedWidthReader:
     - src_file: a string filename or a file-like object containing the
         fixed-width data to be loaded
     """
-    def __init__(self,
-                 slice_spec: List[FixedWidthParseSpec],
-                 src_file: Union[str, Iterable, TextIO],
-                 encoding: str = "utf-8"):
-        def parse_spec(spec: List[FixedWidthParseSpec]
-                       ) -> List[Tuple[str, slice, Callable[[str], Any]]]:
+
+    def __init__(
+        self,
+        slice_spec: List[FixedWidthParseSpec],
+        src_file: Union[str, Iterable, TextIO],
+        encoding: str = "utf-8",
+    ):
+        def parse_spec(
+            spec: List[FixedWidthParseSpec],
+        ) -> List[Tuple[str, slice, Callable[[str], Any]]]:
             ret = []
             for cur, next_ in zip(spec, spec[1:] + [("", sys.maxsize)]):
                 label, col, endcol, fn = (cur + (None, None,))[:4]
@@ -754,7 +767,7 @@ class Table:
         self(table_name)
         self.obs: List = []
         self._indexes: Dict[str, Any] = {}
-        self._uniqueIndexes: Dict[str, Any] = []
+        self._uniqueIndexes: List[Any] = []
         self._search_indexes: Dict[str, Dict[str, List]] = {}
 
         """
@@ -1019,7 +1032,10 @@ class Table:
         return [self._normalize_word(wd) for wd in s.split()]
 
     def create_search_index(
-        self, attrname: str, stopwords: Optional[Iterable[str]] = None, force: bool = False
+        self,
+        attrname: str,
+        stopwords: Optional[Iterable[str]] = None,
+        force: bool = False,
     ) -> "Table":
         """
         Create a text search index for the given attribute.
@@ -1429,7 +1445,11 @@ class Table:
         self._contents_changed()
         return self
 
-    def sort(self, key: Union[str, Iterable[str], Callable[[Any], Any]], reverse: bool = False) -> "Table":
+    def sort(
+        self,
+        key: Union[str, Iterable[str], Callable[[Any], Any]],
+        reverse: bool = False,
+    ) -> "Table":
         """
         Sort Table in place, using given fields as sort key.
         @param key: if this is a string, it is a comma-separated list of field names,
@@ -1944,13 +1964,13 @@ class Table:
 
     def _import(
         self,
-        source,
-        encoding="utf-8",
-        transforms=None,
-        filters=None,
+        source: _ImportExportDataContainer,
+        encoding: str = "utf-8",
+        transforms: Optional[dict] = None,
+        filters: Optional[dict] = None,
         reader=csv.DictReader,
-        row_class=None,
-        limit=None,
+        row_class: type = None,
+        limit: int = None,
     ):
 
         if row_class is None:
@@ -2027,7 +2047,7 @@ class Table:
 
     def csv_import(
         self,
-        csv_source: Union[str, Iterable[str], TextIO],
+        csv_source: _ImportExportDataContainer,
         encoding: str = "utf-8",
         transforms: Dict = None,
         filters: Dict = None,
@@ -2090,7 +2110,7 @@ class Table:
 
     def _xsv_import(
         self,
-        xsv_source: Union[str, TextIO],
+        xsv_source: _ImportExportDataContainer,
         encoding: str = "utf-8",
         transforms: Dict = None,
         filters: Dict = None,
@@ -2124,7 +2144,7 @@ class Table:
 
     def tsv_import(
         self,
-        xsv_source: Union[str, TextIO],
+        xsv_source: _ImportExportDataContainer,
         encoding: str = "utf-8",
         transforms: Dict = None,
         filters: Dict = None,
@@ -2163,7 +2183,7 @@ class Table:
 
     def csv_export(
         self,
-        csv_dest: Union[str, TextIO],
+        csv_dest: _ImportExportDataContainer,
         fieldnames: Iterable[str] = None,
         encoding: str = "utf-8",
         delimiter: str = ",",
@@ -2197,6 +2217,9 @@ class Table:
             ]
         )
         close_on_exit = False
+
+        if isinstance(csv_dest, Path):
+            csv_dest = str(csv_dest)
         if isinstance(csv_dest, str):
             csv_dest = open(csv_dest, "w", newline="", encoding=encoding)
             close_on_exit = True
@@ -2218,22 +2241,16 @@ class Table:
             if self.obs and hasattr(self.obs[0], "__dict__"):
                 csvout.writerows(o.__dict__ for o in self.obs)
             else:
+                attr_fetch = operator.attrgetter(*fieldnames)
                 for o in self.obs:
-                    csvout.writerow(
-                        ODict(
-                            starmap(
-                                lambda obj, fld: (fld, getattr(obj, fld)),
-                                zip(repeat(o), fieldnames),
-                            )
-                        )
-                    )
+                    csvout.writerow(ODict(zip(fieldnames, attr_fetch(o))))
         finally:
             if close_on_exit:
                 csv_dest.close()
 
     def tsv_export(
         self,
-        tsv_dest: Union[str, TextIO],
+        tsv_dest: _ImportExportDataContainer,
         fieldnames: Iterable[str] = None,
         encoding: str = "UTF-8",
         **kwargs,
@@ -2247,7 +2264,7 @@ class Table:
 
     def json_import(
         self,
-        source: Union[str, Iterable[str], TextIO],
+        source: _ImportExportDataContainer,
         encoding: str = "UTF-8",
         transforms: Dict = None,
         row_class: type = None,
@@ -2297,7 +2314,7 @@ class Table:
 
     def json_export(
         self,
-        dest: Union[str, TextIO],
+        dest: _ImportExportDataContainer,
         fieldnames: Union[Iterable[str], str] = None,
         encoding: str = "UTF-8",
     ):
@@ -2315,6 +2332,9 @@ class Table:
         @type encoding: string
         """
         close_on_exit = False
+
+        if isinstance(dest, Path):
+            dest = str(Path)
         if isinstance(dest, str):
             dest = open(dest, "w", encoding=encoding)
             close_on_exit = True
@@ -2672,7 +2692,9 @@ class Table:
         print()
         console.print(table)
 
-    def as_html(self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None) -> str:
+    def as_html(
+        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None
+    ) -> str:
         """
         Output the table as a rudimentary HTML table.
         @param fields: fields in the table to be shown in the table
@@ -2715,7 +2737,9 @@ class Table:
         )
         return ret
 
-    def as_markdown(self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None) -> str:
+    def as_markdown(
+        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None
+    ) -> str:
         """
         Output the table as a Markdown table.
         @param fields: fields in the table to be shown in the table
