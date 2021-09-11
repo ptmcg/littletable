@@ -2627,12 +2627,15 @@ class Table:
                 if isinstance(next_v, _numeric_type):
                     field_spec["justify"] = "right"
                 else:
-                    if all(
-                        len(str(v)) <= 1
-                        for v in getattr(self.all, name).unique
-                        if v is not None
-                    ):
-                        field_spec["justify"] = "center"
+                    try:
+                        if all(
+                            len(str(v)) <= 1
+                            for v in getattr(self.all, name).unique
+                            if v is not None
+                        ):
+                            field_spec["justify"] = "center"
+                    except TypeError:
+                        pass
             else:
                 # use field settings form caller
                 name, field_spec = field_spec
