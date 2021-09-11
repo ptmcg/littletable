@@ -1,15 +1,18 @@
 Change History
 ==============
 
+Version 2.0.3
+-------------
+- Fixed bug introduced when adding support for auto-centering, if data
+  is not numeric or str but has no __len__ method.
+
+
 Version 2.0.2
 -------------
 - Added unit tests to support using pydantic.BaseModel as Table contents.
 
 - All xxx_import and _export methods will now accept a pathlib.Path to
   reference the source or destination file.
-
-- Fixed bug introduced when adding support for auto-centering, if data
-  is not numeric or str but has no __len__ method.
 
 - Fixed internally-reported version number (2.0.1 erroneously reported
   its version as 2.0.0).
