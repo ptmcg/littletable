@@ -2628,8 +2628,8 @@ class Table:
                     field_spec["justify"] = "right"
                 else:
                     if all(
-                        len(v) in (0, 1)
-                        for v in getattr(self.all, name)
+                        len(str(v)) <= 1
+                        for v in getattr(self.all, name).unique
                         if v is not None
                     ):
                         field_spec["justify"] = "center"
