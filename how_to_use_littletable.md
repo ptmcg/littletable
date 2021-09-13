@@ -12,6 +12,7 @@ How to Use littletable
   * [Querying with indexed attributes](#querying-with-indexed-attributes)
   * [Querying for exact matching attribute values](#querying-for-exact-matching-attribute-values)
   * [Querying for attribute value ranges](#querying-for-attribute-value-ranges)
+  * [Splitting a table using a criteria function](#splitting-a-table-using-a-criteria-function)
   * [Full-text search on text attributes](#full-text-search-on-text-attributes)
   * [Simple statistics on Tables of numeric values](#simple-statistics-on-tables-of-numeric-values)
   * [Importing data from fixed-width text files](#importing-data-from-fixed-width-text-files)
@@ -333,6 +334,27 @@ write:
     warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
 
 Comparators can also be used as filter functions for import methods.
+
+
+Splitting a table using a criteria function
+-------------------------------------------
+You can divide a `littletable.Table` into 2 new tables using
+`Table.splitby`.  `Table.splitby` takes a predicate function that takes 
+a table record and returns True or False, and returns two tables:
+a table with all the rows that returned False and a table with all the 
+rows that returned True. Will also accept a string indicating a particular
+field name, and uses `bool(getattr(rec, field_name))` for the predicate
+function.
+
+    # split on records based on even/odd of a value attribute
+    is_odd = lambda x: bool(x % 2)
+    evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
+
+    # split on an integer field: 0 will be treated as False, >0 as True
+    has_no_cars, has_cars = tbl.splitby("number_of_cars_owned")
+
+    # split on a field that may be None or ""
+    nulls, not_nulls = tbl.splitby("optional_data_field")
 
 
 Full-text search on text attributes
