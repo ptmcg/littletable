@@ -6,7 +6,7 @@ How to Use littletable
   * [Inserting objects](#inserting-objects)
   * [Importing data from CSV files](#importing-data-from-csv-files)
   * [Tabular output](#tabular-output)
-  * [DataObjects](#dataobjects)
+  * [types.SimpleNamespace](#typessimplenamespace)
   * [Removing objects](#removing-objects)
   * [Indexing attributes](#indexing-attributes)
   * [Querying with indexed attributes](#querying-with-indexed-attributes)
@@ -86,8 +86,8 @@ Performance tip: Calling `insert_many()` with a list of objects will perform bet
 `insert()` in a loop.
 
 `littletable` supports records that are user-defined types (including those defined
-using `__slots__`), `namedtuple`s, `SimpleNamespace`s. Python `dict`s can also be used;
-they will be stored as `SimpleNamespace`s so that the `dict` fields
+using `__slots__`), `dataclasses`, `namedtuple`s, and `SimpleNamespace`s. Python `dict`s can 
+also be used; they will be stored as `SimpleNamespace`s so that the `dict` fields
 will be accessible as object attributes.
 
 
@@ -130,14 +130,15 @@ added to the table.
                        filters={"product_category": Table.eq("Home and Garden")},
                        limit=100)
 
-Since CSV files do not keep any type information, `littletable` will use its 
-own `DataObject` type for imported records. You can specify your own type by 
+Since CSV files do not keep any type information, `littletable` will use the
+`SimpleNamespace` type for imported records. You can specify your own type by 
 passing `row_class=MyType` to `csv_import`. The type must be initializable
 using the form `MyType(**attributes_dict)`. `namedtuples` and `SimpleNamespace`
 both support this form.
 
 Performance tip: For very large files, it is faster to load data using
-a `namedtuple` than to use the default `DataObject` class. Get the fields using
+a `dataclass` or `namedtuple` than to use the default `SimpleNamespace` class.
+Get the fields using
 a 10-item import using `limit=10`, and then define the `namedtuple` using the 
 fields from `table.info()["fields"]`.
 
@@ -189,23 +190,23 @@ the `rich` module, `as_html()` in Jupyter Notebook, or the `tabulate` module:
       print(table.as_markdown())
 
 
-DataObjects
------------
-_(DataObjects are a legacy type from Python 2.6 - Python 3 and later will
-use SimpleNamespace objects by default. The DataObject class will be deprecated
-in a future release.)_
-If your program does not have a type for inserting into your table, or if your
-records are Python `dict`s, you can use the `littletable` type `DataObject`:
-
-    t.insert(DataObject(name="Alice", age=20))
-    bob = {"name": "Bob", "age": 19}
-    t.insert(DataObject(**bob))
-
-or if using a Python >= 3.3, you can use `types.SimpleNamespace`:
+types.SimpleNamespace
+---------------------
+If your program does not have a type for inserting into your table, you can use 
+`types.SimpleNamespace`:
 
     from types import SimpleNamespace
     bob = {"name": "Bob", "age": 19}
     t.insert(SimpleNamespace(**bob))
+
+Or just use `dict`s directly (which `littletable` will convert to `SimpleNamespace`s)
+
+    bob = {"name": "Bob", "age": 19}
+    t.insert(bob)
+
+_(`DataObjects` are a legacy type from Python 2.6 - Python 3, before the availability of
+`types.SimpleNamespace`. The `DataObject` class will be deprecated
+in a future release.)_
 
 
 Removing objects
@@ -271,10 +272,17 @@ all records matching all the arguments:
 
     employees.where(zipcode="12345", title="Manager")    
     student.where(**{"class":"Algebra"})
-    
+
+It is not necessary for the attributes to be indexed to use `Table.where()`.
+
 
 Querying for attribute value ranges
 -----------------------------------
+`Table.where()` supports performing queries on one or more exact
+matches against entries in the table:
+
+    employees.where(dept="Engineering")
+
 `Table.where()` will also accept a callable that takes a record and
 returns a bool to indicate if the record is a match:
 
@@ -283,25 +291,25 @@ returns a bool to indicate if the record is a match:
 `littletable` also includes comparators to make range-checking easier to
 write:
 
-    # Comparators are:
-    # - Table.lt             attr=Table.lt(100)             attr < 100
-    # - Table.le             attr=Table.le(100)             attr <= 100
-    # - Table.gt             attr=Table.gt(100)             attr > 100
-    # - Table.ge             attr=Table.ge(100)             attr >= 100
-    # - Table.eq             attr=Table.eq(100)             attr == 100
-    # - Table.ne             attr=Table.ne(100)             attr != 100
-    # - Table.is_none        attr=Table.is_none())          attr is None
-    # - Table.is_not_none    attr=Table.is_not_none())      attr is not None
-    # - Table.is_null        attr=Table.is_null())          attr is None, "", or not defined
-    # - Table.is_not_null    attr=Table.is_not_null())      attr is not None or ""
-    # - Table.startswith     attr=Table.startswith("ABC")   attr.startswith("ABC")
-    # - Table.endswith       attr=Table.endswith("XYZ")     attr.endswith("XYZ")
-    # - Table.re_match       attr=Table.re_match(r".*%.*")  re.match(r".*%.*", attr)             
-    # - Table.between        attr=Table.between(100, 200)   100 < attr < 200
-    # - Table.within         attr=Table.within(100, 200)    100 <= attr <= 200
-    # - Table.in_range       attr=Table.in_range(100, 200)  100 <= attr < 200
-    # - Table.is_in          attr=Table.is_in((1, 2, 3))    attr in (1,2,3)
-    # - Table.not_in         attr=Table.not_in((1, 2, 3))   attr not in (1,2,3)
+    Comparators are:
+    - Table.lt             attr=Table.lt(100)             attr < 100
+    - Table.le             attr=Table.le(100)             attr <= 100
+    - Table.gt             attr=Table.gt(100)             attr > 100
+    - Table.ge             attr=Table.ge(100)             attr >= 100
+    - Table.eq             attr=Table.eq(100)             attr == 100
+    - Table.ne             attr=Table.ne(100)             attr != 100
+    - Table.is_none        attr=Table.is_none())          attr is None
+    - Table.is_not_none    attr=Table.is_not_none())      attr is not None
+    - Table.is_null        attr=Table.is_null())          attr is None, "", or not defined
+    - Table.is_not_null    attr=Table.is_not_null())      attr is not None or ""
+    - Table.startswith     attr=Table.startswith("ABC")   attr.startswith("ABC")
+    - Table.endswith       attr=Table.endswith("XYZ")     attr.endswith("XYZ")
+    - Table.re_match       attr=Table.re_match(r".*%.*")  re.match(r".*%.*", attr)
+    - Table.between        attr=Table.between(100, 200)   100 < attr < 200
+    - Table.within         attr=Table.within(100, 200)    100 <= attr <= 200
+    - Table.in_range       attr=Table.in_range(100, 200)  100 <= attr < 200
+    - Table.is_in          attr=Table.is_in((1, 2, 3))    attr in (1,2,3)
+    - Table.not_in         attr=Table.not_in((1, 2, 3))   attr not in (1,2,3)
 
     employees.where(salary=Table.gt(50000))
     employees.where(dept=Table.is_in(["Sales", "Marketing"]))
@@ -637,19 +645,26 @@ Some simple littletable recipes
 
 - Histogram of values of a particular attribute:
 
-      (returns a table)
+      # returns a table
       table.pivot(attribute).summary_counts()
 
   or
   
-      (prints the values to stdout in tabular form)
+      # prints the values to stdout in tabular form
       table.pivot(attribute).dump_counts()
 
 
 - Get a list of all key values for an indexed attribute:
 
       customers.by.zipcode.keys()
-      list(customers.all.zipcode.unique)
+
+
+- Get a list of all values for any attribute:
+
+      list(customers.all.first_name)
+
+      # or get just the unique values
+      list(customers.all.first_name.unique)
 
 
 - Get a count of entries for each key value:
@@ -660,12 +675,15 @@ Some simple littletable recipes
 - Sort table by attribute x
 
       employees.sort("salary")
+
+      # sort in descending order
+      employees.sort("salary desc")
     
 
 - Sorted table by primary attribute x, secondary attribute y
 
       sales_employees = employees.where(dept="Sales").sort("salary,commission")
-      
+
   or
 
       employees.create_index("dept")

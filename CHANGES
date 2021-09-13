@@ -6,6 +6,9 @@ Version 2.0.3
 - Fixed bug introduced when adding support for auto-centering, if data
   is not numeric or str but has no __len__ method.
 
+- Cleaned up how_to_use_littletable.md docs to reflect recent changes and
+  new features.
+
 
 Version 2.0.2
 -------------
