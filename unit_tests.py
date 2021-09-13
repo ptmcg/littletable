@@ -1039,6 +1039,24 @@ class TableTransformTests:
 
         self.assertEqual(t1_tuples, t2_tuples, "failed mixed ascending/descending multi-attribute sort")
 
+    def test_sort3(self):
+        employees = lt.Table().csv_import(textwrap.dedent("""\
+            emp_id,name,dept,salary,commission
+            0001,Alice,Sales,50000,0.5
+            0002,Bob,Engineering,100000,
+            0003,Charles,Sales,45000,0.7
+            0004,Dave,Sales,45000,0.6
+            0005,Emily,Sales,50000,0.4
+            """), transforms={"salary": int, "commission": float})
+
+        sales_employees = employees.where(dept="Sales").sort("salary desc,commission")
+
+        sales_employees.present()
+        print(list(sales_employees.all.emp_id))
+
+        self.assertEqual(['0005', '0001', '0004', '0003'],
+                         list(sales_employees.all.emp_id))
+
     def test_unique(self):
         test_size = 10
         t1 = make_test_table(self.make_data_object, test_size)
