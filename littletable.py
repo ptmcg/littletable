@@ -143,14 +143,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 0, 3, "final", 0)
+__version_info__ = version_info(2, 0, 4, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.release_level[0], __version_info__.serial), "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "11 September 2021 17:18 UTC"
+__version_time__ = "16 September 2021 06:13 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2606,7 +2606,7 @@ class Table:
         field_names = [nm for nm in field_names if nm not in suppress_names]
         return field_names
 
-    def _rich_table(self, fields=None, empty="", **kwargs):
+    def _rich_table(self, fields=None, empty="", groupby=None, **kwargs):
         if rich is None:
             raise Exception("rich module not installed")
 
@@ -2662,13 +2662,26 @@ class Table:
             rt.add_column(header, **field_spec)
 
         # add row data from self to rich Table
-        for rec in self.formatted_table(*fields):
-            rt.add_row(*[getattr(rec, attr_name, empty) for attr_name in attr_names])
+        if groupby is None or groupby not in attr_names:
+            for rec in self.formatted_table(*fields):
+                rt.add_row(*[getattr(rec, attr_name, empty) for attr_name in attr_names])
+        else:
+            group_pos = attr_names.index(groupby)
+            prev = ""
+            for rec in self.formatted_table(*fields):
+                curr = getattr(rec, groupby, "")
+                if curr and curr != prev:
+                    prev = curr
+                    rt.add_row(*[getattr(rec, attr_name, empty) for attr_name in attr_names])
+                else:
+                    row_items = [getattr(rec, attr_name, empty) for attr_name in attr_names]
+                    row_items[group_pos] = ""
+                    rt.add_row(*row_items)
 
         return rt
 
     def present(
-        self, fields: Iterable[str] = None, file: TextIO = None, **kwargs
+        self, fields: Iterable[str] = None, file: TextIO = None, groupby = None, **kwargs
     ) -> None:
         """
         Print a nicely-formatted table of the records in the Table, using the `rich`
@@ -2677,6 +2690,8 @@ class Table:
 
         :param fields: list of field names to include in the tabular output
         :param file: (optional) output file for tabular output (defaults to sys.stdout)
+        :param groupby: (optional) field name for groups to be indicated by suppressing
+                        consecutive duplicate values in a column
         :param kwargs: (optional) additional keyword args to customize the `rich` output,
                        as might be passed to the `rich.Table` class
         :return: None
@@ -2691,12 +2706,12 @@ class Table:
         console = Console(file=file)
         table_kwargs = {"header_style": "bold yellow"}
         table_kwargs.update(kwargs)
-        table = self._rich_table(fields, empty="", **table_kwargs)
+        table = self._rich_table(fields, empty="", groupby=groupby, **table_kwargs)
         print()
         console.print(table)
 
     def as_html(
-        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None
+        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby = None
     ) -> str:
         """
         Output the table as a rudimentary HTML table.
@@ -2710,6 +2725,9 @@ class Table:
         @type formats: mapping of field names or types to either str formats as used by
                        the str.format method, or a callable that takes a value and returns
                        a str
+        @param groupby: optional field name for groups to be indicated by suppressing
+                        consecutive duplicate values in a column
+        @type groupby: str
         @return: string of generated HTML representing the selected table row attributes
         """
         fields = self._parse_fields_string(fields)
@@ -2717,31 +2735,52 @@ class Table:
             formats = {}
         field_format_map = {}
 
-        def row_to_tr(r):
+        def row_to_tr(r, suppress=None):
             ret_tr = ["<tr>"]
             for fld in fields:
-                v = getattr(r, fld, "")
-                align = "right" if isinstance(v, _numeric_type) else "left"
-                if fld not in field_format_map:
-                    field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
-                v_format = field_format_map[fld]
-                str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
+                if fld != suppress:
+                    v = getattr(r, fld, "")
+                    align = "right" if isinstance(v, _numeric_type) else "left"
+                    if fld not in field_format_map:
+                        field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
+                    v_format = field_format_map[fld]
+                    str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
+                else:
+                    str_v = ""
                 ret_tr.append(f'<td><div align="{align}">{str_v}</div></td>')
             ret_tr.append("</tr>\n")
             return "".join(ret_tr)
 
         headers = "".join(f'<th><div align="center">{fld}</div></th>' for fld in fields)
-        ret = (
-            "<table>\n<thead>\n"
-            f"<tr>{headers}</tr>\n"
-            "</thead>\n<tbody>"
-            f"{''.join(row_to_tr(row) for row in self)}"
-            "</tbody>\n</table>"
-        )
+        if groupby is None or groupby not in fields:
+            ret = (
+                "<table>\n<thead>\n"
+                f"<tr>{headers}</tr>\n"
+                "</thead>\n<tbody>"
+                f"{''.join(row_to_tr(row) for row in self)}"
+                "</tbody>\n</table>"
+            )
+        else:
+            prev = ""
+            rows = []
+            for row in self:
+                curr = getattr(row, groupby, "")
+                if curr and curr != prev:
+                    prev = curr
+                    rows.append(row_to_tr(row))
+                else:
+                    rows.append(row_to_tr(row, suppress=groupby))
+            ret = (
+                "<table>\n<thead>\n"
+                f"<tr>{headers}</tr>\n"
+                "</thead>\n<tbody>"
+                f"{''.join(rows)}"
+                "</tbody>\n</table>"
+            )
         return ret
 
     def as_markdown(
-        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None
+        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby = None,
     ) -> str:
         """
         Output the table as a Markdown table.
@@ -2755,6 +2794,9 @@ class Table:
         @type formats: mapping of field names or types to either str formats as used by
                        the str.format method, or a callable that takes a value and returns
                        a str
+        @param groupby: optional field name for groups to be indicated by suppressing
+                        consecutive duplicate values in a column
+        @type groupby: str
         @return: string of generated Markdown representing the selected table row attributes
         """
         fields = self._parse_fields_string(fields)
@@ -2782,23 +2824,43 @@ class Table:
                 align = "---:"
             field_align_map[f] = align
 
-        def row_to_tr(r):
+        def row_to_tr(r, suppress=None):
             ret_tr = ["|"]
             for fld in fields:
-                v = getattr(r, fld, "")
-                if fld not in field_format_map:
-                    field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
-                v_format = field_format_map[fld]
-                str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
+                if fld != suppress:
+                    v = getattr(r, fld, "")
+                    if fld not in field_format_map:
+                        field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
+                    v_format = field_format_map[fld]
+                    str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
+                else:
+                    str_v = ""
                 ret_tr.append(" {} |".format(str_v))
             ret_tr.append("\n")
             return "".join(ret_tr)
 
-        ret = (
-            f"| {' | '.join(fields)} |\n"
-            f"|{'|'.join(field_align_map[f] for f in fields)}|\n"
-            f"{''.join(map(row_to_tr, self))}"
-        )
+        if groupby is None or groupby not in fields:
+            ret = (
+                f"| {' | '.join(fields)} |\n"
+                f"|{'|'.join(field_align_map[f] for f in fields)}|\n"
+                f"{''.join(map(row_to_tr, self))}"
+            )
+        else:
+            prev = ""
+            rows = []
+            for row in self:
+                curr = getattr(row, groupby, "")
+                if curr and curr != prev:
+                    prev = curr
+                    rows.append(row_to_tr(row))
+                else:
+                    rows.append(row_to_tr(row, suppress=groupby))
+            ret = (
+                f"| {' | '.join(fields)} |\n"
+                f"|{'|'.join(field_align_map[f] for f in fields)}|\n"
+                f"{''.join(rows)}"
+            )
+
         return ret
 
 

@@ -1,6 +1,18 @@
 Change History
 ==============
 
+Version 2.0.4
+-------------
+- Added grouping support in Table.present(), Table.as_html() and
+  Table.as_markdown(). Pass `groupby` parameter to indicate grouping
+  field.
+
+    tbl.present(groupby="ColA")
+
+  will display the table with repeated consecutive values for ColA
+  suppressed.
+
+
 Version 2.0.3
 -------------
 - Fixed bug introduced when adding support for auto-centering, if data

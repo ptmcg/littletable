@@ -190,6 +190,10 @@ the `rich` module, `as_html()` in Jupyter Notebook, or the `tabulate` module:
 
       print(table.as_markdown())
 
+You can display groups in your tables by specifying a particular field on which to group.
+Pass the groupby argument to present(), as_html() or as_markdown() with the name of the
+field, and consecutive duplicate values for that field will be suppressed.
+
 
 types.SimpleNamespace
 ---------------------

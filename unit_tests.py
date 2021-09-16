@@ -1117,6 +1117,28 @@ class TableOutputTests:
             """)
         self.assertEqual(expected, out.getvalue())
 
+        # test groupby
+        table = lt.Table().csv_import(textwrap.dedent("""\
+            a,b,default
+            10,100,purple
+            15,150,purple
+            20,200,orange
+            """))
+        table.present()
+        table.present(box=box.ASCII, groupby="default")
+        out = StringIO()
+        table.present(file=out, box=box.ASCII, groupby="default")
+        expected = textwrap.dedent("""\
+            +--------------------+
+            | A  | B   | Default |
+            |----+-----+---------|
+            | 10 | 100 | purple  |
+            | 15 | 150 |         |
+            | 20 | 200 | orange  |
+            +--------------------+
+            """)
+        self.assertEqual(expected, out.getvalue())
+
     def test_markdown(self):
         table = lt.Table().csv_import(textwrap.dedent("""\
             a,b
@@ -1151,6 +1173,23 @@ class TableOutputTests:
             """)
         self.assertEqual(expected, out)
 
+        # test grouping in as_markdown
+        table = lt.Table().csv_import(textwrap.dedent("""\
+            a,b,default
+            10,100,purple
+            15,150,purple
+            20,200,orange
+            """))
+        out = table.as_markdown(groupby="default")
+        print(out)
+        expected = textwrap.dedent("""\
+            | a | b | default |
+            |---|---|---|
+            | 10 | 100 | purple |
+            | 15 | 150 |  |
+            | 20 | 200 | orange |
+            """)
+        self.assertEqual(expected, out)
 
 # sample import data sets
 csv_data = """\

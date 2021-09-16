@@ -172,6 +172,21 @@ def present_symbol_group(
     )
     return tbl
 
+def present_symbol_group_contains_word(
+    word_str: str, title: str, source_table: lt.Table = unicode
+) -> lt.Table:
+    """
+    Function to search for Unicode characters that match a starting string, and
+    presents a table showing name, character, and decimal code value
+    """
+    tbl = source_table.where(name=lt.Table.re_match(rf".*\b{word_str}\b"))(title)
+    tbl = tbl.select("name character code_value code_value_hex")
+    tbl.present(
+        caption="Total {} symbols".format(len(tbl)),
+        caption_justify="left",
+    )
+    return tbl
+
 
 # display the characters of the I Ching
 i_ching = present_symbol_group("HEXAGRAM FOR", "I Ching")
@@ -194,3 +209,11 @@ box_drawing = present_symbol_group(
 
 # clock faces
 clock_faces = present_symbol_group("CLOCK FACE", "Clock Faces")
+
+# die faces
+die_faces = present_symbol_group("DIE FACE", "Die Faces")
+
+# chess pieces
+chess_pieces = present_symbol_group_contains_word(r"^(WHITE|BLACK) CHESS \w+$", "Chess Pieces")
+
+faces = present_symbol_group_contains_word(r"FACE", "Faces")
