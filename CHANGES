@@ -7,10 +7,37 @@ Version 2.0.4
   Table.as_markdown(). Pass `groupby` parameter to indicate grouping
   field.
 
-    tbl.present(groupby="ColA")
+    tbl.present(groupby="ColumnA")
 
-  will display the table with repeated consecutive values for ColA
+  will display the table with repeated consecutive values for ColumnA
   suppressed.
+
+    tbl = lt.Table("Academy Awards").csv_import("""\
+    year,award,movie,recipient
+    1960,Best Picture,Ben-Hur,
+    1960,Best Actor,Ben-Hur,Charlton Heston
+    1960,Best Actress,The Heiress,Simone Signoret
+    1960,Best Director,Ben-Hur,William Wyler
+    ...
+    """)
+
+    tbl.present(groupby="year")
+
+                                    Academy Awards
+      Year   Award           Movie                   Recipient
+     ────────────────────────────────────────────────────────────────────────────
+      1960   Best Picture    Ben-Hur
+             Best Actor      Ben-Hur                 Charlton Heston
+             Best Actress    The Heiress             Simone Signoret
+             Best Director   Ben-Hur                 William Wyler
+      1961   Best Picture    The Apartment
+             Best Actor      Elmer Gantry            Burt Lancaster
+             Best Actress    Butterfield 8           Elizabeth Taylor
+             Best Director   The Apartment           Billy Wilder
+      1962   Best Picture    West Side Story
+             Best Actor      Judgment at Nuremberg   Maximilian Schell
+             Best Actress    Two Women               Sophia Loren
+             Best Director   West Side Story         Willian Wise/Jerome Robbins
 
 
 Version 2.0.3
