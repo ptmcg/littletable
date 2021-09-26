@@ -3236,6 +3236,22 @@ class _JoinTerm:
         return self().join_on(col)
 
 
+# Mixin classes for structure types that don't implement __eq__ sufficiently
+try:
+    from traits import HasTraits
+except ImportError:
+    try:
+        from traitlets import HasTraits
+    except ImportError:
+        HasTraits = None
+
+if HasTraits is not None:
+    class HasTraitsMixin(HasTraits):
+        def __eq__(self, other):
+            return (isinstance(other, type(self)) and
+                    all(getattr(self, attr) == getattr(other, attr) for attr in self.trait_names()))
+
+
 if __name__ == "__main__":
     import textwrap
 
@@ -3365,19 +3381,3 @@ if __name__ == "__main__":
     )
     for rec in stats:
         print(rec)
-
-
-# Mixin classes for structure types that don't implement __eq__ sufficiently
-try:
-    from traits import HasTraits
-except ImportError:
-    try:
-        from traitlets import HasTraits
-    except ImportError:
-        HasTraits = None
-
-if HasTraits is not None:
-    class HasTraitsMixin(HasTraits):
-        def __eq__(self, other):
-            return (isinstance(other, type(self)) and
-                    all(getattr(self, attr) == getattr(other, attr) for attr in self.trait_names()))
