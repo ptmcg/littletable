@@ -54,6 +54,13 @@ else:
         b: Optional[Union[int, str]]
         c: Optional[Union[int, str]]
 
+try:
+    import attr
+except ImportError:
+    attr = None
+else:
+    AttrClass = attr.make_class("AttrClass", ["a", "b", "c"])
+
 
 DataTuple = namedtuple("DataTuple", "a b c")
 
@@ -166,6 +173,8 @@ def make_test_classes(cls):
         make_test_class(cls, UsingPydanticModel)
         make_test_class(cls, UsingPydanticImmutableModel)
         make_test_class(cls, UsingPydanticORMModel)
+    if attr is not None:
+        make_test_class(cls, UsingAttrClass)
 
 
 class AbstractContentTypeFactory:
@@ -213,6 +222,12 @@ else:
     UsingPydanticModel = AbstractContentTypeFactory
     UsingPydanticImmutableModel = AbstractContentTypeFactory
     UsingPydanticORMModel = AbstractContentTypeFactory
+
+if attr is not None:
+    class UsingAttrClass(AbstractContentTypeFactory):
+        data_object_type = AttrClass
+else:
+    UsingAttrClass = AbstractContentTypeFactory
 
 
 def load_table(table, rec_factory_fn, table_size):

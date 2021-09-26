@@ -39,6 +39,8 @@ Version 2.0.4
              Best Actress    Two Women               Sophia Loren
              Best Director   West Side Story         Willian Wise/Jerome Robbins
 
+- Added test cases for attrs-defined classes.
+
 
 Version 2.0.3
 -------------
