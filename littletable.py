@@ -150,7 +150,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "26 September 2021 07:08 UTC"
+__version_time__ = "26 September 2021 23:05 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -3365,3 +3365,19 @@ if __name__ == "__main__":
     )
     for rec in stats:
         print(rec)
+
+
+# Mixin classes for structure types that don't implement __eq__ sufficiently
+try:
+    from traits import HasTraits
+except ImportError:
+    try:
+        from traitlets import HasTraits
+    except ImportError:
+        HasTraits = None
+
+if HasTraits is not None:
+    class HasTraitsMixin(HasTraits):
+        def __eq__(self, other):
+            return (isinstance(other, type(self)) and
+                    all(getattr(self, attr) == getattr(other, attr) for attr in self.trait_names()))

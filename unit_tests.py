@@ -70,7 +70,7 @@ except ImportError:
     print("traitlets tests disabled")
     traitlets = None
 else:
-    class TraitletsClass(traitlets.HasTraits):
+    class TraitletsClass(lt.HasTraitsMixin, traitlets.HasTraits):
         a = traitlets.Union([traitlets.Int(), traitlets.Unicode()], allow_none=True)
         b = traitlets.Union([traitlets.Int(), traitlets.Unicode()], allow_none=True)
         c = traitlets.Union([traitlets.Int(), traitlets.Unicode()], allow_none=True)
@@ -80,9 +80,8 @@ else:
             for k, w in kwargs.items():
                 setattr(self, k, w)
 
-        def __eq__(self, other):
-            return (isinstance(other, TraitletsClass) and
-                    all(getattr(self, attr) == getattr(other, attr) for attr in self.trait_names()))
+        def __repr__(self):
+            return "{}:(a={}, b={}, c={})".format(type(self).__name__, self.a, self.b, self.c)
 
         def __dir__(self):
             return self.trait_names()
@@ -98,7 +97,7 @@ except ImportError:
     lt.Table.present = lambda *args, **kwargs: None
 
 
-class Slotted(object):
+class Slotted:
     __slots__ = ['a', 'b', 'c']
 
     def __init__(self, a, b, c):

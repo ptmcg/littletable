@@ -40,7 +40,9 @@ Version 2.0.4
              Best Director   West Side Story         Willian Wise/Jerome Robbins
 
 - Added support and test cases for storing objects using the HasTraits
-  classes from the traits and traitlets packages.
+  classes from the traits and traitlets packages. (Working with HasTraits
+  objects in a littletable.Table requires that they add littletable.HasTraitsMixin
+  to their inheritance classes).
 
 - Added test cases for storing objects created using the attrs package.
 
