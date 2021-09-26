@@ -150,7 +150,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "16 September 2021 06:13 UTC"
+__version_time__ = "26 September 2021 07:08 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -184,33 +184,41 @@ you'd you'll you're you've your yours yourself yourselves""".split()
 )
 
 
+class UnableToExtractAttributeNamesError(ValueError): pass
+
+
 def _object_attrnames(obj):
+    if hasattr(obj, "trait_names"):
+        return obj.trait_names()
     if hasattr(obj, "__dict__"):
         # normal object
         return list(obj.__dict__.keys())
-    elif isinstance(obj, tuple) and hasattr(obj, "_fields"):
+    if isinstance(obj, tuple) and hasattr(obj, "_fields"):
         # namedtuple
         return obj._fields
-    elif hasattr(obj, "__slots__"):
+    if hasattr(obj, "__slots__"):
         return obj.__slots__
-    else:
-        raise ValueError("object with unknown attributes")
+    raise UnableToExtractAttributeNamesError("object with unknown attributes")
 
 
 def _to_dict(obj):
+    if hasattr(obj, "trait_names"):
+        return ODict(
+            (k, v)
+            for k, v in zip(obj.trait_names(), (getattr(obj, a) for a in obj.trait_names()))
+        )
     if hasattr(obj, "__dict__"):
         # normal object
         return obj.__dict__
-    elif isinstance(obj, tuple) and hasattr(obj, "_fields"):
+    if isinstance(obj, tuple) and hasattr(obj, "_fields"):
         # namedtuple
         return ODict(zip(obj._fields, obj))
-    elif hasattr(obj, "__slots__"):
+    if hasattr(obj, "__slots__"):
         return ODict(
             (k, v)
             for k, v in zip(obj.__slots__, (getattr(obj, a) for a in obj.__slots__))
         )
-    else:
-        raise ValueError("object with unknown attributes")
+    raise UnableToExtractAttributeNamesError("object with unknown attributes")
 
 
 def _to_json(obj):
@@ -2238,9 +2246,9 @@ class Table:
                 delimiter=delimiter,
                 **writer_args,
             )
-            if self.obs and hasattr(self.obs[0], "__dict__"):
-                csvout.writerows(o.__dict__ for o in self.obs)
-            else:
+            try:
+                csvout.writerows(_to_dict(o) for o in self.obs)
+            except UnableToExtractAttributeNamesError:
                 attr_fetch = operator.attrgetter(*fieldnames)
                 for o in self.obs:
                     csvout.writerow(ODict(zip(fieldnames, attr_fetch(o))))

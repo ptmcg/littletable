@@ -19,6 +19,7 @@ import littletable as lt
 try:
     import dataclasses
 except ImportError:
+    print("dataclasses tests disabled")
     # pre Py3.7 (or 3.6 with backported dataclasses)
     dataclasses = None
 else:
@@ -31,6 +32,7 @@ else:
 try:
     import pydantic
 except ImportError:
+    print("pydantic tests disabled")
     pydantic = None
 else:
     class DataPydanticModel(pydantic.BaseModel):
@@ -57,10 +59,33 @@ else:
 try:
     import attr
 except ImportError:
+    print("attrs tests disabled")
     attr = None
 else:
     AttrClass = attr.make_class("AttrClass", ["a", "b", "c"])
 
+try:
+    import traitlets
+except ImportError:
+    print("traitlets tests disabled")
+    traitlets = None
+else:
+    class TraitletsClass(traitlets.HasTraits):
+        a = traitlets.Union([traitlets.Int(), traitlets.Unicode()], allow_none=True)
+        b = traitlets.Union([traitlets.Int(), traitlets.Unicode()], allow_none=True)
+        c = traitlets.Union([traitlets.Int(), traitlets.Unicode()], allow_none=True)
+
+        def __init__(self, **kwargs):
+            super().__init__()
+            for k, w in kwargs.items():
+                setattr(self, k, w)
+
+        def __eq__(self, other):
+            return (isinstance(other, TraitletsClass) and
+                    all(getattr(self, attr) == getattr(other, attr) for attr in self.trait_names()))
+
+        def __dir__(self):
+            return self.trait_names()
 
 DataTuple = namedtuple("DataTuple", "a b c")
 
@@ -175,6 +200,8 @@ def make_test_classes(cls):
         make_test_class(cls, UsingPydanticORMModel)
     if attr is not None:
         make_test_class(cls, UsingAttrClass)
+    if traitlets is not None:
+        make_test_class(cls, UsingTraitletsClass)
 
 
 class AbstractContentTypeFactory:
@@ -228,6 +255,12 @@ if attr is not None:
         data_object_type = AttrClass
 else:
     UsingAttrClass = AbstractContentTypeFactory
+
+if traitlets is not None:
+    class UsingTraitletsClass(AbstractContentTypeFactory):
+        data_object_type = TraitletsClass
+else:
+    UsingTraitletsClass = AbstractContentTypeFactory
 
 
 def load_table(table, rec_factory_fn, table_size):

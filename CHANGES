@@ -39,7 +39,10 @@ Version 2.0.4
              Best Actress    Two Women               Sophia Loren
              Best Director   West Side Story         Willian Wise/Jerome Robbins
 
-- Added test cases for attrs-defined classes.
+- Added support and test cases for storing objects using the HasTraits
+  classes from the traits and traitlets packages.
+
+- Added test cases for storing objects created using the attrs package.
 
 
 Version 2.0.3
