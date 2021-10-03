@@ -35,24 +35,30 @@ Importing data from CSV files
 -----------------------------
 You can easily import a CSV file into a Table using Table.csv_import():
 
-    t = Table().csv_import("my_data.csv")
+```python
+t = Table().csv_import("my_data.csv")
+```
 
 In place of a local file name, you can also specify  an HTTP url:
 
-    url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
-    iris_table = Table('iris').csv_import(url)
+```python
+url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
+iris_table = Table('iris').csv_import(url)
+```
 
 You can also directly import CSV data as a string:
 
-    catalog = Table("catalog")
+```python
+catalog = Table("catalog")
 
-    catalog_data = """\
-    sku,description,unitofmeas,unitprice
-    BRDSD-001,Bird seed,LB,3
-    BBS-001,Steel BB's,LB,5
-    MGNT-001,Magnet,EA,8"""
+catalog_data = """\
+sku,description,unitofmeas,unitprice
+BRDSD-001,Bird seed,LB,3
+BBS-001,Steel BB's,LB,5
+MGNT-001,Magnet,EA,8"""
 
-    catalog.csv_import(catalog_data, transforms={'unitprice': int})
+catalog.csv_import(catalog_data, transforms={'unitprice': int})
+```
 
 Data can also be directly imported from compressed .zip, .gz, and .xz files.
 
@@ -67,20 +73,26 @@ or the [tabulate](https://github.com/astanin/python-tabulate) module:
 
 Using `table.present()` (implemented using `rich`; `present()` accepts `rich` `Table` keyword args):
 
-    table(title_str).present(fields=["col1", "col2", "col3"])
-      or
-    table.select("col1 col2 col3")(title_str).present(caption="caption text", 
+```python
+table(title_str).present(fields=["col1", "col2", "col3"])
+    or
+table.select("col1 col2 col3")(title_str).present(caption="caption text", 
                                                       caption_justify="right")
+```
 
 Using `Jupyter Notebook`:
 
-    from IPython.display import HTML, display
-    display(HTML(table.as_html()))
+```python
+from IPython.display import HTML, display
+display(HTML(table.as_html()))
+```
 
 Using `tabulate`:
 
-    from tabulate import tabulate
-    print(tabulate(map(vars, table), headers="keys"))
+```python
+from tabulate import tabulate
+print(tabulate(map(vars, table), headers="keys"))
+```
 
 For More Info
 -------------
@@ -90,68 +102,72 @@ Sample Demo
 -----------
 Here is a simple littletable data storage/retrieval example:
 
-    from littletable import Table, DataObject
+```python
+from littletable import Table, DataObject
 
-    customers = Table('customers')
-    customers.create_index("id", unique=True)
-    customers.insert(DataObject(id="0010", name="George Jetson"))
-    customers.insert(DataObject(id="0020", name="Wile E. Coyote"))
-    customers.insert(DataObject(id="0030", name="Jonny Quest"))
+customers = Table('customers')
+customers.create_index("id", unique=True)
+customers.insert(DataObject(id="0010", name="George Jetson"))
+customers.insert(DataObject(id="0020", name="Wile E. Coyote"))
+customers.insert(DataObject(id="0030", name="Jonny Quest"))
 
-    catalog = Table('catalog')
-    catalog.create_index("sku", unique=True)
-    catalog.insert(DataObject(sku="ANVIL-001", descr="1000lb anvil", unitofmeas="EA",unitprice=100))
-    catalog.insert(DataObject(sku="BRDSD-001", descr="Bird seed", unitofmeas="LB",unitprice=3))
-    catalog.insert(DataObject(sku="MAGNT-001", descr="Magnet", unitofmeas="EA",unitprice=8))
-    catalog.insert(DataObject(sku="MAGLS-001", descr="Magnifying glass", unitofmeas="EA",unitprice=12))
+catalog = Table('catalog')
+catalog.create_index("sku", unique=True)
+catalog.insert(DataObject(sku="ANVIL-001", descr="1000lb anvil", unitofmeas="EA",unitprice=100))
+catalog.insert(DataObject(sku="BRDSD-001", descr="Bird seed", unitofmeas="LB",unitprice=3))
+catalog.insert(DataObject(sku="MAGNT-001", descr="Magnet", unitofmeas="EA",unitprice=8))
+catalog.insert(DataObject(sku="MAGLS-001", descr="Magnifying glass", unitofmeas="EA",unitprice=12))
 
-    wishitems = Table('wishitems')
-    wishitems.create_index("custid")
-    wishitems.create_index("sku")
-    # easy to import CSV data from a string or file
-    wishitems.csv_import("""\
-    custid,sku
-    0020,ANVIL-001
-    0020,BRDSD-001
-    0020,MAGNT-001
-    0030,MAGNT-001
-    0030,MAGLS-001
-    """)
+wishitems = Table('wishitems')
+wishitems.create_index("custid")
+wishitems.create_index("sku")
 
-    # print a particular customer name 
-    # (unique indexes will return a single item; non-unique
-    # indexes will return a list of all matching items)
-    print(customers.by.id["0030"].name)
+# easy to import CSV data from a string or file
+wishitems.csv_import("""\
+custid,sku
+0020,ANVIL-001
+0020,BRDSD-001
+0020,MAGNT-001
+0030,MAGNT-001
+0030,MAGLS-001
+""")
 
-    # see all customer names
-    for name in customers.all.name:
-        print(name)
+# print a particular customer name 
+# (unique indexes will return a single item; non-unique
+# indexes will return a list of all matching items)
+print(customers.by.id["0030"].name)
 
-    # print all items sold by the pound
-    for item in catalog.where(unitofmeas="LB"):
-        print(item.sku, item.descr)
+# see all customer names
+for name in customers.all.name:
+    print(name)
 
-    # print all items that cost more than 10
-    for item in catalog.where(lambda o: o.unitprice > 10):
-        print(item.sku, item.descr, item.unitprice)
+# print all items sold by the pound
+for item in catalog.where(unitofmeas="LB"):
+    print(item.sku, item.descr)
 
-    # join tables to create queryable wishlists collection
-    wishlists = customers.join_on("id") + wishitems.join_on("custid") + catalog.join_on("sku")
+# print all items that cost more than 10
+for item in catalog.where(lambda o: o.unitprice > 10):
+    print(item.sku, item.descr, item.unitprice)
 
-    # print all wishlist items with price > 10 (can use Table.gt comparator instead of lambda)
-    bigticketitems = wishlists().where(unitprice=Table.gt(10))
-    for item in bigticketitems:
-        print(item)
+# join tables to create queryable wishlists collection
+wishlists = customers.join_on("id") + wishitems.join_on("custid") + catalog.join_on("sku")
 
-    # list all wishlist items in descending order by price
-    for item in wishlists().sort("unitprice desc"):
-        print(item)
+# print all wishlist items with price > 10 (can use Table.gt comparator instead of lambda)
+bigticketitems = wishlists().where(unitprice=Table.gt(10))
+for item in bigticketitems:
+    print(item)
 
-    # print output as a nicely-formatted table
-    wishlists().sort("unitprice desc")("Wishlists").present()
+# list all wishlist items in descending order by price
+for item in wishlists().sort("unitprice desc"):
+    print(item)
 
-    # print output as an HTML table
-    print(wishlists().sort("unitprice desc")("Wishlists").as_html())
+# print output as a nicely-formatted table
+wishlists().sort("unitprice desc")("Wishlists").present()
 
-    # print output as a Markdown table
-    print(wishlists().sort("unitprice desc")("Wishlists").as_markdown())
+# print output as an HTML table
+print(wishlists().sort("unitprice desc")("Wishlists").as_html())
+
+# print output as a Markdown table
+print(wishlists().sort("unitprice desc")("Wishlists").as_markdown())
+
+```
