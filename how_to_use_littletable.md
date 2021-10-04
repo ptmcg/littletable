@@ -52,17 +52,21 @@ like any other `littletable` table.
 Creating a table
 ----------------
 Creating a table is simple, just create an instance of `Table`:
-
-    t = Table()
+```python
+t = Table()
+```
     
 If you want, you can name the table at creation time, or any time later. 
-
-    t = Table("customers")
+```python
+t = Table("customers")
+```
     
 or
-    
-    t = Table()
-    t("customers")
+
+```python
+t = Table()
+t("customers")
+```
 
 Table names are not necessary for queries or updates, as they would be in SQL.  
 Table names can be useful in diagnosing problems, as they will be included in 
@@ -80,8 +84,10 @@ Inserting objects
 From within your Python code, you can create objects and add them to the table using
 `insert()` and `insert_many()`. Any object can be inserted into a table, using:
 
-    t.insert(obj)
-    t.insert_many(objlist)
+```python
+t.insert(obj)
+t.insert_many(objlist)
+```
 
 Performance tip: Calling `insert_many()` with a list of objects will perform better than calling
 `insert()` in a loop.
@@ -96,24 +102,29 @@ Importing data from CSV files
 -----------------------------
 You can easily import a CSV file into a `Table` using `Table.csv_import()`:
 
-    t = Table().csv_import("my_data.csv")
+```python
+t = Table().csv_import("my_data.csv")
+```
 
 In place of a local file name, you can also specify an HTTP url:
 
-    url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
-    iris_table = Table('iris').csv_import(url)
+```python
+url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
+iris_table = Table('iris').csv_import(url)
+```
 
 You can also directly import CSV data as a string:
+```python
+catalog_data = """\
+sku,description,unitofmeas,unitprice
+BRDSD-001,Bird seed,LB,3
+BBS-001,Steel BB's,LB,5
+MGNT-001,Magnet,EA,8"""
 
-    catalog_data = """\
-    sku,description,unitofmeas,unitprice
-    BRDSD-001,Bird seed,LB,3
-    BBS-001,Steel BB's,LB,5
-    MGNT-001,Magnet,EA,8"""
-
-    catalog = Table("catalog")
-    catalog.create_index("sku", unique=True)
-    catalog.csv_import(catalog_data, transforms={'unitprice': int})
+catalog = Table("catalog")
+catalog.create_index("sku", unique=True)
+catalog.csv_import(catalog_data, transforms={'unitprice': int})
+```
 
 If you are working with a very large CSV file and just trying to see 
 what the structure is, add `limit=100` to only read the first 100 rows.
@@ -125,11 +136,13 @@ can be any function that takes a single argument of the type of the given
 attribute, and returns `True` or `False`. If `False`, the record does not get
 added to the table.
 
-    # import only the first 100 items that match the filter
-    # (product_category == "Home and Garden")
-    catalog.csv_import(catalog_data, 
-                       filters={"product_category": Table.eq("Home and Garden")},
-                       limit=100)
+```python
+# import only the first 100 items that match the filter
+# (product_category == "Home and Garden")
+catalog.csv_import(catalog_data, 
+                   filters={"product_category": Table.eq("Home and Garden")},
+                   limit=100)
+```
 
 Since CSV files do not keep any type information, `littletable` will use the
 `SimpleNamespace` type for imported records. You can specify your own type by 
@@ -167,28 +180,36 @@ the `rich` module, `as_html()` in Jupyter Notebook, or the `tabulate` module:
 
 - Using `table.present()` (implemented using `rich`; `present()` accepts `rich` Table 
   keyword args):
-
-      table(title_str).present(fields=["col1", "col2", "col3"])
+```python
+table(title_str).present(fields=["col1", "col2", "col3"])
+```
 
   or
 
-      # use select() to limit the columns to be shown
-      table.select("col1 col2 col3")(title_str).present(caption="caption text")
+```python
+# use select() to limit the columns to be shown
+table.select("col1 col2 col3")(title_str).present(caption="caption text")
+```
 
 - Using `Jupyter Notebook`:
 
-      from IPython.display import HTML, display
-      display(HTML(table.as_html()))
+```python
+from IPython.display import HTML, display
+display(HTML(table.as_html()))
+```
 
 - Using `tabulate`:
-
-      # use map(vars, table) to get each table record as a dict, then pass to tabulate with
-      # headers="keys" to auto-define headers
-      print(tabulate(map(vars, table), headers="keys"))
+```python
+# use map(vars, table) to get each table record as a dict, then pass to tabulate with
+# headers="keys" to auto-define headers
+print(tabulate(map(vars, table), headers="keys"))
+```
 
 - Output as Markdown
 
-      print(table.as_markdown())
+```python
+print(table.as_markdown())
+```
 
 You can display groups in your tables by specifying a particular field on which to group.
 Pass the groupby argument to present(), as_html() or as_markdown() with the name of the
@@ -200,14 +221,18 @@ types.SimpleNamespace
 If your program does not have a type for inserting into your table, you can use 
 `types.SimpleNamespace`:
 
-    from types import SimpleNamespace
-    bob = {"name": "Bob", "age": 19}
-    t.insert(SimpleNamespace(**bob))
+```python
+from types import SimpleNamespace
+bob = {"name": "Bob", "age": 19}
+t.insert(SimpleNamespace(**bob))
+```
 
 Or just use `dict`s directly (which `littletable` will convert to `SimpleNamespace`s)
 
-    bob = {"name": "Bob", "age": 19}
-    t.insert(bob)
+```python
+bob = {"name": "Bob", "age": 19}
+t.insert(bob)
+```
 
 _(`DataObjects` are a legacy type from Python 2.6 - Python 3, before the availability of
 `types.SimpleNamespace`. The `DataObject` class will be deprecated
@@ -219,9 +244,11 @@ Removing objects
 Objects can be removed individually or by passing a list (or `Table`) of
 objects:
 
-    t.remove(obj)
-    t.remove_many(objlist)
-    t.remove_many(t.where(a=100))
+```python
+t.remove(obj)
+t.remove_many(objlist)
+t.remove_many(t.where(a=100))
+```
     
 
 Indexing attributes
@@ -238,15 +265,17 @@ return the single matching object, or raise `KeyError`.
 If a non-unique index is created, a `Table` is returned of all the matching
 objects. If no objects match, an empty `Table` is returned.
 
-    employees.create_index('employee_id', unique=True)
-    employees.create_index('zipcode')
+```python
+employees.create_index('employee_id', unique=True)
+employees.create_index('zipcode')
 
-    # unique indexes return a single object
-    print(employees.by.employee_id["D1729"].name)
-    
-    # non unique indexes return a new Table
-    for emp in employees.by.zipcode["12345"]:
-        print(e.name)
+# unique indexes return a single object
+print(employees.by.employee_id["D1729"].name)
+
+# non unique indexes return a new Table
+for emp in employees.by.zipcode["12345"]:
+    print(e.name)
+```
 
 
 Querying with indexed attributes
@@ -255,19 +284,22 @@ Querying with indexed attributes
 If accessing a table using a unique index, giving a key value will 
 return the single matching record, or raise `KeyError`.
 
-    employees.by.employee_id['00086']
-    employees.by.employee_id['invalid_id']
-    #    raises KeyError: "no such value 'invalid_id' in index 'employee_id'"
-
+```python
+employees.by.employee_id['00086']
+employees.by.employee_id['invalid_id']
+#    raises KeyError: "no such value 'invalid_id' in index 'employee_id'"
+```
 
 If accessing a table using a non-unique index, will return a new `Table` 
 containing all matching records. If there are no matching records, the 
 returned table will be empty.
 
-    employees.by.state['CA']
-    employees.by.dept['Sales']
-    employees.by.dept['Salex']  # no such department
-    #    returns empty table
+```python
+employees.by.state['CA']
+employees.by.dept['Sales']
+employees.by.dept['Salex']  # no such department
+#    returns empty table
+```
 
 
 Querying for exact matching attribute values
@@ -275,8 +307,10 @@ Querying for exact matching attribute values
 Calling `Table.where()` with named attributes will return a Table of
 all records matching all the arguments:
 
-    employees.where(zipcode="12345", title="Manager")    
-    student.where(**{"class":"Algebra"})
+```python
+employees.where(zipcode="12345", title="Manager")
+student.where(**{"class":"Algebra"})
+```
 
 It is not necessary for the attributes to be indexed to use `Table.where()`.
 
@@ -286,12 +320,16 @@ Querying for attribute value ranges
 `Table.where()` supports performing queries on one or more exact
 matches against entries in the table:
 
-    employees.where(dept="Engineering")
+```python
+employees.where(dept="Engineering")
+```
 
 `Table.where()` will also accept a callable that takes a record and
 returns a bool to indicate if the record is a match:
 
-    employees.where(lambda emp: emp.salary > 50000)
+```python
+employees.where(lambda emp: emp.salary > 50000)
+```
 
 `littletable` also includes comparators to make range-checking easier to
 write:
@@ -316,26 +354,29 @@ write:
     - Table.is_in          attr=Table.is_in((1, 2, 3))    attr in (1,2,3)
     - Table.not_in         attr=Table.not_in((1, 2, 3))   attr not in (1,2,3)
 
-    employees.where(salary=Table.gt(50000))
-    employees.where(dept=Table.is_in(["Sales", "Marketing"]))
+```python
+employees.where(salary=Table.gt(50000))
+employees.where(dept=Table.is_in(["Sales", "Marketing"]))
 
-    jan_01 = date(2000, 1, 1)
-    mar_31 = date(2000, 3, 31)
-    apr_01 = date(2000, 4, 1)
-    
-    first_qtr_sales = sales.where(date=Table.within(jan_01, mar_31))
-    first_qtr_sales = sales.where(date=Table.in_range(jan_01, apr_01))
+jan_01 = date(2000, 1, 1)
+mar_31 = date(2000, 3, 31)
+apr_01 = date(2000, 4, 1)
 
-    # get customers whose address includes an apartment number
-    has_apt = customers.where(address_apt_no=Table.is_not_null())
+first_qtr_sales = sales.where(date=Table.within(jan_01, mar_31))
+first_qtr_sales = sales.where(date=Table.in_range(jan_01, apr_01))
 
-    # get employees whose first name starts with "X"
-    x_names = employees.where(name=Table.startswith("X"))
+# get customers whose address includes an apartment number
+has_apt = customers.where(address_apt_no=Table.is_not_null())
 
-    # get log records that match a regex (any word starts with 
-    # "warn" in the log description)
-    # (re_match will accept re flags argument)
-    warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
+# get employees whose first name starts with "X"
+x_names = employees.where(name=Table.startswith("X"))
+
+# get log records that match a regex (any word starts with 
+# "warn" in the log description)
+# (re_match will accept re flags argument)
+warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
+
+```
 
 Comparators can also be used as filter functions for import methods.
 
@@ -350,15 +391,17 @@ rows that returned True. Will also accept a string indicating a particular
 field name, and uses `bool(getattr(rec, field_name))` for the predicate
 function.
 
-    # split on records based on even/odd of a value attribute
-    is_odd = lambda x: bool(x % 2)
-    evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
+```python
+# split on records based on even/odd of a value attribute
+is_odd = lambda x: bool(x % 2)
+evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
 
-    # split on an integer field: 0 will be treated as False, >0 as True
-    has_no_cars, has_cars = tbl.splitby("number_of_cars_owned")
+# split on an integer field: 0 will be treated as False, >0 as True
+has_no_cars, has_cars = tbl.splitby("number_of_cars_owned")
 
-    # split on a field that may be None or ""
-    nulls, not_nulls = tbl.splitby("optional_data_field")
+# split on a field that may be None or ""
+nulls, not_nulls = tbl.splitby("optional_data_field")
+```
 
 
 Full-text search on text attributes
@@ -383,17 +426,19 @@ each entry's indexed search words.
 
 Example:
 
-    recipe_data = textwrap.dedent("""\
-        title,ingredients
-        Tuna casserole,tuna noodles cream of mushroom soup
-        Hawaiian pizza,pizza dough pineapple ham tomato sauce
-        BLT,bread bacon lettuce tomato mayonnaise
-        Bacon cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese bacon
-        """)
-    recipes = lt.Table().csv_import(recipe_data)
-    
-    recipes.create_search_index("ingredients")
-    matches = recipes.search.ingredients("+bacon tomato --pineapple")
+```python
+recipe_data = textwrap.dedent("""\
+    title,ingredients
+    Tuna casserole,tuna noodles cream of mushroom soup
+    Hawaiian pizza,pizza dough pineapple ham tomato sauce
+    BLT,bread bacon lettuce tomato mayonnaise
+    Bacon cheeseburger,ground beef bun lettuce ketchup mustard pickle cheese bacon
+    """)
+recipes = lt.Table().csv_import(recipe_data)
+
+recipes.create_search_index("ingredients")
+matches = recipes.search.ingredients("+bacon tomato --pineapple")
+```
 
 Search indexes will become invalid if records are added or removed from the table 
 after the index has been created. If they are not rebuilt, subsequent searches
@@ -409,42 +454,44 @@ attributes), or by statistic (keyed by "mean", etc., with attributes matching
 those in the source `Table`). Non-numeric values are implicitly omitted from
 the statistics calculations.
 
-    t1 = lt.Table()
-    t1.csv_import("""\
-    a,b,c
-    100,101,102
-    110,220,99
-    108,130,109""", transforms=dict(a=int, b=int, c=int))
-    
-    t1_stats = t1.stats()
-    t1_stats.present(box=box.ASCII)
-    print(t1_stats.by.name["a"].mean)
-    
-    #    +-----------------------------------------------------------------------------+
-    #    | Name | Count | Min | Max |           Mean |       Variance |        Std_Dev |
-    #    |------+-------+-----+-----+----------------+----------------+----------------|
-    #    | a    |     3 | 100 | 110 |          106.0 |             28 | 5.29150262212  |
-    #    | b    |     3 | 101 | 220 | 150.333333333  | 3850.33333333  | 62.0510542483  |
-    #    | c    |     3 |  99 | 109 | 103.333333333  | 26.3333333333  | 5.13160143944  |
-    #    +-----------------------------------------------------------------------------+
-    #    106.0
+```python
+t1 = lt.Table()
+t1.csv_import("""\
+a,b,c
+100,101,102
+110,220,99
+108,130,109""", transforms=dict(a=int, b=int, c=int))
 
-    
-    t1_stats = t1.stats(by_field=False)
-    t1_stats.present(box=box.ASCII)
-    print(t1_stats.by.stat["mean"].a)
+t1_stats = t1.stats()
+t1_stats.present(box=box.ASCII)
+print(t1_stats.by.name["a"].mean)
 
-    #    +------------------------------------------------------------------------+
-    #    | Stat     |                 A |                  B |                  C |
-    #    |----------+-------------------+--------------------+--------------------|
-    #    | count    |                 3 |                  3 |                  3 |
-    #    | min      |               100 |                101 |                 99 |
-    #    | max      |               110 |                220 |                109 |
-    #    | mean     |             106.0 | 150.33333333333334 | 103.33333333333333 |
-    #    | variance |                28 | 3850.3333333333335 | 26.333333333333332 |
-    #    | std_dev  | 5.291502622129181 | 62.051054248363364 |  5.131601439446884 |
-    #    +------------------------------------------------------------------------+
-    #    106.0
+#    +-----------------------------------------------------------------------------+
+#    | Name | Count | Min | Max |           Mean |       Variance |        Std_Dev |
+#    |------+-------+-----+-----+----------------+----------------+----------------|
+#    | a    |     3 | 100 | 110 |          106.0 |             28 | 5.29150262212  |
+#    | b    |     3 | 101 | 220 | 150.333333333  | 3850.33333333  | 62.0510542483  |
+#    | c    |     3 |  99 | 109 | 103.333333333  | 26.3333333333  | 5.13160143944  |
+#    +-----------------------------------------------------------------------------+
+#    106.0
+
+
+t1_stats = t1.stats(by_field=False)
+t1_stats.present(box=box.ASCII)
+print(t1_stats.by.stat["mean"].a)
+
+#    +------------------------------------------------------------------------+
+#    | Stat     |                 A |                  B |                  C |
+#    |----------+-------------------+--------------------+--------------------|
+#    | count    |                 3 |                  3 |                  3 |
+#    | min      |               100 |                101 |                 99 |
+#    | max      |               110 |                220 |                109 |
+#    | mean     |             106.0 | 150.33333333333334 | 103.33333333333333 |
+#    | variance |                28 | 3850.3333333333335 | 26.333333333333332 |
+#    | std_dev  | 5.291502622129181 | 62.051054248363364 |  5.131601439446884 |
+#    +------------------------------------------------------------------------+
+#    106.0
+```
 
 
 Importing data from fixed-width text files
@@ -465,22 +512,26 @@ column numbers):
 
 Define the columns to import as:
 
-    columns = [
-        ("id_no", 0, ),
-        ("name", 4, ),
-        ("address", 21, ),
-        ("city", 42, ),
-        ("state", 56, 58, ),
-        ("tech_skill_score", 59, None, float),
-        ]
+```python
+columns = [
+    ("id_no", 0, ),
+    ("name", 4, ),
+    ("address", 21, ),
+    ("city", 42, ),
+    ("state", 56, 58, ),
+    ("tech_skill_score", 59, None, float),
+    ]
+```
 
 And use a `FixedWidthReader` to read the file and pass a list of 
 dicts to a `Table.insert_many`:
 
-    characters = lt.Table()
-    reader = lt.FixedWidthReader(columns, "cartoon_characters.txt")
-    characters.insert_many(lt.DataObject(**rec)
-                           for rec in reader)
+```python
+characters = lt.Table()
+reader = lt.FixedWidthReader(columns, "cartoon_characters.txt")
+characters.insert_many(lt.DataObject(**rec)
+                       for rec in reader)
+```
 
 For each column, define:
 - the attribute name
@@ -507,7 +558,9 @@ To join two tables, you must specify:
 The first uses conventional object notation, with the `table.join()` 
 method:
 
-    customers.join(orders, custid="custid")
+```python
+customers.join(orders, custid="custid")
+```
 
 creates an inner join between the table of customers and the table of 
 their respective orders, joining on both tables' `custid` attributes.
@@ -515,7 +568,9 @@ their respective orders, joining on both tables' `custid` attributes.
 More than 2 tables can be joined in succession, since the result of a 
 join is itself a `Table`:
 
-    customers.join(orders, custid="custid").join(orderitems, orderid="orderid")
+```python
+customers.join(orders, custid="custid").join(orderitems, orderid="orderid")
+```
     
 In this case a third table has been added, to include the actual items
 that comprise each customer's order. The `orderitems` are associated with 
@@ -530,20 +585,26 @@ operation), but also the attributes to use to know which objects of each
 table to join together.  To support this, tables have the join_on() method, 
 which return a `JoinTerm` object:
 
-    customers.join_on("custid") + orders.join_on("custid")
+```python
+customers.join_on("custid") + orders.join_on("custid")
+```
 
 This returns a join expression, which when called, performs the join and 
 returns the data as a new `Table`:
 
-    customerorders = (customers.join_on("custid") + orders.join_on("custid"))()
+```python
+customerorders = (customers.join_on("custid") + orders.join_on("custid"))()
+```
 
 JoinTerms can be added to tables directly when the join table and the added
 table are to join using the same attribute name.  The 3-table join above
 can be written as:
 
-    customerorderitems = ((customers.join_on("custid") 
-                          + orders 
-                          + orderitems.join_on("orderid"))())
+```python
+customerorderitems = ((customers.join_on("custid") 
+                      + orders 
+                      + orderitems.join_on("orderid"))())
+```
 
 A classic example of performing an outer join is, given a table of students
 and a table of student->course registrations, find the students who
@@ -552,30 +613,32 @@ join, and select those students where their course registration is NULL.
 
 Here is how that looks with littletable:
 
-    # define student and registration data
-    students = lt.Table().csv_import("""\
-    student_id,name
-    0001,Alice
-    0002,Bob
-    0003,Charlie
-    0004,Dave
-    0005,Enid
-    """)
+```python
+# define student and registration data
+students = lt.Table().csv_import("""\
+student_id,name
+0001,Alice
+0002,Bob
+0003,Charlie
+0004,Dave
+0005,Enid
+""")
 
-    registrations = lt.Table().csv_import("""\
-    student_id,course
-    0001,PSYCH101
-    0001,CALC1
-    0003,BIO200
-    0005,CHEM101
-    """)
+registrations = lt.Table().csv_import("""\
+student_id,course
+0001,PSYCH101
+0001,CALC1
+0003,BIO200
+0005,CHEM101
+""")
 
-    # perform outer join and show results:    
-    non_reg = students.outer_join(lt.Table.RIGHT_OUTER_JOIN, 
-                                  registrations, 
-                                  student_id="student_id").where(course=None)
-    non_reg.present()
-    print(list(non_reg.all.name))
+# perform outer join and show results:    
+non_reg = students.outer_join(lt.Table.RIGHT_OUTER_JOIN, 
+                              registrations, 
+                              student_id="student_id").where(course=None)
+non_reg.present()
+print(list(non_reg.all.name))
+```
     
 Displays:
 
@@ -666,60 +729,77 @@ Some simple littletable recipes
 - Find objects with NULL attribute values (an object's attribute is considered 
   NULL if the object does not have that attribute, or if its value is None or ""):
 
+```python
       table.where(keyattr=Table.is_null())
+```
     
 
 - Histogram of values of a particular attribute:
 
-      # returns a table
-      table.pivot(attribute).summary_counts()
+```python
+# returns a table
+table.pivot(attribute).summary_counts()
 
   or
-  
-      # prints the values to stdout in tabular form
-      table.pivot(attribute).dump_counts()
+
+# prints the values to stdout in tabular form
+table.pivot(attribute).dump_counts()
+```
 
 
 - Get a list of all key values for an indexed attribute:
 
-      customers.by.zipcode.keys()
+```python
+customers.by.zipcode.keys()
+```
 
 
 - Get a list of all values for any attribute:
 
-      list(customers.all.first_name)
+```python
+list(customers.all.first_name)
 
-      # or get just the unique values
-      list(customers.all.first_name.unique)
+# or get just the unique values
+list(customers.all.first_name.unique)
+```
 
 
 - Get a count of entries for each key value:
 
-      customers.pivot("zipcode").dump_counts()
+```python
+customers.pivot("zipcode").dump_counts()
+```
     
 
 - Sort table by attribute x
 
-      employees.sort("salary")
+```python
+employees.sort("salary")
 
-      # sort in descending order
-      employees.sort("salary desc")
+# sort in descending order
+employees.sort("salary desc")
+```
     
 
 - Sorted table by primary attribute x, secondary attribute y
 
-      sales_employees = employees.where(dept="Sales").sort("salary,commission")
+```python
+sales_employees = employees.where(dept="Sales").sort("salary,commission")
 
   or
 
-      employees.create_index("dept")
-      sales_employees = employees.by.dept["Sales"].sort("salary,commission")
+employees.create_index("dept")
+sales_employees = employees.by.dept["Sales"].sort("salary,commission")
+```
 
 - Get top 5 objects in table by value of attribute x
-
-      # top 5 sales employees
-      employees.where(dept="Sales").sort("sales desc")[:5]
+```python
+# top 5 sales employees
+employees.where(dept="Sales").sort("sales desc")[:5]
+```
 
 - Find all employees whose first name starts with "X"
 
-      employees.where(first_name=Table.startswith("X"))
+```python
+employees.where(first_name=Table.startswith("X"))
+```
