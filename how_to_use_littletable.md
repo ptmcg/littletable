@@ -331,28 +331,32 @@ returns a bool to indicate if the record is a match:
 employees.where(lambda emp: emp.salary > 50000)
 ```
 
-`littletable` also includes comparators to make range-checking easier to
-write:
+`littletable` also includes _comparators_ to make range-checking easier to
+write. The following table lists the comparators, plus examples of their
+usage:
 
-    Comparators are:
-    - Table.lt             attr=Table.lt(100)             attr < 100
-    - Table.le             attr=Table.le(100)             attr <= 100
-    - Table.gt             attr=Table.gt(100)             attr > 100
-    - Table.ge             attr=Table.ge(100)             attr >= 100
-    - Table.eq             attr=Table.eq(100)             attr == 100
-    - Table.ne             attr=Table.ne(100)             attr != 100
-    - Table.is_none        attr=Table.is_none())          attr is None
-    - Table.is_not_none    attr=Table.is_not_none())      attr is not None
-    - Table.is_null        attr=Table.is_null())          attr is None, "", or not defined
-    - Table.is_not_null    attr=Table.is_not_null())      attr is not None or ""
-    - Table.startswith     attr=Table.startswith("ABC")   attr.startswith("ABC")
-    - Table.endswith       attr=Table.endswith("XYZ")     attr.endswith("XYZ")
-    - Table.re_match       attr=Table.re_match(r".*%.*")  re.match(r".*%.*", attr)
-    - Table.between        attr=Table.between(100, 200)   100 < attr < 200
-    - Table.within         attr=Table.within(100, 200)    100 <= attr <= 200
-    - Table.in_range       attr=Table.in_range(100, 200)  100 <= attr < 200
-    - Table.is_in          attr=Table.is_in((1, 2, 3))    attr in (1,2,3)
-    - Table.not_in         attr=Table.not_in((1, 2, 3))   attr not in (1,2,3)
+|Comparator|Example|Comparison performed|
+|---|:---|:---|
+| `lt`           |  `attr=Table.lt(100)`           |  `attr < 100` |
+| `le`           |  `attr=Table.le(100)`           |  `attr <= 100` |
+| `gt`           |  `attr=Table.gt(100)`           |  `attr > 100` |
+| `ge`           |  `attr=Table.ge(100)`           |  `attr >= 100` |
+| `eq`           |  `attr=Table.eq(100)`           |  `attr == 100` |
+| `ne`           |  `attr=Table.ne(100)`           |  `attr != 100` |
+| `is_none`      |  `attr=Table.is_none())`        |  `attr is None` |
+| `is_not_none`  |  `attr=Table.is_not_none())`    |  `attr is not None` |
+| `is_null`      |  `attr=Table.is_null())`        |  `attr is None, "", or omitted` |
+| `is_not_null`  |  `attr=Table.is_not_null())`    |  `attr is not None or ""` |
+| `startswith`   |  `attr=Table.startswith("ABC")` |  `attr.startswith("ABC")` |
+| `endswith`     |  `attr=Table.endswith("XYZ")`   |  `attr.endswith("XYZ")` |
+| `re_match`     |  `attr=Table.re_match(r".*%.*")` | `re.match(r".*%.*", attr)` |
+| `between`      |  `attr=Table.between(100, 200)`  | `100 < attr < 200` |
+| `within`       |  `attr=Table.within(100, 200)`   | `100 <= attr <= 200` |
+| `in_range`     |  `attr=Table.in_range(100, 200)` | `100 <= attr < 200` |
+| `is_in`        |  `attr=Table.is_in((1, 2, 3))`  |  `attr in (1,2,3)` |
+| `not_in`       |  `attr=Table.not_in((1, 2, 3))` |  `attr not in (1,2,3)` |
+
+More examples of comparators in actual Python code:
 
 ```python
 employees.where(salary=Table.gt(50000))
@@ -375,7 +379,6 @@ x_names = employees.where(name=Table.startswith("X"))
 # "warn" in the log description)
 # (re_match will accept re flags argument)
 warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
-
 ```
 
 Comparators can also be used as filter functions for import methods.
@@ -729,77 +732,77 @@ Some simple littletable recipes
 - Find objects with NULL attribute values (an object's attribute is considered 
   NULL if the object does not have that attribute, or if its value is None or ""):
 
-```python
-      table.where(keyattr=Table.is_null())
-```
+  ```python
+        table.where(keyattr=Table.is_null())
+  ```
     
 
 - Histogram of values of a particular attribute:
 
-```python
-# returns a table
-table.pivot(attribute).summary_counts()
-
-  or
-
-# prints the values to stdout in tabular form
-table.pivot(attribute).dump_counts()
-```
+  ```python
+  # returns a table
+  table.pivot(attribute).summary_counts()
+  ```
+   or
+  ```python
+  # prints the values to stdout in tabular form
+  table.pivot(attribute).dump_counts()
+  ```
 
 
 - Get a list of all key values for an indexed attribute:
 
-```python
-customers.by.zipcode.keys()
-```
+  ```python
+  customers.by.zipcode.keys()
+  ```
 
 
 - Get a list of all values for any attribute:
 
-```python
-list(customers.all.first_name)
-
-# or get just the unique values
-list(customers.all.first_name.unique)
-```
+  ```python
+  list(customers.all.first_name)
+  
+  # or get just the unique values
+  list(customers.all.first_name.unique)
+  ```
 
 
 - Get a count of entries for each key value:
 
-```python
-customers.pivot("zipcode").dump_counts()
-```
-    
+  ```python
+  customers.pivot("zipcode").dump_counts()
+  ```
 
 - Sort table by attribute x
 
-```python
-employees.sort("salary")
-
-# sort in descending order
-employees.sort("salary desc")
-```
-    
+  ```python
+  employees.sort("salary")
+  
+  # sort in descending order
+  employees.sort("salary desc")
+  ```
 
 - Sorted table by primary attribute x, secondary attribute y
 
-```python
-sales_employees = employees.where(dept="Sales").sort("salary,commission")
+  ```python
+  sales_employees = employees.where(dept="Sales").sort("salary,commission")
+  ```
 
   or
 
-employees.create_index("dept")
-sales_employees = employees.by.dept["Sales"].sort("salary,commission")
-```
+  ```python
+  employees.create_index("dept")
+  sales_employees = employees.by.dept["Sales"].sort("salary,commission")
+  ```
 
 - Get top 5 objects in table by value of attribute x
-```python
-# top 5 sales employees
-employees.where(dept="Sales").sort("sales desc")[:5]
-```
+  ```python
+  # top 5 sales employees
+  employees.where(dept="Sales").sort("sales desc")[:5]
+  ```
 
 - Find all employees whose first name starts with "X"
 
-```python
-employees.where(first_name=Table.startswith("X"))
-```
+  ```python
+  employees.where(first_name=Table.startswith("X"))
+  ```
