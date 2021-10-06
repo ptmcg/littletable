@@ -12,6 +12,12 @@ Version 2.0.4
   will display the table with repeated consecutive values for ColumnA
   suppressed.
 
+  Multiple fields can be specified for grouping using a space-delimited
+  string. If multiple fields are given, they will be grouped hierarchically;
+  that is, the second field will group only if already grouping on the first
+  field, the third field will group only if already grouping on the second
+  field, etc. (For best grouping output, sort the records first.)
+
     tbl = lt.Table("Academy Awards").csv_import("""\
     year,award,movie,recipient
     1960,Best Picture,Ben-Hur,

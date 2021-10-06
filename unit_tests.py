@@ -1186,6 +1186,57 @@ class TableOutputTests:
             """)
         self.assertEqual(expected, out.getvalue())
 
+        table = lt.Table().csv_import(textwrap.dedent("""\
+            a,b,default
+            10,100,purple
+            15,150,purple
+            15,200,orange
+            15,250,orange
+            20,250,orange
+            """))
+        table.present()
+        table.present(box=box.ASCII, groupby="default a")
+        out = StringIO()
+        table.present(file=out, box=box.ASCII, groupby="default a")
+        expected = textwrap.dedent("""\
+            +--------------------+
+            | A  | B   | Default |
+            |----+-----+---------|
+            | 10 | 100 | purple  |
+            | 15 | 150 |         |
+            | 15 | 200 | orange  |
+            |    | 250 |         |
+            | 20 | 250 |         |
+            +--------------------+
+            """)
+        self.assertEqual(expected, out.getvalue())
+
+        table = lt.Table().csv_import(textwrap.dedent("""\
+            a,b,default
+            10,100,purple
+            15,200,orange
+            15,150,purple
+            20,250,orange
+            15,250,orange
+            """))
+        table.sort("default desc,a")
+        table.present()
+        table.present(box=box.ASCII, groupby="default a")
+        out = StringIO()
+        table.present(file=out, box=box.ASCII, groupby="default a")
+        expected = textwrap.dedent("""\
+            +--------------------+
+            | A  | B   | Default |
+            |----+-----+---------|
+            | 10 | 100 | purple  |
+            | 15 | 150 |         |
+            | 15 | 200 | orange  |
+            |    | 250 |         |
+            | 20 | 250 |         |
+            +--------------------+
+            """)
+        self.assertEqual(expected, out.getvalue())
+
     def test_markdown(self):
         table = lt.Table().csv_import(textwrap.dedent("""\
             a,b

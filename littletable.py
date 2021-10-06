@@ -150,7 +150,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "26 September 2021 23:05 UTC"
+__version_time__ = "6 October 2021 04:04 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2654,6 +2654,13 @@ class Table:
                 header = name.title()
             field_settings.append((header, field_spec))
 
+        grouping = False
+        if groupby is not None:
+            group_attrs = self._parse_fields_string(groupby)
+            group_attrs = [g for g in group_attrs if g in attr_names]
+            if group_attrs:
+                grouping = True
+
         table_defaults = dict(show_header=True, header_style="bold", box=box.ASCII)
         if sys.stdout.isatty():
             table_defaults["box"] = box.SIMPLE
@@ -2670,21 +2677,33 @@ class Table:
             rt.add_column(header, **field_spec)
 
         # add row data from self to rich Table
-        if groupby is None or groupby not in attr_names:
+        if not grouping:
             for rec in self.formatted_table(*fields):
                 rt.add_row(*[getattr(rec, attr_name, empty) for attr_name in attr_names])
         else:
-            group_pos = attr_names.index(groupby)
-            prev = ""
+            get_fn = lambda r: tuple(getattr(r, attr, "") for attr in group_attrs)
+            prev = ("",) * len(group_attrs)
             for rec in self.formatted_table(*fields):
-                curr = getattr(rec, groupby, "")
-                if curr and curr != prev:
-                    prev = curr
+                curr = get_fn(rec)
+                matches = []
+                if curr == prev:
+                    matches = group_attrs
+                else:
+                    for attr, pval, cval in zip(group_attrs, prev, curr):
+                        if pval == cval:
+                            matches.append(attr)
+                        else:
+                            break
+
+                if not matches:
                     rt.add_row(*[getattr(rec, attr_name, empty) for attr_name in attr_names])
                 else:
                     row_items = [getattr(rec, attr_name, empty) for attr_name in attr_names]
-                    row_items[group_pos] = ""
+                    for attr in matches:
+                        group_pos = attr_names.index(attr)
+                        row_items[group_pos] = ""
                     rt.add_row(*row_items)
+                prev = curr
 
         return rt
 
@@ -2698,8 +2717,9 @@ class Table:
 
         :param fields: list of field names to include in the tabular output
         :param file: (optional) output file for tabular output (defaults to sys.stdout)
-        :param groupby: (optional) field name for groups to be indicated by suppressing
-                        consecutive duplicate values in a column
+        :param groupby: (optional) field name or space-delimited list of field names
+                        for groups to be indicated by suppressing consecutive duplicate
+                        values in a column
         :param kwargs: (optional) additional keyword args to customize the `rich` output,
                        as might be passed to the `rich.Table` class
         :return: None
