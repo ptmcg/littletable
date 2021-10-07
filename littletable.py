@@ -150,7 +150,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "6 October 2021 04:04 UTC"
+__version_time__ = "7 October 2021 06:23 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2614,6 +2614,10 @@ class Table:
         field_names = [nm for nm in field_names if nm not in suppress_names]
         return field_names
 
+    def _determine_suppressed_attrs(self, group_attrs, prev, curr,
+                                    _compare=lambda apc: apc[1] == apc[2]):
+        return [a for a, _, _ in takewhile(_compare, zip(group_attrs, prev, curr))]
+
     def _rich_table(self, fields=None, empty="", groupby=None, **kwargs):
         if rich is None:
             raise Exception("rich module not installed")
@@ -2685,21 +2689,12 @@ class Table:
             prev = ("",) * len(group_attrs)
             for rec in self.formatted_table(*fields):
                 curr = get_fn(rec)
-                matches = []
-                if curr == prev:
-                    matches = group_attrs
-                else:
-                    for attr, pval, cval in zip(group_attrs, prev, curr):
-                        if pval == cval:
-                            matches.append(attr)
-                        else:
-                            break
-
-                if not matches:
+                suppress_attrs = self._determine_suppressed_attrs(group_attrs, prev, curr)
+                if not suppress_attrs:
                     rt.add_row(*[getattr(rec, attr_name, empty) for attr_name in attr_names])
                 else:
                     row_items = [getattr(rec, attr_name, empty) for attr_name in attr_names]
-                    for attr in matches:
+                    for attr in suppress_attrs:
                         group_pos = attr_names.index(attr)
                         row_items[group_pos] = ""
                     rt.add_row(*row_items)
@@ -2763,10 +2758,10 @@ class Table:
             formats = {}
         field_format_map = {}
 
-        def row_to_tr(r, suppress=None):
+        def row_to_tr(r, suppress=()):
             ret_tr = ["<tr>"]
             for fld in fields:
-                if fld != suppress:
+                if fld not in suppress:
                     v = getattr(r, fld, "")
                     align = "right" if isinstance(v, _numeric_type) else "left"
                     if fld not in field_format_map:
@@ -2779,8 +2774,15 @@ class Table:
             ret_tr.append("</tr>\n")
             return "".join(ret_tr)
 
+        grouping = False
+        if groupby is not None:
+            group_attrs = self._parse_fields_string(groupby)
+            group_attrs = [g for g in group_attrs if g in attr_names]
+            if group_attrs:
+                grouping = True
+
         headers = "".join(f'<th><div align="center">{fld}</div></th>' for fld in fields)
-        if groupby is None or groupby not in fields:
+        if not grouping:
             ret = (
                 "<table>\n<thead>\n"
                 f"<tr>{headers}</tr>\n"
@@ -2789,15 +2791,14 @@ class Table:
                 "</tbody>\n</table>"
             )
         else:
-            prev = ""
             rows = []
+            get_fn = lambda r: tuple(getattr(r, attr, "") for attr in group_attrs)
+            prev = ("",) * len(group_attrs)
             for row in self:
-                curr = getattr(row, groupby, "")
-                if curr and curr != prev:
-                    prev = curr
-                    rows.append(row_to_tr(row))
-                else:
-                    rows.append(row_to_tr(row, suppress=groupby))
+                curr = get_fn(rec)
+                suppress_attrs = self._determine_suppressed_attrs(group_attrs, prev, curr)
+                rows.append(row_to_tr(row, suppress=suppress_attrs))
+                prev = curr
             ret = (
                 "<table>\n<thead>\n"
                 f"<tr>{headers}</tr>\n"
@@ -2831,6 +2832,14 @@ class Table:
         if formats is None:
             formats = {}
         field_format_map = {}
+        attr_names = fields
+
+        grouping = False
+        if groupby is not None:
+            group_attrs = self._parse_fields_string(groupby)
+            group_attrs = [g for g in group_attrs if g in attr_names]
+            if group_attrs:
+                grouping = True
 
         center_vals = (True, False, 'Y', 'N', 'X', 'YES', 'NO', 'y', 'n', 'x', 'yes', 'no', 0, 1, None)
         field_align_map = {}
@@ -2852,10 +2861,10 @@ class Table:
                 align = "---:"
             field_align_map[f] = align
 
-        def row_to_tr(r, suppress=None):
+        def row_to_tr(r, suppress=()):
             ret_tr = ["|"]
             for fld in fields:
-                if fld != suppress:
+                if fld not in suppress:
                     v = getattr(r, fld, "")
                     if fld not in field_format_map:
                         field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
@@ -2867,22 +2876,21 @@ class Table:
             ret_tr.append("\n")
             return "".join(ret_tr)
 
-        if groupby is None or groupby not in fields:
+        if not grouping:
             ret = (
                 f"| {' | '.join(fields)} |\n"
                 f"|{'|'.join(field_align_map[f] for f in fields)}|\n"
                 f"{''.join(map(row_to_tr, self))}"
             )
         else:
-            prev = ""
+            get_fn = lambda r: tuple(getattr(r, attr, "") for attr in group_attrs)
+            prev = ("",) * len(group_attrs)
             rows = []
             for row in self:
-                curr = getattr(row, groupby, "")
-                if curr and curr != prev:
-                    prev = curr
-                    rows.append(row_to_tr(row))
-                else:
-                    rows.append(row_to_tr(row, suppress=groupby))
+                curr = get_fn(row)
+                suppress_attrs = self._determine_suppressed_attrs(group_attrs, prev, curr)
+                rows.append(row_to_tr(row, suppress=suppress_attrs))
+                prev = curr
             ret = (
                 f"| {' | '.join(fields)} |\n"
                 f"|{'|'.join(field_align_map[f] for f in fields)}|\n"

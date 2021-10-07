@@ -1243,15 +1243,15 @@ class TableOutputTests:
             10,100
             20,200
             """))
-        out = table.as_markdown()
-        print(out)
+        out_markdown = table.as_markdown()
+        print(out_markdown)
         expected = textwrap.dedent("""\
             | a | b |
             |---|---|
             | 10 | 100 |
             | 20 | 200 |
             """)
-        self.assertEqual(expected, out)
+        self.assertEqual(expected, out_markdown)
 
         # test bugfix when table has attribute "default"
         table = lt.Table().csv_import(textwrap.dedent("""\
@@ -1260,8 +1260,8 @@ class TableOutputTests:
             15,150,
             20,200,orange
             """))
-        out = table.as_markdown()
-        print(out)
+        out_markdown = table.as_markdown()
+        print(out_markdown)
         expected = textwrap.dedent("""\
             | a | b | default |
             |---|---|---|
@@ -1269,7 +1269,7 @@ class TableOutputTests:
             | 15 | 150 |  |
             | 20 | 200 | orange |
             """)
-        self.assertEqual(expected, out)
+        self.assertEqual(expected, out_markdown)
 
         # test grouping in as_markdown
         table = lt.Table().csv_import(textwrap.dedent("""\
@@ -1278,8 +1278,8 @@ class TableOutputTests:
             15,150,purple
             20,200,orange
             """))
-        out = table.as_markdown(groupby="default")
-        print(out)
+        out_markdown = table.as_markdown(groupby="default")
+        print(out_markdown)
         expected = textwrap.dedent("""\
             | a | b | default |
             |---|---|---|
@@ -1287,7 +1287,29 @@ class TableOutputTests:
             | 15 | 150 |  |
             | 20 | 200 | orange |
             """)
-        self.assertEqual(expected, out)
+        self.assertEqual(expected, out_markdown)
+
+        table = lt.Table().csv_import(textwrap.dedent("""\
+            a,b,default
+            10,100,purple
+            15,200,orange
+            15,150,purple
+            20,250,orange
+            15,250,orange
+            """))
+        table.sort("default desc,a")
+        out_markdown = table.as_markdown(groupby="default a")
+        print(out_markdown)
+        expected = textwrap.dedent("""\
+            | a | b | default |
+            |---|---|---|
+            | 10 | 100 | purple |
+            | 15 | 150 |  |
+            | 15 | 200 | orange |
+            |  | 250 |  |
+            | 20 | 250 |  |
+            """)
+        self.assertEqual(expected, out_markdown)
 
 # sample import data sets
 csv_data = """\
