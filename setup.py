@@ -22,10 +22,12 @@ setup(# Distribution meta-data
     url="https://github.com/ptmcg/littletable/",
     download_url="https://pypi.org/project/littletable/",
     py_modules=modules,
+    python_requires=">=3.6",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Intended Audience :: Information Technology',
+        'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
@@ -36,5 +38,6 @@ setup(# Distribution meta-data
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Topic :: Database',
         ]
     )
