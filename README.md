@@ -43,7 +43,8 @@ In place of a local file name, you can also specify  an HTTP url:
 
 ```python
 url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
-iris_table = Table('iris').csv_import(url)
+names = ["sepal-length", "sepal-width", "petal-length", "petal-width", "class"]
+iris_table = Table('iris').csv_import(url, fieldnames=names)
 ```
 
 You can also directly import CSV data as a string:
@@ -91,7 +92,7 @@ Using `tabulate`:
 
 ```python
 from tabulate import tabulate
-print(tabulate(map(vars, table), headers="keys"))
+print(tabulate((vars(rec) for rec in table), headers="keys"))
 ```
 
 For More Info
