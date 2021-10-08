@@ -150,7 +150,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "7 October 2021 06:23 UTC"
+__version_time__ = "8 October 2021 22:51 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2757,6 +2757,7 @@ class Table:
         if formats is None:
             formats = {}
         field_format_map = {}
+        attr_names = fields
 
         def row_to_tr(r, suppress=()):
             ret_tr = ["<tr>"]
