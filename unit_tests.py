@@ -3,6 +3,7 @@
 #
 # unit tests for littletable library
 #
+import ast
 from collections import namedtuple
 import io
 import itertools
@@ -787,11 +788,20 @@ class TableListTests:
                              stat_rec,
                              "invalid stat for {}".format(fieldname))
 
+    def test_stats2(self):
+        self._test_init()
+        field_names = self.t1.info()["fields"]
+        num_fields = len(field_names)
         t1_stats = self.t1.stats(by_field=False)
         for stat, value in (('min', 0), ('max', self.test_size - 1), ('count', self.test_size ** num_fields),):
             for fieldname in field_names:
                 self.assertEqual(value, getattr(t1_stats.by.stat[stat], fieldname),
                                  "invalid {} stat for {}".format(stat, fieldname))
+
+    def test_stats3(self):
+        self._test_init()
+        field_names = self.t1.info()["fields"]
+        num_fields = len(field_names)
 
         # verify that stats can "step over" non-numeric data
         try:
@@ -810,6 +820,37 @@ class TableListTests:
         t1_stats.csv_export(sys.stdout)
         t1_stats.present()
         self.assertEqual(self.test_size ** num_fields - 1, t1_stats.by.name["a"].count)
+
+    def test_stats4(self):
+        t1 = lt.Table().csv_import(textwrap.dedent("""\
+        a,b
+        1,2
+        3,
+        5,4
+        """), transforms={}.fromkeys(["a", "b"], int))
+        t1_stats = t1.stats()
+        t1_stats.present()
+        print(t1_stats.info())
+
+        expected = lt.Table().csv_import(textwrap.dedent("""\
+        name,mean,min,max,variance,std_dev,count,missing
+        a,3.0,1,5,4,2.0,3,0
+        b,3.0,2,4,2,1.4142135623730951,2,1
+        """), transforms={}.fromkeys("mean min max variance std_dev count missing".split(), ast.literal_eval))
+        expected.present()
+        print(expected.info())
+
+        self.assertEqual(expected.info()["fields"], t1_stats.info()["fields"])
+
+        for expected_row, row in zip(expected, t1_stats):
+            self.assertEqual(expected_row.name, row.name)
+            self.assertEqual(expected_row.mean, row.mean)
+            self.assertEqual(expected_row.min, row.min)
+            self.assertEqual(expected_row.max, row.max)
+            self.assertEqual(expected_row.variance, row.variance)
+            self.assertEqual(expected_row.std_dev, row.std_dev)
+            self.assertEqual(expected_row.count, row.count)
+            self.assertEqual(expected_row.missing, row.missing)
 
     def test_splitby(self):
         self._test_init()

@@ -2521,12 +2521,13 @@ class Table:
         """
         Return a summary Table of statistics for numeric data in a Table.
         For each field in the source table, returns:
-        - count
+        - mean
         - min
         - max
-        - mean
         - variance
         - standard deviation
+        - count
+        - missing
         :param field_names:
         :param by_field:
         :return: Table of statistics; if by_field=True, each row contains summary
@@ -2556,14 +2557,15 @@ class Table:
             except (ValueError, statistics.StatisticsError):
                 return None
 
-        stats = [
-            ("count", lambda seq: sum(isinstance(x, _numeric_type) for x in seq)),
+        stats = (
+            ("mean", partial(safe_fn, getattr(statistics, "fmean", statistics.mean))),
             ("min", partial(safe_fn, min)),
             ("max", partial(safe_fn, max)),
-            ("mean", partial(safe_fn, getattr(statistics, "fmean", statistics.mean))),
             ("variance", partial(safe_fn, statistics.variance)),
             ("std_dev", partial(safe_fn, statistics.stdev)),
-        ]
+            ("count", len),
+            ("missing", lambda seq: len(self) - len(seq)),
+        )
 
         if by_field:
             ret.create_index("name", unique=True)

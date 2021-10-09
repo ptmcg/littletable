@@ -45,6 +45,10 @@ Version 2.0.4
              Best Actress    Two Women               Sophia Loren
              Best Director   West Side Story         Willian Wise/Jerome Robbins
 
+- Modified the table created by stats() to include a 'missing' column,
+  and reordered the columns so that when presented, the most likely interesting
+  stat (mean) is listed first.
+
 - Added support and test cases for storing objects using the HasTraits
   classes from the traits and traitlets packages. (Working with HasTraits
   objects in a littletable.Table requires that they add littletable.HasTraitsMixin
