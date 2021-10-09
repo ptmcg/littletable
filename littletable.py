@@ -2061,6 +2061,7 @@ class Table:
         filters: Dict = None,
         row_class: type = None,
         limit: int = None,
+        fieldnames: Union[Iterable[str], str] = None,
         **kwargs,
     ) -> "Table":
         """
@@ -2092,6 +2093,8 @@ class Table:
         @param kwargs: additional constructor arguments for csv C{DictReader} objects, such as C{delimiter}
             or C{fieldnames}; these are passed directly through to the csv C{DictReader} constructor
         @type kwargs: named arguments (optional)
+        @param fieldnames: names for imported columns; used if there is no header line in the input file
+        @type fieldnames: list[str] or str
         """
         reader_args = dict(
             (k, v)
@@ -2105,13 +2108,13 @@ class Table:
                 "limit",
             ]
         )
-        reader = lambda src: csv.DictReader(src, **reader_args)
+        reader_args["fieldnames"] = fieldnames.split() if isinstance(fieldnames, str) else fieldnames
         return self._import(
             csv_source,
             encoding=encoding,
             transforms=transforms,
             filters=filters,
-            reader=reader,
+            reader=lambda src: csv.DictReader(src, **reader_args),
             row_class=row_class,
             limit=limit,
         )
@@ -2139,13 +2142,12 @@ class Table:
                 "filters,",
             ]
         )
-        xsv_reader = lambda src: csv.DictReader(src, **reader_args)
         return self._import(
             xsv_source,
             encoding=encoding,
             transforms=transforms,
             filters=filters,
-            reader=xsv_reader,
+            reader=lambda src: csv.DictReader(src, **reader_args),
             row_class=row_class,
             limit=limit,
         )
@@ -2158,6 +2160,7 @@ class Table:
         filters: Dict = None,
         row_class: type = None,
         limit: int = None,
+        fieldnames: Union[Iterable[str], str] = None,
         **kwargs,
     ) -> "Table":
         """
@@ -2177,7 +2180,10 @@ class Table:
         @type row_class: type
         @param limit: number of records to import
         @type limit: int (optional)
+        @param fieldnames: names for imported columns; used if there is no header line in the input file
+        @type fieldnames: list[str] or str
         """
+        kwargs["fieldnames"] = fieldnames.split() if isinstance(fieldnames, str) else fieldnames
         return self._xsv_import(
             xsv_source,
             encoding=encoding,
