@@ -49,6 +49,10 @@ Version 2.0.4
   and reordered the columns so that when presented, the most likely interesting
   stat (mean) is listed first.
 
+- Added attributes to Table to record import source and type for csv_import,
+  tsv_import, and json_import. For imports from files or web urls, the
+  filename or url will be added as the table's default title.
+
 - Added support and test cases for storing objects using the HasTraits
   classes from the traits and traitlets packages. (Working with HasTraits
   objects in a littletable.Table requires that they add littletable.HasTraitsMixin

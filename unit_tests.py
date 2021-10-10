@@ -1521,19 +1521,68 @@ class TableImportExportTests:
             "abc.csv.xz",
         ]
         for name in compressed_files:
-            tt2 = lt.Table().csv_import("test/" + name, transforms=dict.fromkeys("abc", int))
+            import_source_name = "test/" + name
+            tt2 = lt.Table().csv_import(import_source_name, transforms=dict.fromkeys("abc", int))
             print(name, tt2.info())
-            self.assertEqual(tt.info(), tt2.info())
+            expected_info = {**tt.info(), "name": import_source_name}
+            self.assertEqual(expected_info, tt2.info())
             self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
             self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
             self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
 
+        # test separately, no transforms for JSON imports
+        import_source_name = "test/abc.json.gz"
         tt2 = lt.Table().json_import("test/abc.json.gz")
         print("abc.json.gz", tt2.info())
-        self.assertEqual(tt.info(), tt2.info())
+        expected_info = {**tt.info(), "name": import_source_name}
+        self.assertEqual(expected_info, tt2.info())
         self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
         self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
         self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
+
+    def test_csv_import_source_info(self):
+        imports = [
+            ("abc.csv", lt.ImportSourceType.file),
+            ("abc.tsv", lt.ImportSourceType.file),
+            ("abc.csv.zip", lt.ImportSourceType.zip),
+            ("abc.csv.gz", lt.ImportSourceType.gzip),
+            ("abc.csv.xz", lt.ImportSourceType.lzma),
+            ("a,b,c\n1,2,3", lt.ImportSourceType.string),
+        ]
+        for fname, expected_type in imports:
+            if "\n" not in fname:
+                import_name = "test/" + fname
+            else:
+                import_name = fname
+            if not import_name.endswith(".tsv"):
+                tbl = lt.Table().csv_import(import_name)
+            else:
+                tbl = lt.Table().tsv_import(import_name)
+
+            print(repr(import_name), tbl.import_source, tbl.import_source_type)
+
+            if "\n" not in fname:
+                self.assertEqual(import_name, tbl.import_source)
+            else:
+                self.assertEqual(None, tbl.import_source)
+            self.assertEqual(expected_type, tbl.import_source_type)
+
+    def test_csv_import_from_url(self):
+        import subprocess
+        import urllib.request
+
+        web_address = "http://localhost:8888"
+        web_server = subprocess.Popen("python test/csv_import_http_server.py".split())
+        url = web_address + "/abc.csv"
+        tbl = lt.Table().csv_import(url)
+        tbl.present()
+        self.assertEqual(url, tbl.import_source)
+        self.assertEqual(lt.ImportSourceType.url, tbl.import_source_type)
+
+        with urllib.request.urlopen(web_address + "/EXIT"):
+            pass
+
+        web_server.wait()
 
     def test_csv_filtered_import(self):
         test_size = 3

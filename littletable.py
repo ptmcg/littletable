@@ -116,6 +116,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 import csv
+from enum import Enum
 from io import StringIO
 import json
 import operator
@@ -150,7 +151,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "8 October 2021 22:51 UTC"
+__version_time__ = "10 October 2021 10:51 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -520,9 +521,20 @@ class _IndexAccessor:
 _ImportExportDataContainer = Union[str, Path, Iterable[str], TextIO]
 
 
+class ImportSourceType(Enum):
+    file = 0
+    string = 1
+    url = 2
+    path = 3
+    zip = 4
+    gzip = 5
+    lzma = 6
+    iterable = 7
+
+
 class _MultiIterator:
     """
-    Internal wrapper class to put a consistent iterator and
+    Internal wrapper class to put a consistent iterable and
     closeable interface on any of the types that might be used
     as import sources:
     - a str containing raw xSV data (denoted by a containing \n)
@@ -538,33 +550,43 @@ class _MultiIterator:
             for line in seq:
                 yield line.decode(encoding)
 
+        self.type = None
         if isinstance(seqobj, Path):
             seqobj = str(seqobj)
+            self.type = ImportSourceType.path
 
         if isinstance(seqobj, str):
             if "\n" in seqobj:
                 self._iterobj = iter(StringIO(seqobj))
+                self.type = ImportSourceType.string
             elif seqobj.startswith("http"):
                 self._iterobj = _decoder(urllib.request.urlopen(seqobj))
+                self.type = ImportSourceType.url
             else:
                 if seqobj.endswith(".gz"):
                     import gzip
 
                     self._iterobj = _decoder(gzip.GzipFile(filename=seqobj))
+                    self.type = ImportSourceType.gzip
                 elif seqobj.endswith((".xz", ".lzma")):
                     import lzma
 
                     self._iterobj = lzma.open(seqobj, "rt", encoding=encoding)
+                    self.type = ImportSourceType.lzma
                 elif seqobj.endswith(".zip"):
                     import zipfile
 
                     # assume file name inside zip is the same as the zip file without the trailing ".zip"
                     inner_name = Path(seqobj).stem
                     self._iterobj = _decoder(zipfile.ZipFile(seqobj).open(inner_name))
+                    self.type = ImportSourceType.zip
                 else:
                     self._iterobj = open(seqobj, encoding=encoding)
+                    if self.type is None:
+                        self.type = ImportSourceType.file
         else:
             self._iterobj = iter(seqobj)
+            self.type = ImportSourceType.iterable
 
     def __iter__(self):
         return self
@@ -777,6 +799,9 @@ class Table:
         self._indexes: Dict[str, Any] = {}
         self._uniqueIndexes: List[Any] = []
         self._search_indexes: Dict[str, Dict[str, List]] = {}
+
+        self.import_source_type = None
+        self.import_source = None
 
         """
         C{'by'} is added as a pseudo-attribute on tables, to provide
@@ -2051,6 +2076,21 @@ class Table:
                 csvdata = limiter(limit, csvdata)
 
             self.insert_many(row_class(**s) for s in csvdata)
+
+            self.import_source_type = _srciter.type
+            if self.import_source_type in (ImportSourceType.path,
+                                           ImportSourceType.file,
+                                           ImportSourceType.url,
+                                           ImportSourceType.zip,
+                                           ImportSourceType.gzip,
+                                           ImportSourceType.lzma,
+                                           ):
+                # if url, strip off query args if any
+                if self.import_source_type is ImportSourceType.url:
+                    source = str(source).partition("?")[0]
+                self.import_source = str(source)
+                self(str(source))
+
         return self
 
     def csv_import(
