@@ -151,7 +151,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "17 October 2021 14:42 UTC"
+__version_time__ = "17 October 2021 14:50 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -788,6 +788,17 @@ class Table:
     FULL_OUTER_JOIN = object()
     OUTER_JOIN_TYPES = (LEFT_OUTER_JOIN, RIGHT_OUTER_JOIN, FULL_OUTER_JOIN)
 
+    @staticmethod
+    def _wrap_dict(dd):
+        # do recursive wrap of dicts to namespace types
+        ret = default_row_class(
+            **{
+                k: v if not isinstance(v, dict) else Table._wrap_dict(v)
+                for k, v in dd.items()
+            }
+        )
+        return ret
+
     def __init__(self, table_name: str = ""):
         """
         Create a new, empty Table.
@@ -916,12 +927,18 @@ class Table:
         return reversed(self.obs)
 
     def __contains__(self, item):
+        if isinstance(item, dict):
+            item = self._wrap_dict(item)
         return item in self.obs
 
     def index(self, item) -> int:
+        if isinstance(item, dict):
+            item = self._wrap_dict(item)
         return self.obs.index(item)
 
     def count(self, item) -> int:
+        if isinstance(item, dict):
+            item = self._wrap_dict(item)
         return self.obs.count(item)
 
     def __add__(self, other):
@@ -1258,23 +1275,13 @@ class Table:
         unique_indexes = self._uniqueIndexes
         NO_SUCH_ATTR = object()
 
-        def wrap_dict(dd):
-            # do recursive wrap of dicts to namespace types
-            ret = default_row_class(
-                **{
-                    k: v if not isinstance(v, dict) else wrap_dict(v)
-                    for k, v in dd.items()
-                }
-            )
-            return ret
-
         new_objs = it
         new_objs, first_obj = tee(new_objs)
         try:
             first = next(first_obj)
             if isinstance(first, dict):
                 # passed in a list of dicts, save as attributed objects
-                new_objs = (wrap_dict(obj) for obj in new_objs)
+                new_objs = (self._wrap_dict(obj) for obj in new_objs)
         except StopIteration:
             # iterator is empty, nothing to insert
             return self
@@ -1343,6 +1350,8 @@ class Table:
 
         del_indices = []
         for i, ob in enumerate(self.obs):
+            if isinstance(ob, dict):
+                ob = self._wrap_dict(ob)
             try:
                 tbd_index = to_be_deleted.index(ob)
             except ValueError:

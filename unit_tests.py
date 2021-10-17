@@ -616,6 +616,8 @@ class TableListTests:
     def test_index_find(self):
         self._test_init()
         self.assertEqual(13, self.t1.index(self.test_rec), "failed 'index; test (exists)")
+        if isinstance(self.test_rec, SimpleNamespace):
+            self.assertEqual(13, self.t1.index(vars(self.test_rec)), "failed 'index; test (exists)")
 
         no_such_rec = self.make_data_object(self.test_size+1, self.test_size+1, self.test_size+1)
         with self.assertRaises(ValueError, msg="failed 'index' test (not exists)"):
@@ -634,6 +636,10 @@ class TableListTests:
         self.t1.remove(no_such_rec)
         self.assertEqual(prev_len-1, len(self.t1), "failed removing non-existent record from table (len)")
 
+        if isinstance(self.test_rec, SimpleNamespace):
+            self.t1.remove(vars(self.test_rec))
+            self.assertEqual(prev_len-1, len(self.t1), "failed to remove record as dict from table (len)")
+
     def test_index_access(self):
         self._test_init()
         self.assertEqual(self.test_rec, self.t1[13], "failed index access test")
@@ -641,6 +647,8 @@ class TableListTests:
     def test_count(self):
         self._test_init()
         self.assertTrue(self.t1.count(self.test_rec) == 1, "failed count test")
+        if isinstance(self.test_rec, SimpleNamespace):
+            self.assertTrue(self.t1.count(vars(self.test_rec)) == 1, "failed count test")
 
     def test_del(self):
         self._test_init()

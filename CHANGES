@@ -3,6 +3,9 @@ Change History
 
 Version 2.0.5 (in development)
 ------------------------------
+- Fixed count(), index(), remove(), and remove_many() to accept dict
+  objects. Identified while addressing issue #3.
+
 - Fixed default of pop() to be -1.
 
 
