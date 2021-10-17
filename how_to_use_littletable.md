@@ -250,7 +250,23 @@ t.remove(obj)
 t.remove_many(objlist)
 t.remove_many(t.where(a=100))
 ```
-    
+
+They can also be removed by numeric index or slice using the Python `del` statement, just
+like removing from a list:
+
+```python
+del t[0]
+del t[-1]
+del t[3:10]
+```
+
+Finally, items can be removed using `Table.pop()`, which like `list.pop` defaults to removing
+the last item in the table, and returns the removed item:
+
+```python
+obj = t.pop(12)
+obj = t.pop()
+```
 
 Indexing attributes
 -------------------

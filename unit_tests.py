@@ -5,6 +5,7 @@
 #
 import ast
 from collections import namedtuple
+import copy
 import io
 import itertools
 import json
@@ -640,6 +641,29 @@ class TableListTests:
     def test_count(self):
         self._test_init()
         self.assertTrue(self.t1.count(self.test_rec) == 1, "failed count test")
+
+    def test_del(self):
+        self._test_init()
+        before_del_len = len(self.t1)
+        del self.t1[13]
+        self.assertFalse(self.test_rec in self.t1, "failed del test")
+        self.assertEqual(before_del_len - 1, len(self.t1))
+
+    def test_pop(self):
+        self._test_init()
+        before_pop_len = len(self.t1)
+        obj = self.t1.pop(13)
+        self.assertFalse(obj in self.t1)
+        self.assertEqual(self.test_rec, obj)
+        self.assertEqual(before_pop_len - 1, len(self.t1))
+
+    def test_pop_last(self):
+        self._test_init()
+        before_pop_len = len(self.t1)
+        expected_pop = copy.copy(self.t1[-1])
+        obj = self.t1.pop()
+        self.assertEqual(expected_pop, obj)
+        self.assertEqual(before_pop_len - 1, len(self.t1))
 
     def test_reversed(self):
         self._test_init()

@@ -144,14 +144,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 0, 4, "final", 0)
+__version_info__ = version_info(2, 0, 5, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.release_level[0], __version_info__.serial), "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "10 October 2021 10:51 UTC"
+__version_time__ = "17 October 2021 14:42 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -899,7 +899,7 @@ class Table:
         for idx in delidxs:
             self.pop(idx)
 
-    def pop(self, i: int):
+    def pop(self, i: int = -1):
         ret = self.obs.pop(i)
 
         # remove from indexes
