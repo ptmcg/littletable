@@ -14,7 +14,7 @@ import sys
 import textwrap
 from types import SimpleNamespace
 import unittest
-from typing import Optional, Union
+from typing import Optional, Union, NamedTuple
 
 import littletable as lt
 
@@ -89,6 +89,13 @@ else:
             return self.trait_names()
 
 DataTuple = namedtuple("DataTuple", "a b c")
+
+
+class DataNamedTuple(NamedTuple):
+    a: int
+    b: int
+    c: int
+
 
 # if rich is not installed, disable table.present() calls
 try:
@@ -168,7 +175,7 @@ class TestTableTypes(unittest.TestCase):
 def announce_test(fn):
     def _inner(*args):
         print("\n" + "-" * 50)
-        print(fn.__qualname__)
+        print("{}.{}".format(type(args[0]).__name__, fn.__name__))
         return fn(*args)
 
     return _inner
@@ -191,6 +198,7 @@ def make_test_class(*classes):
 def make_test_classes(cls):
     make_test_class(cls, UsingDataObjects)
     make_test_class(cls, UsingNamedtuples)
+    make_test_class(cls, UsingDataNamedtuples)
     make_test_class(cls, UsingSlottedObjects)
     make_test_class(cls, UsingSimpleNamespace)
     if dataclasses is not None:
@@ -219,6 +227,10 @@ class UsingDataObjects(AbstractContentTypeFactory):
 
 class UsingNamedtuples(AbstractContentTypeFactory):
     data_object_type = DataTuple
+
+
+class UsingDataNamedtuples(AbstractContentTypeFactory):
+    data_object_type = DataNamedTuple
 
 
 class UsingSlottedObjects(AbstractContentTypeFactory):
@@ -2013,6 +2025,9 @@ class TableSearchTests_DataObjects(TableSearchTests, UsingDataObjects):
 class TableSearchTests_Namedtuples(TableSearchTests, UsingNamedtuples):
     pass
 
+class TableSearchTests_DataNamedtuples(TableSearchTests, UsingDataNamedtuples):
+    pass
+
 class TableSearchTests_Slotted(TableSearchTests, UsingSlottedObjects):
     pass
 
@@ -2021,6 +2036,24 @@ class TableSearchTests_SimpleNamespace(TableSearchTests, UsingSimpleNamespace):
 
 if dataclasses is not None:
     class TableSearchTests_Dataclasses(TableSearchTests, UsingDataclasses):
+        pass
+
+if pydantic is not None:
+    class TableSearchTests_PydanticModels(TableSearchTests, UsingPydanticModel):
+        pass
+
+    class TableSearchTests_PydanticImmutableModels(TableSearchTests, UsingPydanticImmutableModel):
+        pass
+
+    class TableSearchTests_PydanticORMModels(TableSearchTests, UsingPydanticORMModel):
+        pass
+
+if attr is not None:
+    class TableSearchTests_AttrClasses(TableSearchTests, UsingAttrClass):
+        pass
+
+if traitlets is not None:
+    class TableSearchTests_TraitletsClasses(TableSearchTests, UsingTraitletsClass):
         pass
 
 

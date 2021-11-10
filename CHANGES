@@ -8,6 +8,8 @@ Version 2.0.5 (in development)
 
 - Fixed default of pop() to be -1.
 
+- Added test cases for storing objects created using typing.NamedTuple.
+
 
 Version 2.0.4
 -------------
