@@ -151,7 +151,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "17 October 2021 14:50 UTC"
+__version_time__ = "10 November 2021 07:46 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -163,7 +163,15 @@ else:
     from collections import OrderedDict as ODict
 
 default_row_class = SimpleNamespace
+
 _numeric_type = (int, float)
+try:
+    import numpy
+except ImportError:
+    pass
+else:
+    _numeric_type += (numpy.number,)
+
 PredicateFunction = Callable[[Any], bool]
 
 __all__ = ["DataObject", "Table", "FixedWidthReader"]
@@ -2609,7 +2617,7 @@ class Table:
         def safe_fn(fn, seq):
             try:
                 return fn(seq)
-            except (ValueError, statistics.StatisticsError):
+            except Exception:
                 return None
 
         stats = (
