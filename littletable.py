@@ -588,6 +588,10 @@ class _MultiIterator:
                     inner_name = Path(seqobj).stem
                     self._iterobj = _decoder(zipfile.ZipFile(seqobj).open(inner_name))
                     self.type = ImportSourceType.zip
+                elif seqobj.endswith(".xlsx") or seqobj.endswith("xlsm"):
+                    self._iterobj = open(seqobj, 'rb')
+                    if self.type is None:
+                        self.type = ImportSourceType.file
                 else:
                     self._iterobj = open(seqobj, encoding=encoding)
                     if self.type is None:
@@ -2252,6 +2256,94 @@ class Table:
             **kwargs,
         )
 
+    def _excel_import(
+        self,
+        excel_source: _ImportExportDataContainer,
+        transforms: Dict = None,
+        filters: Dict = None,
+        row_class: type = None,
+        limit: int = None,
+        **kwargs,
+    ):
+        def excel_as_dict(filename, **reader_args) -> List[Dict[str, str]]:
+            # lazy import openpyxl
+            from openpyxl import load_workbook
+
+            wb = load_workbook(filename)
+            # read requested sheet if provided on kwargs, otherwise read active sheet
+            requested_sheet = reader_args.get("sheet")
+            ws = wb[requested_sheet] if requested_sheet else wb.active
+            # check whether to include or omit the header
+            header = reader_args.get("fieldnames") or [cell.value for cell in ws[1]]
+            start_position = 0 if reader_args.get("fieldnames") else 1
+
+            # return read data as List[Dict]
+            data = list()
+            for row in list(ws.rows)[start_position:]:
+                values = {}
+                for key, cell in zip(header, row):
+                    values[key] = cell.value
+                data.append(values)
+            return data
+
+        return self._import(
+            excel_source,
+            transforms=transforms,
+            filters=filters,
+            reader=lambda src: excel_as_dict(src._iterobj, **kwargs),
+            row_class=row_class,
+            limit=limit,
+        )
+
+    def excel_import(
+        self,
+        excel_source: _ImportExportDataContainer,
+        transforms: Dict = None,
+        filters: Dict = None,
+        row_class: type = None,
+        limit: int = None,
+        fieldnames: Union[Iterable[str], str] = None,
+        **kwargs,
+    ) -> "Table":
+        """
+        Imports the contents of a Excel file into this table.
+        @param excel_source: Excel file - if a string is given, the file with that name will be
+            opened, read, and closed; if a file object is given, then that object
+            will be read as-is, and left for the caller to be closed.
+        @type excel_source: string or file
+        @param transforms: dict of functions by attribute name; if given, each
+            attribute will be transformed using the corresponding transform; if there is no
+            matching transform, the attribute will be read as a string (default); the
+            transform function can also be defined as a (function, default-value) tuple; if
+            there is an Exception raised by the transform function, then the attribute will
+            be set to the given default value
+        @type transforms: dict (optional)
+        @param filters: dict of functions by attribute name; if given, each
+            newly-read record will be filtered before being added to the table, with each
+            filter function run using the corresponding attribute; if any filter function
+            returns False, the record is not added to the table. Useful when reading large
+            input files, to pre-screen only for data matching one or more filters
+        @type filters: dict (optional)
+        @param row_class: class to construct for each imported row when populating table (default=DataObject)
+        @type row_class: type
+        @param limit: number of records to import
+        @type limit: int (optional)
+        @param kwargs: additional arguments for the excel reader. Only available argument is "sheet" to select which
+            sheet to read (defaults to active sheet)
+        @type kwargs: named arguments (optional)
+        @param fieldnames: names for imported columns; used if there is no header line in the input file
+        @type fieldnames: list[str] or str
+        """
+        kwargs["fieldnames"] = fieldnames.split() if isinstance(fieldnames, str) else fieldnames
+        return self._excel_import(
+            excel_source,
+            transforms=transforms,
+            filters=filters,
+            row_class=row_class,
+            limit=limit,
+            **kwargs,
+        )
+
     def csv_export(
         self,
         csv_dest: _ImportExportDataContainer,
@@ -2424,6 +2516,26 @@ class Table:
         finally:
             if close_on_exit:
                 dest.close()
+
+    def excel_export(
+        self,
+        excel_dest: _ImportExportDataContainer,
+        fieldnames: Iterable[str] = None,
+        **kwargs,
+    ):
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        # set header rows
+        if fieldnames is None:
+            fieldnames = self._attr_names()
+        elif isinstance(fieldnames, str):
+            fieldnames = fieldnames.split()
+        ws.append(fieldnames)
+        # append data
+        for o in self.obs:
+            ws.append([v for v in _to_dict(o).values()])
+        wb.save(excel_dest)
 
     def add_field(
         self, attrname: str, fn: Callable[[Any], Any], default: Any = None
