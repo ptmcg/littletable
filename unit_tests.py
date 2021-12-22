@@ -1905,7 +1905,7 @@ class TableImportExportTests:
         file_name = "test/abc.xlsx"
         excel_table = lt.Table().excel_import(file_name, transforms={'a': int, 'b': int, 'c': int}, limit=1)
         outfile = io.BytesIO()
-        excel_table.excel_export(outfile)
+        excel_table.excel_export(outfile, lxml=True)
         exported_table = lt.Table().excel_import(outfile, transforms={'a': int, 'b': int, 'c': int})
 
         self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(exported_table, excel_table)))

@@ -172,6 +172,11 @@ except ImportError:
 else:
     _numeric_type += (numpy.number,)
 
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None
+
 PredicateFunction = Callable[[Any], bool]
 
 __all__ = ["DataObject", "Table", "FixedWidthReader"]
@@ -2265,25 +2270,25 @@ class Table:
         limit: int = None,
         **kwargs,
     ):
+        if openpyxl is None:
+            raise Exception("openpyxl module not installed")
+
         def excel_as_dict(filename, **reader_args) -> List[Dict[str, str]]:
-            # lazy import openpyxl
-            from openpyxl import load_workbook
+            with closing(openpyxl.load_workbook(filename, read_only=True)) as wb:
+                # read requested sheet if provided on kwargs, otherwise read active sheet
+                requested_sheet = reader_args.get("sheet")
+                ws = wb[requested_sheet] if requested_sheet else wb.active
+                # check whether to include or omit the header
+                header = reader_args.get("fieldnames") or [cell.value for cell in ws[1]]
+                start_position = 0 if reader_args.get("fieldnames") else 1
 
-            wb = load_workbook(filename)
-            # read requested sheet if provided on kwargs, otherwise read active sheet
-            requested_sheet = reader_args.get("sheet")
-            ws = wb[requested_sheet] if requested_sheet else wb.active
-            # check whether to include or omit the header
-            header = reader_args.get("fieldnames") or [cell.value for cell in ws[1]]
-            start_position = 0 if reader_args.get("fieldnames") else 1
-
-            # return read data as List[Dict]
-            data = list()
-            for row in list(ws.rows)[start_position:]:
-                values = {}
-                for key, cell in zip(header, row):
-                    values[key] = cell.value
-                data.append(values)
+                # return read data as List[Dict]
+                data = list()
+                for row in list(ws.rows)[start_position:]:
+                    values = {}
+                    for key, cell in zip(header, row):
+                        values[key] = cell.value
+                    data.append(values)
             return data
 
         return self._import(
@@ -2523,9 +2528,22 @@ class Table:
         fieldnames: Iterable[str] = None,
         **kwargs,
     ):
-        from openpyxl import Workbook
-        wb = Workbook()
-        ws = wb.active
+        if openpyxl is None:
+            raise Exception("openpyxl module not installed")
+        if kwargs.pop('lxml', True) is False:
+            lxml = None
+        else:
+            try:
+                import lxml
+            except ImportError:
+                lxml = None
+
+        if lxml is not None:
+            wb = openpyxl.Workbook(write_only=True)
+            ws = wb.create_sheet()
+        else:
+            wb = openpyxl.Workbook()
+            ws = wb.active
         # set header rows
         if fieldnames is None:
             fieldnames = self._attr_names()
