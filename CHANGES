@@ -3,6 +3,13 @@ Change History
 
 Version 2.0.5 (in development)
 ------------------------------
+- Added support for import/export to local Excel .xlsx spreadsheets.
+
+     tbl = Table().excel_import("data_table.xlsx")
+
+  Requires installation of openpyxl to do the spreadsheet handling.
+  PR submitted by Brunno Vanelli, very nice work, thanks!
+
 - Fixed count(), index(), remove(), and remove_many() to accept dict
   objects. Identified while addressing issue #3.
 
