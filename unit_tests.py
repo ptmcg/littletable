@@ -1588,6 +1588,7 @@ class TableImportExportTests:
         imports = [
             ("abc.csv", lt.ImportSourceType.file),
             ("abc.tsv", lt.ImportSourceType.file),
+            ("abc.xlsx", lt.ImportSourceType.file),
             ("abc.csv.zip", lt.ImportSourceType.zip),
             ("abc.csv.gz", lt.ImportSourceType.gzip),
             ("abc.csv.xz", lt.ImportSourceType.lzma),
@@ -1598,8 +1599,10 @@ class TableImportExportTests:
                 import_name = "test/" + fname
             else:
                 import_name = fname
-            if not import_name.endswith(".tsv"):
+            if import_name.endswith(".csv"):
                 tbl = lt.Table().csv_import(import_name)
+            elif import_name.endswith(".xlsx"):
+                tbl = lt.Table().excel_import(import_name)
             else:
                 tbl = lt.Table().tsv_import(import_name)
 
@@ -1878,6 +1881,34 @@ class TableImportExportTests:
 
         self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
         self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
+
+    def test_excel_import(self):
+        file_name = "test/abc.xlsx"
+        excel_table = lt.Table().excel_import(file_name, transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, excel_table)))
+        self.assertEqual(sum(1 for line in csv_data.splitlines() if line.strip())-1, len(excel_table))
+
+        row_prototype = self.make_data_object(0, 0, 0)
+        csvtable2 = lt.Table().excel_import(
+            file_name, transforms={'a': int, 'b': int, 'c': int}, row_class=type(row_prototype)
+        )[:3]
+
+        print(type(t1[0]).__name__, t1[0])
+        print(type(csvtable2[0]).__name__, csvtable2[0])
+        self.assertEqual(type(t1[0]), type(csvtable2[0]))
+
+    def test_excel_export(self):
+        file_name = "test/abc.xlsx"
+        excel_table = lt.Table().excel_import(file_name, transforms={'a': int, 'b': int, 'c': int}, limit=1)
+        outfile = io.BytesIO()
+        excel_table.excel_export(outfile, lxml=True)
+        exported_table = lt.Table().excel_import(outfile, transforms={'a': int, 'b': int, 'c': int})
+
+        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(exported_table, excel_table)))
 
 
 @make_test_classes
