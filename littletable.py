@@ -2273,23 +2273,20 @@ class Table:
         if openpyxl is None:
             raise Exception("openpyxl module not installed")
 
-        def excel_as_dict(filename, **reader_args) -> List[Dict[str, str]]:
+        def excel_as_dict(filename, **reader_args) -> Iterable[Dict[str, str]]:
             with closing(openpyxl.load_workbook(filename, read_only=True)) as wb:
                 # read requested sheet if provided on kwargs, otherwise read active sheet
                 requested_sheet = reader_args.get("sheet")
                 ws = wb[requested_sheet] if requested_sheet else wb.active
-                # check whether to include or omit the header
-                header = reader_args.get("fieldnames") or [cell.value for cell in ws[1]]
-                start_position = 0 if reader_args.get("fieldnames") else 1
 
-                # return read data as List[Dict]
-                data = list()
-                for row in list(ws.rows)[start_position:]:
-                    values = {}
-                    for key, cell in zip(header, row):
-                        values[key] = cell.value
-                    data.append(values)
-            return data
+                rows_iter = iter(ws.rows)
+
+                # check whether to include or omit the header
+                header = (reader_args.get("fieldnames")
+                          or [str(cell.value) for cell in next(rows_iter)])
+
+                for row in rows_iter:
+                    yield {key: cell.value for key, cell in zip(header, row)}
 
         return self._import(
             excel_source,
