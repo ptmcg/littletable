@@ -1618,18 +1618,22 @@ class TableImportExportTests:
         import subprocess
         import urllib.request
 
+        python_exe = sys.executable
+        cmd = [python_exe, "test/csv_import_http_server.py"]
         web_address = "http://localhost:8888"
-        web_server = subprocess.Popen("python test/csv_import_http_server.py".split())
         url = web_address + "/abc.csv"
-        tbl = lt.Table().csv_import(url)
+        try:
+            web_server = subprocess.Popen(cmd)
+            tbl = lt.Table().csv_import(url)
+        finally:
+            with urllib.request.urlopen(web_address + "/EXIT"):
+                pass
+
+            web_server.wait()
+
         tbl.present()
         self.assertEqual(url, tbl.import_source)
         self.assertEqual(lt.ImportSourceType.url, tbl.import_source_type)
-
-        with urllib.request.urlopen(web_address + "/EXIT"):
-            pass
-
-        web_server.wait()
 
     def test_csv_filtered_import(self):
         test_size = 3
@@ -1905,7 +1909,7 @@ class TableImportExportTests:
         file_name = "test/abc.xlsx"
         excel_table = lt.Table().excel_import(file_name, transforms={'a': int, 'b': int, 'c': int}, limit=1)
         outfile = io.BytesIO()
-        excel_table.excel_export(outfile, lxml=True)
+        excel_table.excel_export(outfile)
         exported_table = lt.Table().excel_import(outfile, transforms={'a': int, 'b': int, 'c': int})
 
         self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(exported_table, excel_table)))
