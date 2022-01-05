@@ -134,7 +134,9 @@ from itertools import repeat, takewhile, chain, product, tee, groupby
 from pathlib import Path
 from types import SimpleNamespace
 import urllib.request
-from typing import Tuple, List, Callable, Any, TextIO, Dict, Union, Optional, Iterable
+from typing import (
+    Tuple, List, Callable, Any, TextIO, Dict, Union, Optional, Iterable, Iterator, Set, Generic, TypeVar
+)
 
 try:
     import rich
@@ -164,7 +166,7 @@ else:
 
 default_row_class = SimpleNamespace
 
-_numeric_type = (int, float)
+_numeric_type: Tuple = (int, float)
 try:
     import numpy
 except ImportError:
@@ -568,6 +570,8 @@ class _MultiIterator:
             seqobj = str(seqobj)
             self.type = ImportSourceType.path
 
+        self._iterobj: Iterable[str]
+
         if isinstance(seqobj, str):
             if "\n" in seqobj:
                 self._iterobj = iter(StringIO(seqobj))
@@ -653,7 +657,7 @@ class FixedWidthReader:
             spec: List[FixedWidthParseSpec],
         ) -> List[Tuple[str, slice, Callable[[str], Any]]]:
             ret = []
-            for cur, next_ in zip(spec, spec[1:] + [("", sys.maxsize)]):
+            for cur, next_ in zip(spec, spec[1:] + [("", sys.maxsize, None, None)]):
                 label, col, endcol, fn = (cur + (None, None,))[:4]
                 if label is None:
                     continue
@@ -755,7 +759,10 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
     return _Table_comparator_fn
 
 
-class Table:
+TableContent = TypeVar("TableContent")
+
+
+class Table(Generic[TableContent]):
     """
     Table is the main class in C{littletable}, for representing a collection of DataObjects or
     user-defined objects with publicly accessible attributes or properties.  Tables can be:
@@ -828,8 +835,8 @@ class Table:
         self._uniqueIndexes: List[Any] = []
         self._search_indexes: Dict[str, Dict[str, List]] = {}
 
-        self.import_source_type = None
-        self.import_source = None
+        self.import_source_type: Optional[ImportSourceType] = None
+        self.import_source: Optional[str] = None
 
         """
         C{'by'} is added as a pseudo-attribute on tables, to provide
@@ -898,15 +905,15 @@ class Table:
         """
         return _TableSearcher(self)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the number of objects in the Table."""
         return len(self.obs)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[TableContent]:
         """Create an iterator over the objects in the Table."""
         return iter(self.obs)
 
-    def __getitem__(self, i):
+    def __getitem__(self, i) -> Union["Table", TableContent]:
         """Provides direct indexed/sliced access to the Table's underlying list of objects."""
         if isinstance(i, slice):
             ret = self.copy_template()
@@ -927,7 +934,7 @@ class Table:
         for idx in delidxs:
             self.pop(idx)
 
-    def pop(self, i: int = -1):
+    def pop(self, i: int = -1) -> TableContent:
         ret = self.obs.pop(i)
 
         # remove from indexes
@@ -937,13 +944,13 @@ class Table:
         self._contents_changed()
         return ret
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return bool(self.obs)
 
     def __reversed__(self):
         return reversed(self.obs)
 
-    def __contains__(self, item):
+    def __contains__(self, item) -> bool:
         if isinstance(item, dict):
             item = self._wrap_dict(item)
         return item in self.obs
@@ -958,7 +965,7 @@ class Table:
             item = self._wrap_dict(item)
         return self.obs.count(item)
 
-    def __add__(self, other):
+    def __add__(self, other) -> "Table":
         """Support UNION of 2 tables using "+" operator."""
         if isinstance(other, _JoinTerm):
             # special case if added to a JoinTerm, do join, not union
@@ -970,14 +977,14 @@ class Table:
             # assume other is a sequence of some sort, insert all elements
             return self.clone().insert_many(other)
 
-    def __iadd__(self, other):
+    def __iadd__(self, other) -> "Table":
         """Support UNION of 2 tables using "+=" operator."""
         return self.insert_many(other)
 
     def union(self, other: "Table") -> "Table":
         return self.clone().insert_many(other.obs)
 
-    def __call__(self, table_name: str = None):
+    def __call__(self, table_name: str = None) -> "Table":
         """
         A simple way to assign a name to a table, such as those
         dynamically created by joins and queries.
@@ -988,7 +995,7 @@ class Table:
             self.table_name = table_name
         return self
 
-    def _attr_names(self):
+    def _attr_names(self) -> List[str]:
         return list(
             _object_attrnames(self.obs[0]) if self.obs else self._indexes.keys()
         )
@@ -998,7 +1005,7 @@ class Table:
         Create empty copy of the current table, with copies of all
         index definitions.
         """
-        ret = Table(self.table_name)
+        ret: Table[TableContent] = Table(self.table_name)
         ret._indexes.update(
             dict((k, v.copy_template()) for k, v in self._indexes.items())
         )
@@ -1080,7 +1087,7 @@ class Table:
         return _ReadonlyObjIndexWrapper(self._indexes[attr], self.copy_template())
 
     @staticmethod
-    def _normalize_word(s):
+    def _normalize_word(s: str) -> str:
         match_res = [
             # an acronym of 2 or more "X." sequences, such as G.E. or I.B.M.
             re.compile(r"((?:\w\.){2,})"),
@@ -1095,7 +1102,7 @@ class Table:
                 return ret
         return ""
 
-    def _normalize_split(self, s):
+    def _normalize_split(self, s: str) -> List[str]:
         return [self._normalize_word(wd) for wd in s.split()]
 
     def create_search_index(
@@ -1144,22 +1151,22 @@ class Table:
             else:
                 return self
 
+        stopwords_set: Set[str]
         if stopwords is None:
-            stopwords = _stopwords
+            stopwords_set = _stopwords
         else:
-            stopwords = set(stopwords)
+            stopwords_set = set(stopwords)
 
-        new_index = self._search_indexes[attrname] = defaultdict(list)
+        self._search_indexes[attrname] = defaultdict(list)
+        new_index: Dict[str, Any] = self._search_indexes[attrname]
         for i, rec in enumerate(self.obs):
             words = self._normalize_split(getattr(rec, attrname, ""))
-            words = set(words)
-            words -= stopwords
-            for wd in words:
+            for wd in set(words) - stopwords_set:
                 new_index[wd].append(i)
 
         # use uppercase keys for index metadata, since they should not
         # overlap with any search terms
-        new_index["STOPWORDS"] = stopwords
+        new_index["STOPWORDS"] = stopwords_set
         new_index["VALID"] = True
 
         return self
@@ -1407,7 +1414,7 @@ class Table:
         for idx in self._search_indexes.values():
             idx["VALID"] = False
 
-    def _query_attr_sort_fn(self, attr_val):
+    def _query_attr_sort_fn(self, attr_val: Tuple[str, Any]) -> int:
         """Used to order where keys by most selective key first"""
         attr, v = attr_val
         if attr in self._indexes:
@@ -1417,9 +1424,9 @@ class Table:
             else:
                 return 0
         else:
-            return 1e9
+            return sys.maxsize
 
-    def where(self, wherefn: PredicateFunction = None, **kwargs) -> "Table":
+    def where(self, wherefn: PredicateFunction = None, **kwargs: Mapping[str, Any]) -> "Table":
         """
         Retrieves matching objects from the table, based on given
         named parameters.  If multiple named parameters are given, then
@@ -1444,13 +1451,13 @@ class Table:
             # for each individual given attribute; this will minimize the number
             # of filtering records that each subsequent attribute will have to
             # handle
-            kwargs = list(kwargs.items())
-            if len(kwargs) > 1 and len(self) > 100:
-                kwargs = sorted(kwargs, key=self._query_attr_sort_fn)
+            kwargs_list: List[Tuple[str, Any]] = list(kwargs.items())
+            if len(kwargs_list) > 1 and len(self) > 100:
+                kwargs_list.sort(key=self._query_attr_sort_fn)
 
             ret = self
             NO_SUCH_ATTR = object()
-            for k, v in kwargs:
+            for k, v in kwargs_list:
                 if callable(v) and v.__name__ == "_Table_comparator_fn":
                     wherefn_k = v(k)
                     newret = ret.where(wherefn_k)
@@ -1521,6 +1528,7 @@ class Table:
         @return: self
         """
         if isinstance(key, (str, list, tuple)):
+            attr_orders: List[List[str]]
             if isinstance(key, str):
                 attrdefs = [s.strip() for s in key.split(",")]
                 attr_orders = [(a.split() + ["asc", ])[:2] for a in attrdefs]
@@ -1592,7 +1600,7 @@ class Table:
             raw_tuples.append(attrvalues)
 
         all_names = tuple(fields) + tuple(exprs.keys())
-        ret = Table(self.table_name)
+        ret: Table[TableContent] = Table(self.table_name)
         ret._indexes.update(
             dict(
                 (k, v.copy_template())
@@ -1624,12 +1632,12 @@ class Table:
         for ename, expr in exprs.items():
             if isinstance(expr, str):
                 if re.match(r"[a-zA-Z_][a-zA-Z0-9_]*$", expr):
-                    select_exprs[ename] = lambda r: str(getattr(r, expr, "None"))
+                    select_exprs[ename] = lambda r, expr=expr: str(getattr(r, expr, "None"))
                 else:
                     if "{}" in expr or "{0}" or "{0:" in expr:
-                        select_exprs[ename] = lambda r: expr.format(r)
+                        select_exprs[ename] = lambda r, expr=expr: expr.format(r)
                     else:
-                        select_exprs[ename] = lambda r: expr.format(
+                        select_exprs[ename] = lambda r, expr=expr: expr.format(
                             getattr(r, ename, "None")
                         )
 
@@ -1649,7 +1657,7 @@ class Table:
         attrlist: Union[str, Iterable[str]] = None,
         auto_create_indexes: bool = True,
         **kwargs,
-    ):
+    ) -> "Table":
         """
         Join the objects of one table with the objects of another, based on the given
         matching attributes in the named arguments.  The attrlist specifies the attributes to
@@ -1702,9 +1710,10 @@ class Table:
             attr_spec_list = re.split(r"[,\s]+", attrlist)
 
         # expand attrlist to full (table, name, alias) tuples
+        full_attr_specs: List[Tuple[Table, str, str]]
         if attr_spec_list is None:
-            full_attr_specs = [(self, n, n) for n in self._attr_names()]
-            full_attr_specs += [(other, n, n) for n in other._attr_names()]
+            full_attr_specs = [(self, namestr, namestr) for namestr in self._attr_names()]
+            full_attr_specs += [(other, namestr, namestr) for namestr in other._attr_names()]
         else:
             full_attr_specs = []
             this_attr_names = set(self._attr_names())
@@ -1740,7 +1749,7 @@ class Table:
                         tbl.create_index(col)
         else:
             # make sure all join columns are indexed
-            unindexed_cols = []
+            unindexed_cols: List[str] = []
             for tbl, col_list in ((self, this_cols), (other, other_cols)):
                 unindexed_cols.extend(
                     col for col in col_list if col not in tbl._indexes
@@ -1783,7 +1792,7 @@ class Table:
                     setattr(retobj, alias, getattr(orow, attr_name, None))
                 joinrows.append(retobj)
 
-        ret = Table(retname)
+        ret: Table[TableContent] = Table(retname)
         ret.insert_many(joinrows)
 
         # add indexes as defined in source tables
@@ -1865,9 +1874,10 @@ class Table:
             attr_spec_list = re.split(r"[,\s]+", attrlist)
 
         # expand attrlist to full (table, name, alias) tuples
+        full_attr_specs: List[Tuple[Table, str, str]]
         if attr_spec_list is None:
-            full_attr_specs = [(self, n, n) for n in self._attr_names()]
-            full_attr_specs += [(other, n, n) for n in other._attr_names()]
+            full_attr_specs = [(self, namestr, namestr) for namestr in self._attr_names()]
+            full_attr_specs += [(other, namestr, namestr) for namestr in other._attr_names()]
         else:
             full_attr_specs = []
             this_attr_names = set(self._attr_names())
@@ -1903,7 +1913,7 @@ class Table:
                         tbl.create_index(col)
         else:
             # make sure all join columns are indexed
-            unindexed_cols = []
+            unindexed_cols: List[str] = []
             for tbl, col_list in ((self, this_cols), (other, other_cols)):
                 unindexed_cols.extend(
                     col for col in col_list if col not in tbl._indexes
@@ -1984,7 +1994,7 @@ class Table:
                     setattr(retobj, alias, getattr(orow, attr_name, None))
                 joinrows.append(retobj)
 
-        ret = Table(retname)
+        ret: Table[TableContent] = Table(retname)
         ret.insert_many(joinrows)
 
         # add indexes as defined in source tables
@@ -2395,9 +2405,9 @@ class Table:
                 fieldnames = fieldnames.split()
 
             csv_dest.write(delimiter.join(fieldnames) + NL)
-            csvout = csv.DictWriter(
+            csvout: csv.DictWriter = csv.DictWriter(
                 csv_dest,
-                fieldnames,
+                list(fieldnames),
                 extrasaction="ignore",
                 lineterminator=NL,
                 delimiter=delimiter,
@@ -2525,6 +2535,18 @@ class Table:
         fieldnames: Iterable[str] = None,
         **kwargs,
     ):
+        """
+        Exports the contents of the table to an excel .xslx file.
+        @param excel_dest: excel file - if a string is given, the file with that name will be
+            opened, written, and closed; if a file object is given, then that object
+            will be written as-is, and left for the caller to be closed.
+        @type excel_dest: string or file
+        @param fieldnames: attribute names to be exported; can be given as a single
+            string with space-delimited names, or as a list of attribute names
+        @type fieldnames: list of strings
+        @param kwargs: additional keyword args
+        @type kwargs: named arguments (optional)
+        """
         if openpyxl is None:
             raise Exception("openpyxl module not installed")
         if kwargs.pop('lxml', True) is False:
@@ -2535,7 +2557,8 @@ class Table:
             except ImportError:
                 lxml = None
 
-        if lxml is not None:
+        # lxml enables write_only mode (which is faster)
+        if lxml:
             wb = openpyxl.Workbook(write_only=True)
             ws = wb.create_sheet()
         else:
@@ -2725,7 +2748,7 @@ class Table:
                  statistic and the value of that statistic for each field (conceptually
                  a transpose of the by_field=True results)
         """
-        ret = Table()
+        ret: Table = Table()
 
         # if table is empty, return empty stats
         if not self:
@@ -2783,7 +2806,7 @@ class Table:
         if isinstance(field_names, str):
             field_names = field_names.split()
         if not self.obs:
-            return field_names
+            return list(field_names)
 
         suppress_names = [nm[1:] for nm in field_names if nm.startswith("-")]
         field_names = [nm for nm in field_names if not nm.startswith("-")]
@@ -3513,7 +3536,7 @@ if __name__ == "__main__":
     print(list(stations.where()))
     print()
 
-    amfm = Table()
+    amfm: Table = Table()
     amfm.create_index("stn", unique=True)
     amfm.insert(dict(stn="KPHY", band="AM"))
     amfm.insert(dict(stn="KPHX", band="FM"))
