@@ -5,6 +5,7 @@ How to Use littletable
   * [Creating a table](#creating-a-table)
   * [Inserting objects](#inserting-objects)
   * [Importing data from CSV files](#importing-data-from-csv-files)
+  * [Import/export data to Excel files](#importexport-to-excel-files-xlsx)
   * [Tabular output](#tabular-output)
   * [types.SimpleNamespace](#typessimplenamespace)
   * [Removing objects](#removing-objects)
@@ -93,8 +94,9 @@ Performance tip: Calling `insert_many()` with a list of objects will perform bet
 `insert()` in a loop.
 
 `littletable` supports records that are user-defined types (including those defined
-using `__slots__`), `dataclasses`, `namedtuple`s, and `SimpleNamespace`s. Python `dict`s can 
-also be used; they will be stored as `SimpleNamespace`s so that the `dict` fields
+using `__slots__`), `dataclasses`, `namedtuple`s, and `SimpleNamespace`s. Python objects
+defined using `attrs`, `pydantic`, and `traits/traitlets` packages are also supported.
+Python `dict`s can be used; they will be stored as `SimpleNamespace`s so that the `dict` fields
 will be accessible as object attributes.
 
 
@@ -173,6 +175,14 @@ installing the `lzma-dev` library. On Ubuntu for example, this is done using:
 
 Then rebuild and reinstall Python.
 
+Import/export to Excel files (.xlsx)
+------------------------------------
+`littletable` can read and write local Excel spreadsheet files:
+
+```python
+tbl = lt.Table().excel_import("data_table.xlsx")
+tbl.excel_export("new_table.xlsx")
+```
 
 Tabular output
 --------------
