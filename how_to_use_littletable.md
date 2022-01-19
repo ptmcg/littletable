@@ -184,6 +184,46 @@ tbl = lt.Table().excel_import("data_table.xlsx")
 tbl.excel_export("new_table.xlsx")
 ```
 
+Data values from Excel get converted to standard Python types where possible.
+A spreadsheet containing the following data:
+
+| name | value | type |
+|---|---|---|
+| a | 100 | int |
+| b | 3.14159 | float |
+| c | None | null |
+| d | 2021-12-25 00:00:00 | date |
+| e | Floyd | str |
+| f |   | space |
+| g | 𝚃𝖞𝐩𝓮𝖤𝔯𝘳º𝗿 | str |
+| h | True | bool |
+| i | =TODAY() | formula |
+| j | 0 | None |
+| k | None | None |
+
+Can be imported and the data values will be automatically
+converted as shown below:
+
+```python
+xl = lt.Table().excel_import("../test/data_types.xlsx")
+
+for row in xl:
+    print(row.name, repr(row.value), type(row.value), row.type)
+
+
+a 100 <class 'int'> int
+b 3.14159 <class 'float'> float
+c None <class 'NoneType'> null
+d datetime.datetime(2021, 12, 25, 0, 0) <class 'datetime.datetime'> date
+e 'Floyd' <class 'str'> str
+f ' ' <class 'str'> space
+g '𝚃𝖞𝐩𝓮𝖤𝔯𝘳º𝗿' <class 'str'> str
+h True <class 'bool'> bool
+i '=TODAY()' <class 'str'> formula
+j 0 <class 'int'> None
+k None <class 'NoneType'> None
+```
+
 Tabular output
 --------------
 To produce a nice tabular output for a table, you can use the embedded support for
