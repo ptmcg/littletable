@@ -18,6 +18,8 @@ from typing import Optional, Union, NamedTuple
 
 import littletable as lt
 
+from test import csv_import_http_server
+
 try:
     import dataclasses
 except ImportError:
@@ -1615,21 +1617,19 @@ class TableImportExportTests:
             self.assertEqual(expected_type, tbl.import_source_type)
 
     def test_csv_import_from_url(self):
-        import subprocess
         import urllib.request
 
-        python_exe = sys.executable
-        cmd = [python_exe, "test/csv_import_http_server.py"]
         web_address = "http://localhost:8888"
+        p = csv_import_http_server.run_background_test_server()
+
         url = web_address + "/abc.csv"
         try:
-            web_server = subprocess.Popen(cmd)
             tbl = lt.Table().csv_import(url)
         finally:
             with urllib.request.urlopen(web_address + "/EXIT"):
                 pass
 
-            web_server.wait()
+            p.join()
 
         tbl.present()
         self.assertEqual(url, tbl.import_source)
