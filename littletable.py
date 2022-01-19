@@ -153,7 +153,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "5 January 2022 07:32 UTC"
+__version_time__ = "19 January 2022 14:22 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -1426,7 +1426,7 @@ class Table(Generic[TableContent]):
         else:
             return sys.maxsize
 
-    def where(self, wherefn: PredicateFunction = None, **kwargs: Mapping[str, Any]) -> "Table":
+    def where(self, wherefn: PredicateFunction = None, **kwargs) -> "Table":
         """
         Retrieves matching objects from the table, based on given
         named parameters.  If multiple named parameters are given, then
