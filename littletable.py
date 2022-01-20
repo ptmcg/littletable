@@ -7,7 +7,7 @@
 # to a collection of data objects, without dealing with SQL
 #
 #
-# Copyright (c) 2010-2021  Paul T. McGuire
+# Copyright (c) 2010-2022  Paul T. McGuire
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -153,7 +153,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "19 January 2022 14:22 UTC"
+__version_time__ = "20 January 2022 21:51 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2558,7 +2558,7 @@ class Table(Generic[TableContent]):
                 lxml = None
 
         # lxml enables write_only mode (which is faster)
-        if lxml:
+        if lxml is not None:
             wb = openpyxl.Workbook(write_only=True)
             ws = wb.create_sheet()
         else:
