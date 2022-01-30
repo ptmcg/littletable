@@ -146,14 +146,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 0, 5, "final", 0)
+__version_info__ = version_info(2, 0, 6, "_dev", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.release_level[0], __version_info__.serial), "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "20 January 2022 21:51 UTC"
+__version_time__ = "30 January 2022 22:11 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2068,7 +2068,7 @@ class Table(Generic[TableContent]):
                             rec[k] = default
                     return rec
 
-                csvdata = map(transformer, csvdata)
+                csvdata = (transformer(d) for d in csvdata)
 
             if filters:
                 for k, v in filters.items():
@@ -3096,7 +3096,7 @@ class Table(Generic[TableContent]):
             ret = (
                 f"| {' | '.join(fields)} |\n"
                 f"|{'|'.join(field_align_map[f] for f in fields)}|\n"
-                f"{''.join(map(row_to_tr, self))}"
+                f"{''.join(row_to_tr(row) for row in self)}"
             )
         else:
             get_fn = lambda r: tuple(getattr(r, attr, "") for attr in group_attrs)
@@ -3366,7 +3366,7 @@ class _PivotTableSummary:
             hdgs = sorted(keytally)
             ret += (
                 "<tr>"
-                + "".join(map('<th><div align="center">{}</div></th>'.format, hdgs))
+                + "".join('<th><div align="center">{}</div></th>'.format(h) for h in hdgs)
                 + "</tr>\n"
             )
             ret += "</thead>\n<tbody>\n"
