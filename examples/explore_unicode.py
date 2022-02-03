@@ -107,6 +107,7 @@
 #       14   Titlecase mapping                 informative               Similar to Uppercase mapping
 # """
 #
+import re
 import littletable as lt
 
 
@@ -172,6 +173,7 @@ def present_symbol_group(
     )
     return tbl
 
+
 def present_symbol_group_contains_word(
     word_str: str, title: str, source_table: lt.Table = unicode
 ) -> lt.Table:
@@ -179,7 +181,13 @@ def present_symbol_group_contains_word(
     Function to search for Unicode characters that match a starting string, and
     presents a table showing name, character, and decimal code value
     """
-    tbl = source_table.where(name=lt.Table.re_match(rf".*\b{word_str}\b"))(title)
+    # DEPRECATED FORM
+    # tbl = source_table.where(name=lt.Table.re_match(rf".*\b{word_str}\b"))(title)
+
+    # NEW FORM
+    contains_word = re.compile(rf".*?\b{word_str}\b").match
+    tbl = source_table.where(name=contains_word)(title)
+
     tbl = tbl.select("name character code_value code_value_hex")
     tbl.present(
         caption="Total {} symbols".format(len(tbl)),

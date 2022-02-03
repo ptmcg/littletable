@@ -116,6 +116,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 import csv
+import warnings
 from enum import Enum
 from io import StringIO
 import json
@@ -749,6 +750,11 @@ def _make_comparator2(cmp_fn):
 
 
 def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
+    warnings.warn(
+        DeprecationWarning("Table.re_match(patt) comparator is deprecated,"
+                           " replace with re.compile(patt).match"),
+        stacklevel=2,
+    )
     regex = re.compile(*reg_expr_args, **reg_expr_flags)
     cmp_fn = regex.match
 
