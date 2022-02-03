@@ -453,6 +453,15 @@ class TableCreateTests:
         circled = unicode_numbers.where(name=lt.Table.re_match(r"circled", flags=re.I))
         self.assertEqual(10, len(circled))
 
+    def test_where_attr_function(self):
+        test_size = 8
+        table = make_test_table(self.make_data_object, test_size)
+
+        def is_odd(x):
+            return bool(x % 2)
+
+        self.assertEqual(test_size*test_size*test_size//2, len(table.where(a=is_odd)))
+
     def test_get_slice(self):
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)

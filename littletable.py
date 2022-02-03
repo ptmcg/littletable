@@ -1458,8 +1458,15 @@ class Table(Generic[TableContent]):
             ret = self
             NO_SUCH_ATTR = object()
             for k, v in kwargs_list:
-                if callable(v) and v.__name__ == "_Table_comparator_fn":
-                    wherefn_k = v(k)
+                if callable(v):
+                    if v.__name__ == "_Table_comparator_fn":
+                        wherefn_k = v(k)
+                    else:
+                        def wherefn_k(obj):
+                            try:
+                                return v(getattr(obj, k, None))
+                            except Exception:
+                                return False
                     newret = ret.where(wherefn_k)
                 else:
                     newret = ret.copy_template()

@@ -450,6 +450,25 @@ warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
 
 Comparators can also be used as filter functions for import methods.
 
+[Added in version 2.0.6]
+You can write your own comparator functions also. Define a function that 
+takes a single value as would be stored in an attribute, and call 
+`Table.where()` using `attribute=function`:
+
+```python
+# For a table with an int field 'a', select all the records where
+# 'a' is odd.
+
+def is_odd(x):
+  return bool(x % 2)
+
+# formerly
+tbl.where(lambda rec: is_odd(rec.a))
+
+# new simplified form
+tbl.where(a=is_odd)
+```
+
 
 Splitting a table using a criteria function
 -------------------------------------------

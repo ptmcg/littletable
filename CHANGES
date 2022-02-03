@@ -1,6 +1,21 @@
 Change History
 ==============
 
+Version 2.0.6 (in development)
+------------------------------
+- Simplified Table.where() when a filtering method takes a single
+  value as found in a record attribute.
+
+  For example, to find the odd `a` values in a Table, you would
+  previously write:
+
+      tbl.where(lambda rec: is_odd(rec.a))
+
+  Now you can write:
+
+      tbl.where(a=is_odd)
+
+
 Version 2.0.5
 -------------
 - Added support for import/export to local Excel .xlsx spreadsheets.
