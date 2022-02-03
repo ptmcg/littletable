@@ -15,6 +15,9 @@ Version 2.0.6 (in development)
 
       tbl.where(a=is_odd)
 
+- Added example nfkc_normalization.py, to show Unicode characters
+  that normalize to ASCII in Python scripts.
+
 
 Version 2.0.5
 -------------
