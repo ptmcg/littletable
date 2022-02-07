@@ -440,9 +440,12 @@ class _UniqueObjIndexWrapper(_ObjIndexWrapper):
             return ret
 
 
+class ReadonlyIndexAccessError(Exception): pass
+
+
 class _ReadonlyObjIndexWrapper(_ObjIndexWrapper):
     def __setitem__(self, k, value):
-        raise Exception(f"no update access to index {self.attr!r}")
+        raise ReadonlyIndexAccessError(f"no update access to index {self.attr!r}")
 
 
 class _TableAttributeValueLister:

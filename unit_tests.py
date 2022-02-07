@@ -151,49 +151,60 @@ class TestDataObjects(unittest.TestCase):
         ob = lt.DataObject()
         ob.z = 200
         ob.a = 100
-        self.assertEqual([('a', 100), ('z', 200)], sorted(ob.__dict__.items()))
+        with self.subTest("test DataObject attribute setting"):
+            self.assertEqual([('a', 100), ('z', 200)], sorted(ob.__dict__.items()))
 
         # test semi-immutability (can't overwrite existing attributes)
-        with self.assertRaises(AttributeError):
-            ob.a = 101
+        with self.subTest("test DataObject write-once (semi-immutability)"):
+            with self.assertRaises(AttributeError):
+                ob.a = 101
 
         # equality tests
-        ob2 = lt.DataObject(**{'a': 100, 'z': 200})
-        self.assertEqual(ob2, ob)
+        with self.subTest("test DataObject equality"):
+            ob2 = lt.DataObject(**{'a': 100, 'z': 200})
+            self.assertEqual(ob2, ob)
 
-        ob2.b = 'blah'
-        self.assertNotEqual(ob, ob2)
+        with self.subTest("test DataObject inequality"):
+            ob2.b = 'blah'
+            self.assertNotEqual(ob, ob2)
 
-        del ob2.b
-        self.assertEqual(ob2, ob)
+        with self.subTest("test DataObject equality after updates"):
+            del ob2.b
+            self.assertEqual(ob2, ob)
 
-        del ob2.a
-        del ob2.z
+        with self.subTest("test DataObject KeyError"):
+            del ob2.a
+            del ob2.z
 
-        with self.assertRaises(KeyError):
-            ob2['a']
-        ob2['a'] = 10
-        ob2['a']
-
-        with self.assertRaises(KeyError):
+            with self.assertRaises(KeyError):
+                ob2['a']
             ob2['a'] = 10
+            ob2['a']
 
-        self.assertEqual("{'a': 10}", repr(ob2))
+        with self.subTest("test DataObject KeyError (2)"):
+            with self.assertRaises(KeyError):
+                ob2['a'] = 10
+
+        with self.subTest("test DataObject repr"):
+            self.assertEqual("{'a': 10}", repr(ob2))
 
 
 class TestTableTypes(unittest.TestCase):
     def test_types(self):
 
         # check that Table and Index are recognized as Sequence and Mapping types
-        t = lt.Table()
-        self.assertTrue(isinstance(t, lt.Sequence))
+        with self.subTest("check that Table is recognized as Sequence type"):
+            t = lt.Table()
+            self.assertTrue(isinstance(t, lt.Sequence))
 
-        t.create_index("x")
-        self.assertTrue(isinstance(t.get_index('x'), lt.Mapping))
+        with self.subTest("check that Index is recognized as Mapping type"):
+            t.create_index("x")
+            self.assertTrue(isinstance(t.get_index('x'), lt.Mapping))
 
         # make sure get_index returns a read-only access to the underlying index
-        with self.assertRaises(Exception):
-            t.get_index("x")['a'] = 100
+        with self.subTest("check that get_index returns a read-only access to the underlying index"):
+            with self.assertRaises(lt.ReadonlyIndexAccessError):
+                t.get_index("x")['a'] = 100
 
 
 def announce_test(fn):
