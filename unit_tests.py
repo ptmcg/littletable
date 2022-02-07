@@ -17,6 +17,8 @@ from types import SimpleNamespace
 import unittest
 from typing import Optional, Union, NamedTuple
 
+python_version = sys.version_info[:2]
+
 import littletable as lt
 
 SKIP_CSV_IMPORT_USING_URL_TESTS = os.environ.get("SKIP_CSV_IMPORT_USING_URL_TESTS", "0") == "1"
@@ -125,6 +127,25 @@ class Slotted:
         return "{}:(a={}, b={}, c={})".format(type(self).__name__, self.a, self.b, self.c)
 
 
+if python_version >= (3, 8):
+    class SlottedWithDict:
+        __slots__ = {'a': 'a', 'b': 'b', 'c': 'c'}
+
+        def __init__(self, a, b, c):
+            self.a = a
+            self.b = b
+            self.c = c
+
+        def __eq__(self, other):
+            return (isinstance(other, SlottedWithDict) and
+                    all(getattr(self, attr) == getattr(other, attr) for attr in self.__slots__))
+
+        def __repr__(self):
+            return "{}:(a={}, b={}, c={})".format(type(self).__name__, self.a, self.b, self.c)
+else:
+    SlottedWithDict = None
+
+
 class TestDataObjects(unittest.TestCase):
     def test_set_attributes(self):
         ob = lt.DataObject()
@@ -203,6 +224,8 @@ def make_test_classes(cls):
     make_test_class(cls, UsingNamedtuples)
     make_test_class(cls, UsingDataNamedtuples)
     make_test_class(cls, UsingSlottedObjects)
+    if SlottedWithDict is not None:
+        make_test_class(cls, UsingSlottedWithDictObjects)
     make_test_class(cls, UsingSimpleNamespace)
     if dataclasses is not None:
         make_test_class(cls, UsingDataclasses)
@@ -238,6 +261,13 @@ class UsingDataNamedtuples(AbstractContentTypeFactory):
 
 class UsingSlottedObjects(AbstractContentTypeFactory):
     data_object_type = Slotted
+
+
+if SlottedWithDict is not None:
+    class UsingSlottedWithDictObjects(AbstractContentTypeFactory):
+        data_object_type = SlottedWithDict
+else:
+    UsingSlottedWithDictObjects = AbstractContentTypeFactory
 
 
 class UsingSimpleNamespace(AbstractContentTypeFactory):
@@ -2154,6 +2184,10 @@ if attr is not None:
 
 if traitlets is not None:
     class TableSearchTests_TraitletsClasses(TableSearchTests, UsingTraitletsClass):
+        pass
+
+if SlottedWithDict is not None:
+    class TableSearchTests_SlottedWithDict(TableSearchTests, UsingSlottedWithDictObjects):
         pass
 
 

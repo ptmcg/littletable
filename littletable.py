@@ -209,12 +209,12 @@ def _object_attrnames(obj):
         return obj.trait_names()
     if hasattr(obj, "__dict__"):
         # normal object
-        return list(obj.__dict__.keys())
+        return list(obj.__dict__)
     if isinstance(obj, tuple) and hasattr(obj, "_fields"):
         # namedtuple
         return obj._fields
     if hasattr(obj, "__slots__"):
-        return obj.__slots__
+        return list(obj.__slots__)
     raise UnableToExtractAttributeNamesError("object with unknown attributes")
 
 

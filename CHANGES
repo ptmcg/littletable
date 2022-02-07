@@ -34,6 +34,10 @@ Version 2.0.6 (in development)
 
 - Fixed internal bugs if using `groupby` when calling `Table.as_html()`.
 
+- Added tests when using `__slots__` defined using a dict (feature
+  added in Python 3.8 to attach docstrings to attributes defined
+  using `__slots__`).
+
 
 Version 2.0.5
 -------------
