@@ -32,6 +32,8 @@ Version 2.0.6 (in development)
 - Added example nfkc_normalization.py, to show Unicode characters
   that normalize to ASCII in Python scripts.
 
+- Fixed internal bugs if using `groupby` when calling `Table.as_html()`.
+
 
 Version 2.0.5
 -------------

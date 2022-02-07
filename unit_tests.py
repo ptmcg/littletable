@@ -10,6 +10,7 @@ import io
 import itertools
 import json
 from operator import attrgetter
+import os
 import sys
 import textwrap
 from types import SimpleNamespace
@@ -17,6 +18,8 @@ import unittest
 from typing import Optional, Union, NamedTuple
 
 import littletable as lt
+
+SKIP_CSV_IMPORT_USING_URL_TESTS = os.environ.get("SKIP_CSV_IMPORT_USING_URL_TESTS", "0") == "1"
 
 try:
     import dataclasses
@@ -767,7 +770,7 @@ class TableListTests:
                          '<td><div align="right">000</div></td>'
                          '<td><div align="right">0</div></td></tr>',
                          data_line,
-                         "failed as_html with named field format")
+                         "failed as_html with named field format for specific field")
 
         html_output = self.t1[:10].as_html(fields="a b c", formats={int: "{:03d}"})
         print(html_output)
@@ -777,7 +780,17 @@ class TableListTests:
                          '<td><div align="right">000</div></td>'
                          '<td><div align="right">000</div></td></tr>',
                          data_line,
-                         "failed as_html with data type format")
+                         "failed as_html with data type format for all fields")
+
+        html_output = self.t1[:10].as_html(fields="a b c", formats={int: "{:03d}"}, groupby="a")
+        print(html_output)
+        html_lines = html_output.splitlines()
+        data_line = next(h for h in html_lines if "<td>" in h)
+        self.assertEqual('<tbody><tr><td><div align="right">000</div></td>'
+                         '<td><div align="right">000</div></td>'
+                         '<td><div align="right">000</div></td></tr>',
+                         data_line,
+                         "failed as_html with groupby")
 
     def test_delete_slices(self):
         compare_list = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz")
@@ -1630,6 +1643,9 @@ class TableImportExportTests:
         import time
         import urllib.error
         import urllib.request
+
+        if SKIP_CSV_IMPORT_USING_URL_TESTS:
+            self.skipTest("CSV import tests skipped")
 
         class CSVTestRequestHandler(BaseHTTPRequestHandler):
             def do_GET(self):

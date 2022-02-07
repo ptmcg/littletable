@@ -2990,9 +2990,11 @@ class Table(Generic[TableContent]):
         def row_to_tr(r, suppress=()):
             ret_tr = ["<tr>"]
             for fld in fields:
+                align = "left"
                 if fld not in suppress:
                     v = getattr(r, fld, "")
-                    align = "right" if isinstance(v, _numeric_type) else "left"
+                    if isinstance(v, _numeric_type):
+                        align = "right"
                     if fld not in field_format_map:
                         field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
                     v_format = field_format_map[fld]
@@ -3024,7 +3026,7 @@ class Table(Generic[TableContent]):
             get_fn = lambda r: tuple(getattr(r, attr, "") for attr in group_attrs)
             prev = ("",) * len(group_attrs)
             for row in self:
-                curr = get_fn(rec)
+                curr = get_fn(row)
                 suppress_attrs = self._determine_suppressed_attrs(group_attrs, prev, curr)
                 rows.append(row_to_tr(row, suppress=suppress_attrs))
                 prev = curr
