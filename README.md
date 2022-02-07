@@ -86,7 +86,7 @@ Using `table.present()` (implemented using `rich`; `present()` accepts `rich` `T
 table(title_str).present(fields=["col1", "col2", "col3"])
     or
 table.select("col1 col2 col3")(title_str).present(caption="caption text", 
-                                                      caption_justify="right")
+                                                  caption_justify="right")
 ```
 
 Using `Jupyter Notebook`:
