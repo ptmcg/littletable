@@ -875,12 +875,15 @@ class TableListTests:
     def test_clear(self):
         self._test_init()
         num_fields = len(self.t1.info()["fields"])
-        self.assertEqual(self.test_size ** num_fields, len(self.t1), "invalid len")
+        with self.subTest():
+            self.assertEqual(self.test_size ** num_fields, len(self.t1), "invalid len")
         self.t1.create_index("a")
 
         self.t1.clear()
-        self.assertEqual(0, len(self.t1), "invalid len after clear")
-        self.assertEqual(1, len(self.t1.info()["indexes"]), "invalid indexes after clear")
+        with self.subTest():
+            self.assertEqual(0, len(self.t1), "invalid len after clear")
+        with self.subTest():
+            self.assertEqual(1, len(self.t1.info()["indexes"]), "invalid indexes after clear")
 
     def test_stats(self):
         self._test_init()
@@ -976,28 +979,36 @@ class TableListTests:
         self._test_init()
         is_odd = lambda rec: rec.a % 2
         evens, odds = self.t1.splitby(is_odd)
-        self.assertEqual(len(odds) + len(evens), len(self.t1))
-        self.assertEqual(len(odds), len(self.t1.where(is_odd)))
+        with self.subTest():
+            self.assertEqual(len(odds) + len(evens), len(self.t1))
+        with self.subTest():
+            self.assertEqual(len(odds), len(self.t1.where(is_odd)))
 
         even_evens, odd_evens = evens.splitby(is_odd)
-        self.assertEqual(0, len(odd_evens))
-        self.assertEqual(len(even_evens), len(evens))
+        with self.subTest():
+            self.assertEqual(0, len(odd_evens))
+        with self.subTest():
+            self.assertEqual(len(even_evens), len(evens))
 
         # make sure indexes are preserved
         self.t1.create_index("a")
         evens, odds = self.t1.splitby(is_odd)
-        self.assertEqual(self.t1.info()["indexes"], evens.info()["indexes"])
+        with self.subTest():
+            self.assertEqual(self.t1.info()["indexes"], evens.info()["indexes"])
 
         # test passing an attribute as a key
         zeros, non_zeros = self.t1.splitby("a")
-        self.assertTrue(all(rec.a == 0 for rec in zeros))
-        self.assertTrue(all(rec.a != 0 for rec in non_zeros))
+        with self.subTest():
+            self.assertTrue(all(rec.a == 0 for rec in zeros))
+        with self.subTest():
+            self.assertTrue(all(rec.a != 0 for rec in non_zeros))
 
         # test using predicate that does not always return 0 or 1
         is_not_multiple_of_3 = lambda rec: rec.a % 3
         mults_of_3, non_mults_of_3 = self.t1.splitby(is_not_multiple_of_3)
         print(list(non_mults_of_3.all.a))
         print(list(mults_of_3.all.a))
+        # TODO - add asserts here
 
 
 @make_test_classes
@@ -1012,37 +1023,46 @@ class TableJoinTests:
         t2.insert(lt.DataObject(a=1, d=100))
 
         joined = (t1.join_on('a') + t2.join_on('a'))()
-        self.assertEqual(test_size * test_size, len(joined))
+        with self.subTest():
+            self.assertEqual(test_size * test_size, len(joined))
 
         joined = (t1.join_on('a') + t2)()
-        self.assertEqual(test_size * test_size, len(joined))
+        with self.subTest():
+            self.assertEqual(test_size * test_size, len(joined))
 
         joined = (t1 + t2.join_on('a'))()
-        self.assertEqual(test_size * test_size, len(joined))
+        with self.subTest():
+            self.assertEqual(test_size * test_size, len(joined))
 
         t1.delete_index('a')
-        with self.assertRaises(ValueError):
-            joined = (t1 + t2.join_on('a'))()
+        with self.subTest():
+            with self.assertRaises(ValueError):
+                joined = (t1 + t2.join_on('a'))()
 
-        with self.assertRaises(TypeError):
-            # invalid join, no kwargs listing attributes to join on
-            t3 = t1.join(t2, 'a,d')
+        with self.subTest():
+            with self.assertRaises(TypeError):
+                # invalid join, no kwargs listing attributes to join on
+                t3 = t1.join(t2, 'a,d')
 
-        with self.assertRaises(ValueError):
-            # invalid join, no such attribute 'z'
-            t3 = t1.join(t2, 'a,d,z', a='a')
+        with self.subTest():
+            with self.assertRaises(ValueError):
+                # invalid join, no such attribute 'z'
+                t3 = t1.join(t2, 'a,d,z', a='a')
 
         t3 = t1.join(t2, 'a,d', a='a')
-        self.assertEqual(test_size * test_size, len(t3))
+        with self.subTest():
+            self.assertEqual(test_size * test_size, len(t3))
 
         t4 = t1.join(t2, a='a').select('a c d', e=lambda rec: rec.a + rec.c + rec.d)
-        self.assertTrue(all(rec.e == rec.a+rec.c+rec.d for rec in t4))
+        with self.subTest():
+            self.assertTrue(all(rec.e == rec.a+rec.c+rec.d for rec in t4))
 
         # join to empty list, should return empty table
         empty_table = lt.Table()
         empty_table.create_index('a')
         t5 = (t1.join_on('a') + empty_table)()
-        self.assertEqual(0, len(t5))
+        with self.subTest():
+            self.assertEqual(0, len(t5))
 
     def test_outer_joins(self):
         t1 = lt.Table("catalog")
@@ -1070,31 +1090,36 @@ class TableJoinTests:
         t3 = t1.join(t2, auto_create_indexes=True, sku="sku")
         print(t3.info())
         t3.present()
-        self.assertEqual(4, len(t3))
+        with self.subTest():
+            self.assertEqual(4, len(t3))
 
         t3 = t1.join(t2, auto_create_indexes=True, sku="sku", size="size")
         t3("inner join - " + t3.table_name)
         print(t3.info())
         t3.present()
-        self.assertEqual(1, len(t3))
+        with self.subTest():
+            self.assertEqual(1, len(t3))
 
         t3 = t1.outer_join(lt.Table.RIGHT_OUTER_JOIN, t2, sku="sku", size="size")
         t3("right outer join - " + t3.table_name)
         print(t3.info())
         t3.present()
-        self.assertEqual(4, len(t3))
+        with self.subTest():
+            self.assertEqual(4, len(t3))
 
         t3 = t1.outer_join(lt.Table.LEFT_OUTER_JOIN, t2, sku="sku", size="size")
         t3("left outer join - " + t3.table_name)
         print(t3.info())
         t3.present()
-        self.assertEqual(2, len(t3))
+        with self.subTest():
+            self.assertEqual(2, len(t3))
 
         t3 = t1.outer_join(lt.Table.FULL_OUTER_JOIN, t2, sku="sku", size="size")
         t3("full outer join - " + t3.table_name)
         print(t3.info())
         t3.present()
-        self.assertEqual(12, len(t3))
+        with self.subTest():
+            self.assertEqual(12, len(t3))
 
     def test_outer_join_example(self):
         # define student and registration data
@@ -1131,7 +1156,8 @@ class TableJoinTests:
                                       student_id="student_id").where(course=None)
         non_reg.present()
         print(list(non_reg.all.name))
-        self.assertEqual(['Bob', 'Dave'], sorted(non_reg.all.name))
+        with self.subTest():
+            self.assertEqual(['Bob', 'Dave'], sorted(non_reg.all.name))
 
         # courses with no students
         no_students = registrations.outer_join(lt.Table.LEFT_OUTER_JOIN,
@@ -1139,7 +1165,8 @@ class TableJoinTests:
                                          course="course").where(student_id=None)
         no_students.present()
         print(list(no_students.all.course))
-        self.assertEqual(['PE101'], sorted(no_students.all.course))
+        with self.subTest():
+            self.assertEqual(['PE101'], sorted(no_students.all.course))
 
 
         full =  students.outer_join(lt.Table.FULL_OUTER_JOIN,
@@ -1148,7 +1175,8 @@ class TableJoinTests:
                                                                                  or rec.name is None)
         full.present()
         print(sorted(full.all.student_id))
-        self.assertEqual(['0002', '0004', '0006'], sorted(full.all.student_id))
+        with self.subTest():
+            self.assertEqual(['0002', '0004', '0006'], sorted(full.all.student_id))
 
 
 @make_test_classes
@@ -1161,18 +1189,22 @@ class TableTransformTests:
         for c_value, recs in itertools.groupby(t1, key=lambda rec: rec.c):
             c_groups += 1
             list(recs)
-        self.assertEqual(test_size * test_size * test_size, c_groups)
+        with self.subTest():
+            self.assertEqual(test_size * test_size * test_size, c_groups)
 
         t1.sort('c')
         c_groups = 0
         for c_value, recs in itertools.groupby(t1, key=lambda rec: rec.c):
             c_groups += 1
             list(recs)
-        self.assertEqual(test_size, c_groups)
-        self.assertEqual(0, t1[0].c)
+        with self.subTest():
+            self.assertEqual(test_size, c_groups)
+        with self.subTest():
+            self.assertEqual(0, t1[0].c)
 
         t1.sort('c desc')
-        self.assertEqual(test_size-1, t1[0].c)
+        with self.subTest():
+            self.assertEqual(test_size-1, t1[0].c)
 
     def test_sort2(self):
 
@@ -1207,7 +1239,8 @@ class TableTransformTests:
             print(t)
         print()
 
-        self.assertEqual(t1_tuples, t2_tuples, "failed multi-attribute sort, given list of attributes")
+        with self.subTest():
+            self.assertEqual(t1_tuples, t2_tuples, "failed multi-attribute sort, given list of attributes")
 
         sort_arg = "c,b"
         print("Sorting by {!r}".format(sort_arg))
@@ -1226,7 +1259,8 @@ class TableTransformTests:
             print(t)
         print()
 
-        self.assertEqual(t1_tuples, t2_tuples, "failed multi-attribute sort, given comma-separated attributes string")
+        with self.subTest():
+            self.assertEqual(t1_tuples, t2_tuples, "failed multi-attribute sort, given comma-separated attributes string")
 
         sort_arg = "c,b desc"
         print("Sorting by {!r}".format(sort_arg))
@@ -1245,7 +1279,8 @@ class TableTransformTests:
             print(t)
         print()
 
-        self.assertEqual(t1_tuples, t2_tuples, "failed mixed ascending/descending multi-attribute sort")
+        with self.subTest():
+            self.assertEqual(t1_tuples, t2_tuples, "failed mixed ascending/descending multi-attribute sort")
 
     def test_sort3(self):
         employees = lt.Table().csv_import(textwrap.dedent("""\
@@ -1262,18 +1297,21 @@ class TableTransformTests:
         sales_employees.present()
         print(list(sales_employees.all.emp_id))
 
-        self.assertEqual(['0005', '0001', '0004', '0003'],
-                         list(sales_employees.all.emp_id))
+        with self.subTest():
+            self.assertEqual(['0005', '0001', '0004', '0003'],
+                             list(sales_employees.all.emp_id))
 
     def test_unique(self):
         test_size = 10
         t1 = make_test_table(self.make_data_object, test_size)
 
         t2 = t1.unique()
-        self.assertEqual(len(t1), len(t2))
+        with self.subTest():
+            self.assertEqual(len(t1), len(t2))
 
         t3 = t1.unique(key=lambda rec: rec.c)
-        self.assertEqual(test_size, len(t3))
+        with self.subTest():
+            self.assertEqual(test_size, len(t3))
 
 
 @make_test_classes
@@ -1302,7 +1340,8 @@ class TableOutputTests:
             | 20 | 200 |
             +----------+
             """)
-        self.assertEqual(expected, out.getvalue())
+        with self.subTest():
+            self.assertEqual(expected, out.getvalue())
 
         # test bugfix when table has attribute "default"
         table = lt.Table().csv_import(textwrap.dedent("""\
@@ -1323,7 +1362,8 @@ class TableOutputTests:
             | 20 | 200 | orange  |
             +--------------------+
             """)
-        self.assertEqual(expected, out.getvalue())
+        with self.subTest():
+            self.assertEqual(expected, out.getvalue())
 
         # test groupby
         table = lt.Table().csv_import(textwrap.dedent("""\
@@ -1345,7 +1385,8 @@ class TableOutputTests:
             | 20 | 200 | orange  |
             +--------------------+
             """)
-        self.assertEqual(expected, out.getvalue())
+        with self.subTest():
+            self.assertEqual(expected, out.getvalue())
 
         table = lt.Table().csv_import(textwrap.dedent("""\
             a,b,default
@@ -1370,7 +1411,8 @@ class TableOutputTests:
             | 20 | 250 |         |
             +--------------------+
             """)
-        self.assertEqual(expected, out.getvalue())
+        with self.subTest():
+            self.assertEqual(expected, out.getvalue())
 
         table = lt.Table().csv_import(textwrap.dedent("""\
             a,b,default
@@ -1396,7 +1438,8 @@ class TableOutputTests:
             | 20 | 250 |         |
             +--------------------+
             """)
-        self.assertEqual(expected, out.getvalue())
+        with self.subTest():
+            self.assertEqual(expected, out.getvalue())
 
     def test_markdown(self):
         table = lt.Table().csv_import(textwrap.dedent("""\
@@ -1412,7 +1455,8 @@ class TableOutputTests:
             | 10 | 100 |
             | 20 | 200 |
             """)
-        self.assertEqual(expected, out_markdown)
+        with self.subTest():
+            self.assertEqual(expected, out_markdown)
 
         # test bugfix when table has attribute "default"
         table = lt.Table().csv_import(textwrap.dedent("""\
@@ -1430,7 +1474,8 @@ class TableOutputTests:
             | 15 | 150 |  |
             | 20 | 200 | orange |
             """)
-        self.assertEqual(expected, out_markdown)
+        with self.subTest():
+            self.assertEqual(expected, out_markdown)
 
         # test grouping in as_markdown
         table = lt.Table().csv_import(textwrap.dedent("""\
@@ -1448,7 +1493,8 @@ class TableOutputTests:
             | 15 | 150 |  |
             | 20 | 200 | orange |
             """)
-        self.assertEqual(expected, out_markdown)
+        with self.subTest():
+            self.assertEqual(expected, out_markdown)
 
         table = lt.Table().csv_import(textwrap.dedent("""\
             a,b,default
@@ -1470,7 +1516,8 @@ class TableOutputTests:
             |  | 250 |  |
             | 20 | 250 |  |
             """)
-        self.assertEqual(expected, out_markdown)
+        with self.subTest():
+            self.assertEqual(expected, out_markdown)
 
 # sample import data sets
 csv_data = """\
@@ -1580,13 +1627,16 @@ class TableImportExportTests:
             out.seek(0)
             outlines = out.read().splitlines()
             out.close()
-            self.assertEqual(','.join(fieldnames), outlines[0])
-            self.assertEqual(test_size**3+1, len(outlines))
+            with self.subTest():
+                self.assertEqual(','.join(fieldnames), outlines[0])
+            with self.subTest():
+                self.assertEqual(test_size**3+1, len(outlines))
             for ob, line in zip(t1, outlines[1:]):
                 csv_vals = line.split(',')
-                self.assertTrue(all(
-                    int(csv_vals[i]) == getattr(ob, fld) for i, fld in enumerate(fieldnames)
-                ))
+                with self.subTest(ob=ob, csv_vals=csv_vals):
+                    self.assertTrue(all(
+                        int(csv_vals[i]) == getattr(ob, fld) for i, fld in enumerate(fieldnames)
+                    ))
 
         # rerun using an empty table
         t1 = lt.Table()
@@ -1596,8 +1646,10 @@ class TableImportExportTests:
             out.seek(0)
             outlines = out.read().splitlines()
             out.close()
-            self.assertEqual(','.join(fieldnames), outlines[0])
-            self.assertEqual(1, len(outlines))
+            with self.subTest():
+                self.assertEqual(','.join(fieldnames), outlines[0])
+            with self.subTest():
+                self.assertEqual(1, len(outlines))
 
         # rerun using an empty table, with indexes to dictate fieldnames
         for fieldnames in permutations(list('abc')):
@@ -1609,8 +1661,10 @@ class TableImportExportTests:
             out.seek(0)
             outlines = out.read().splitlines()
             out.close()
-            self.assertEqual(set(fieldnames), set(outlines[0].split(',')))
-            self.assertEqual(1, len(outlines))
+            with self.subTest():
+                self.assertEqual(set(fieldnames), set(outlines[0].split(',')))
+            with self.subTest():
+                self.assertEqual(1, len(outlines))
 
     def test_csv_import(self):
         data = csv_data
@@ -1620,8 +1674,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
-        self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
+        with self.subTest():
+            self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
 
         incsv = io.StringIO(data)
         row_prototype = self.make_data_object(0, 0, 0)
@@ -1629,7 +1685,8 @@ class TableImportExportTests:
 
         print(type(t1[0]).__name__, t1[0])
         print(type(csvtable2[0]).__name__, csvtable2[0])
-        self.assertEqual(type(t1[0]), type(csvtable2[0]))
+        with self.subTest():
+            self.assertEqual(type(t1[0]), type(csvtable2[0]))
 
     def test_csv_compressed_import(self):
         tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int))
@@ -1645,20 +1702,28 @@ class TableImportExportTests:
             tt2 = lt.Table().csv_import(import_source_name, transforms=dict.fromkeys("abc", int))
             print(name, tt2.info())
             expected_info = {**tt.info(), "name": import_source_name}
-            self.assertEqual(expected_info, tt2.info())
-            self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
-            self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
-            self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
+            with self.subTest(name=name):
+                self.assertEqual(expected_info, tt2.info())
+            with self.subTest(name=name):
+                self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
+            with self.subTest(name=name):
+                self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
+            with self.subTest(name=name):
+                self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
 
         # test separately, no transforms for JSON imports
         import_source_name = "test/abc.json.gz"
         tt2 = lt.Table().json_import("test/abc.json.gz")
         print("abc.json.gz", tt2.info())
         expected_info = {**tt.info(), "name": import_source_name}
-        self.assertEqual(expected_info, tt2.info())
-        self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
-        self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
-        self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
+        with self.subTest():
+            self.assertEqual(expected_info, tt2.info())
+        with self.subTest():
+            self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
+        with self.subTest():
+            self.assertEqual(sum(tt.all.b), sum(tt2.all.b))
+        with self.subTest():
+            self.assertEqual(sum(tt.all.c), sum(tt2.all.c))
 
     def test_csv_import_source_info(self):
         imports = [
@@ -1685,10 +1750,13 @@ class TableImportExportTests:
             print(repr(import_name), tbl.import_source, tbl.import_source_type)
 
             if "\n" not in fname:
-                self.assertEqual(import_name, tbl.import_source)
+                with self.subTest():
+                    self.assertEqual(import_name, tbl.import_source)
             else:
-                self.assertEqual(None, tbl.import_source)
-            self.assertEqual(expected_type, tbl.import_source_type)
+                with self.subTest():
+                    self.assertEqual(None, tbl.import_source)
+            with self.subTest():
+                self.assertEqual(expected_type, tbl.import_source_type)
 
     def test_csv_import_from_url(self):
         from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -1751,8 +1819,10 @@ class TableImportExportTests:
             p.join()
 
         tbl.present()
-        self.assertEqual(url, tbl.import_source)
-        self.assertEqual(lt.ImportSourceType.url, tbl.import_source_type)
+        with self.subTest():
+            self.assertEqual(url, tbl.import_source)
+        with self.subTest():
+            self.assertEqual(lt.ImportSourceType.url, tbl.import_source_type)
 
     def test_csv_filtered_import(self):
         test_size = 3
@@ -1762,17 +1832,20 @@ class TableImportExportTests:
         tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int),
                                    filters={"c": lt.Table.eq(1)})
         print(tt.info())
-        self.assertEqual(test_size * test_size, len(tt))
+        with self.subTest():
+            self.assertEqual(test_size * test_size, len(tt))
 
         tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int),
                                    filters={"c": 1})
         print(tt.info())
-        self.assertEqual(test_size * test_size, len(tt))
+        with self.subTest():
+            self.assertEqual(test_size * test_size, len(tt))
 
         tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int),
                                    filters={"c": lambda x: 0 < x < 2})
         print(tt.info())
-        self.assertEqual(test_size * test_size, len(tt))
+        with self.subTest():
+            self.assertEqual(test_size * test_size, len(tt))
 
         # test all special comparators when used as filters
         #     is_none - attribute value is None
@@ -1814,64 +1887,82 @@ class TableImportExportTests:
         x = lt.Table().csv_import(input_data,
                                          transforms=dict.fromkeys("abc", int),
                                          filters={"b": lt.Table.is_none()})
-        self.assertEqual(3, len(x))
-        self.assertTrue(all(b is None for b in x.all.b))
+        with self.subTest():
+            self.assertEqual(3, len(x))
+        with self.subTest():
+            self.assertTrue(all(b is None for b in x.all.b))
 
         print("is_not_none()")
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
                                   filters={"b": lt.Table.is_not_none()})
-        self.assertEqual(3, len(x))
-        self.assertEqual(300, sum(x.all.b))
+        with self.subTest():
+            self.assertEqual(3, len(x))
+        with self.subTest():
+            self.assertEqual(300, sum(x.all.b))
 
         print("b is_null()")
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
                                   filters={"b": lt.Table.is_null()})
-        self.assertEqual(3, len(x))
-        self.assertTrue(all(b is None for b in x.all.b))
+        with self.subTest():
+            self.assertEqual(3, len(x))
+        with self.subTest():
+            self.assertTrue(all(b is None for b in x.all.b))
 
         print("b is_not_null()")
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
                                   filters={"b": lt.Table.is_not_null()})
-        self.assertEqual(3, len(x))
-        self.assertEqual(300, sum(x.all.b))
+        with self.subTest():
+            self.assertEqual(3, len(x))
+        with self.subTest():
+            self.assertEqual(300, sum(x.all.b))
 
         print("name is_null()")
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
                                   filters={"name": lt.Table.is_null()})
-        self.assertEqual(1, len(x))
-        self.assertEqual(3*99, x[0].a + x[0].b + x[0].c)
+        with self.subTest():
+            self.assertEqual(1, len(x))
+        with self.subTest():
+            self.assertEqual(3*99, x[0].a + x[0].b + x[0].c)
 
         print("name is_not_null()")
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
                                   filters={"name": lt.Table.is_not_null()})
-        self.assertEqual(5, len(x))
-        self.assertEqual("A B A1 B1 C1".split(), list(x.all.name))
+        with self.subTest():
+            self.assertEqual(5, len(x))
+        with self.subTest():
+            self.assertEqual("A B A1 B1 C1".split(), list(x.all.name))
 
         print("name startswith('B')")
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
                                   filters={"name": lt.Table.startswith("B")})
-        self.assertEqual(2, len(x))
-        self.assertEqual("B B1".split(), list(x.all.name))
+        with self.subTest():
+            self.assertEqual(2, len(x))
+        with self.subTest():
+            self.assertEqual("B B1".split(), list(x.all.name))
 
         print("name endswith('1')")
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
                                   filters={"name": lt.Table.endswith("1")})
-        self.assertEqual(3, len(x))
-        self.assertEqual("A1 B1 C1".split(), list(x.all.name))
+        with self.subTest():
+            self.assertEqual(3, len(x))
+        with self.subTest():
+            self.assertEqual("A1 B1 C1".split(), list(x.all.name))
 
         print(r"name re_match(r'[AB]\d')")
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
                                   filters={"name": lt.Table.re_match(r"[AB]\d")})
-        self.assertEqual(2, len(x))
-        self.assertEqual("A1 B1".split(), list(x.all.name))
+        with self.subTest():
+            self.assertEqual(2, len(x))
+        with self.subTest():
+            self.assertEqual("A1 B1".split(), list(x.all.name))
 
     def test_csv_string_import(self):
         data = csv_data
@@ -1880,8 +1971,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
-        self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
+        with self.subTest():
+            self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
 
         row_prototype = self.make_data_object(0, 0, 0)
         csvtable2 = lt.Table().csv_import(data, transforms={'a': int, 'b': int, 'c': int},
@@ -1889,7 +1982,8 @@ class TableImportExportTests:
 
         print(type(t1[0]).__name__, t1[0])
         print(type(csvtable2[0]).__name__, csvtable2[0])
-        self.assertEqual(type(t1[0]), type(csvtable2[0]))
+        with self.subTest():
+            self.assertEqual(type(t1[0]), type(csvtable2[0]))
 
     def test_csv_limit_import(self):
         data = csv_data
@@ -1897,12 +1991,14 @@ class TableImportExportTests:
         csvtable = lt.Table().csv_import(csv_source=data, transforms={'a': int, 'b': int, 'c': int},
                                          limit=import_limit)
 
-        self.assertEqual(import_limit, len(csvtable))
+        with self.subTest():
+            self.assertEqual(import_limit, len(csvtable))
 
         csvtable = lt.Table().csv_import(csv_source=data, transforms={'a': int, 'b': int, 'c': int},
                                          limit=0)
 
-        self.assertEqual(0, len(csvtable))
+        with self.subTest():
+            self.assertEqual(0, len(csvtable))
 
     def test_csv_string_list_import(self):
         data = csv_data
@@ -1911,8 +2007,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
-        self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
+        with self.subTest():
+            self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
 
         row_prototype = self.make_data_object(0, 0, 0)
         csvtable2 = lt.Table().csv_import(data, transforms={'a': int, 'b': int, 'c': int},
@@ -1920,7 +2018,8 @@ class TableImportExportTests:
 
         print(type(t1[0]).__name__, t1[0])
         print(type(csvtable2[0]).__name__, csvtable2[0])
-        self.assertEqual(type(t1[0]), type(csvtable2[0]))
+        with self.subTest():
+            self.assertEqual(type(t1[0]), type(csvtable2[0]))
 
     def test_json_export(self):
         from itertools import permutations
@@ -1933,12 +2032,14 @@ class TableImportExportTests:
             outlines = out.read().splitlines()
             out.close()
 
-            self.assertEqual(test_size**3, len(outlines))
+            with self.subTest(fieldnames=fieldnames):
+                self.assertEqual(test_size**3, len(outlines))
 
             for ob, line in zip(t1, outlines):
                 json_dict = json.loads(line)
                 t1_dataobj = make_dataobject_from_ob(ob)
-                self.assertEqual(t1_dataobj, lt.DataObject(**json_dict))
+                with self.subTest(ob=ob, line=line):
+                    self.assertEqual(t1_dataobj, lt.DataObject(**json_dict))
 
     def test_json_import(self):
         data = json_data
@@ -1948,8 +2049,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
-        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
+        with self.subTest():
+            self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
 
     def test_json_string_import(self):
         data = json_data
@@ -1958,8 +2061,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
-        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
+        with self.subTest():
+            self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
 
     def test_json_string_list_import(self):
         data = json_data
@@ -1968,8 +2073,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
-        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
+        with self.subTest():
+            self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
 
     def test_fixed_width_import(self):
         data = fixed_width_data
@@ -1980,8 +2087,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
-        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
+        with self.subTest():
+            self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
 
     def test_fixed_width_string_import(self):
         data = fixed_width_data
@@ -1991,8 +2100,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
-        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
+        with self.subTest():
+            self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
 
     def test_fixed_width_string_list_import(self):
         data = fixed_width_data
@@ -2002,8 +2113,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
-        self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
+        with self.subTest():
+            self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
 
     def test_excel_import(self):
         file_name = "test/abc.xlsx"
@@ -2012,8 +2125,10 @@ class TableImportExportTests:
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, excel_table)))
-        self.assertEqual(sum(1 for line in csv_data.splitlines() if line.strip())-1, len(excel_table))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, excel_table)))
+        with self.subTest():
+            self.assertEqual(sum(1 for line in csv_data.splitlines() if line.strip())-1, len(excel_table))
 
         row_prototype = self.make_data_object(0, 0, 0)
         csvtable2 = lt.Table().excel_import(
@@ -2022,7 +2137,8 @@ class TableImportExportTests:
 
         print(type(t1[0]).__name__, t1[0])
         print(type(csvtable2[0]).__name__, csvtable2[0])
-        self.assertEqual(type(t1[0]), type(csvtable2[0]))
+        with self.subTest():
+            self.assertEqual(type(t1[0]), type(csvtable2[0]))
 
     def test_excel_export(self):
         file_name = "test/abc.xlsx"
@@ -2031,7 +2147,8 @@ class TableImportExportTests:
         excel_table.excel_export(outfile)
         exported_table = lt.Table().excel_import(outfile, transforms={'a': int, 'b': int, 'c': int})
 
-        self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(exported_table, excel_table)))
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(exported_table, excel_table)))
 
 
 @make_test_classes
@@ -2103,8 +2220,9 @@ class TableSearchTests(unittest.TestCase):
             matches = self.recipes.search.ingredients(query, min_score=-10000)
             match_ids = [recipe.id for recipe, _ in matches]
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
-            self.assertEqual(expected, match_ids,
-                             "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+            with self.subTest(query=query):
+                self.assertEqual(expected, match_ids,
+                                 "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
 
     @announce_test
     def test_invalidate_index(self):
@@ -2122,13 +2240,15 @@ class TableSearchTests(unittest.TestCase):
             matches = self.recipes.search.ingredients(query, min_score=-10000, include_words=True)
             match_ids = [recipe.id for recipe, score, words in matches]
             print(repr(query), '->', [(recipe.id, score, words) for recipe, score, words in matches])
-            self.assertEqual(expected, match_ids,
-                             "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+            with self.subTest():
+                self.assertEqual(expected, match_ids,
+                                 "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
             match_words = [set(words) for recipe, score, words in matches]
-            self.assertEqual(expected_words, match_words,
-                             "invalid match words for query {!r}, expected {}, got {}".format(query,
-                                                                                              expected_words,
-                                                                                              match_words))
+            with self.subTest():
+                self.assertEqual(expected_words, match_words,
+                                 "invalid match words for query {!r}, expected {}, got {}".format(query,
+                                                                                                  expected_words,
+                                                                                                  match_words))
 
     @announce_test
     def test_search_with_limit(self):
@@ -2148,8 +2268,9 @@ class TableSearchTests(unittest.TestCase):
             matches = self.recipes.search.ingredients(query, min_score=-10000, limit=3)
             match_ids = [recipe.id for recipe, _ in matches]
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
-            self.assertEqual(expected, match_ids,
-                             "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+            with self.subTest(query=query):
+                self.assertEqual(expected, match_ids,
+                                 "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
 
     @announce_test
     def test_search_with_min_score(self):
@@ -2169,8 +2290,9 @@ class TableSearchTests(unittest.TestCase):
             matches = self.recipes.search.ingredients(query, min_score=1000)
             match_ids = [recipe.id for recipe, _ in matches]
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
-            self.assertEqual(expected, match_ids,
-                             "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+            with self.subTest(query=query):
+                self.assertEqual(expected, match_ids,
+                                 "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
 
 
 class TableSearchTests_DataObjects(TableSearchTests, UsingDataObjects):
