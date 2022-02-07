@@ -844,13 +844,15 @@ class TableListTests:
             else:
                 label = str(slc_tuple)
                 slc = slc_tuple
-            del compare_list[slc]
-            print(label)
-            print('Expected', compare_list)
-            del t1[slc]
-            print('Observed', list(t1.all.A))
-            print()
-            self.assertEqual(''.join(compare_list), ''.join(t1.all.A), "failed " + label)
+
+            with self.subTest(label, slc_tuple=slc_tuple):
+                del compare_list[slc]
+                print(label)
+                print('Expected', compare_list)
+                del t1[slc]
+                print('Observed', list(t1.all.A))
+                print()
+                self.assertEqual(''.join(compare_list), ''.join(t1.all.A), "failed " + label)
 
         mini_test(5)
         mini_test(-5)
@@ -887,13 +889,14 @@ class TableListTests:
         t1_stats = self.t1.stats().select("name count min max mean")
         for fieldname in field_names:
             stat_rec = t1_stats.by.name[fieldname]
-            self.assertEqual(lt.DataObject(name=fieldname,
-                                           count=self.test_size ** num_fields,
-                                           min=0,
-                                           max=self.test_size - 1,
-                                           mean=(self.test_size - 1) / 2),
-                             stat_rec,
-                             "invalid stat for {}".format(fieldname))
+            with self.subTest("check computed stat", fieldname=fieldname):
+                self.assertEqual(lt.DataObject(name=fieldname,
+                                               count=self.test_size ** num_fields,
+                                               min=0,
+                                               max=self.test_size - 1,
+                                               mean=(self.test_size - 1) / 2),
+                                 stat_rec,
+                                 "invalid stat for {}".format(fieldname))
 
     def test_stats2(self):
         self._test_init()
@@ -902,7 +905,8 @@ class TableListTests:
         t1_stats = self.t1.stats(by_field=False)
         for stat, value in (('min', 0), ('max', self.test_size - 1), ('count', self.test_size ** num_fields),):
             for fieldname in field_names:
-                self.assertEqual(value, getattr(t1_stats.by.stat[stat], fieldname),
+                with self.subTest("check computed stat", stat=stat, fieldname=fieldname):
+                    self.assertEqual(value, getattr(t1_stats.by.stat[stat], fieldname),
                                  "invalid {} stat for {}".format(stat, fieldname))
 
     def test_stats3(self):
@@ -947,17 +951,26 @@ class TableListTests:
         expected.present()
         print(expected.info())
 
-        self.assertEqual(expected.info()["fields"], t1_stats.info()["fields"])
+        with self.subTest("check computed stat fields"):
+            self.assertEqual(expected.info()["fields"], t1_stats.info()["fields"])
 
         for expected_row, row in zip(expected, t1_stats):
-            self.assertEqual(expected_row.name, row.name)
-            self.assertEqual(expected_row.mean, row.mean)
-            self.assertEqual(expected_row.min, row.min)
-            self.assertEqual(expected_row.max, row.max)
-            self.assertEqual(expected_row.variance, row.variance)
-            self.assertEqual(expected_row.std_dev, row.std_dev)
-            self.assertEqual(expected_row.count, row.count)
-            self.assertEqual(expected_row.missing, row.missing)
+            with self.subTest("check computed stat attribute (name)", row=row):
+                self.assertEqual(expected_row.name, row.name)
+            with self.subTest("check computed stat attribute (mean)", row=row):
+                self.assertEqual(expected_row.mean, row.mean)
+            with self.subTest("check computed stat attribute (min)", row=row):
+                self.assertEqual(expected_row.min, row.min)
+            with self.subTest("check computed stat attribute (max)", row=row):
+                self.assertEqual(expected_row.max, row.max)
+            with self.subTest("check computed stat attribute (variance)", row=row):
+                self.assertEqual(expected_row.variance, row.variance)
+            with self.subTest("check computed stat attribute (std_dev)", row=row):
+                self.assertEqual(expected_row.std_dev, row.std_dev)
+            with self.subTest("check computed stat attribute (count)", row=row):
+                self.assertEqual(expected_row.count, row.count)
+            with self.subTest("check computed stat attribute (missing)", row=row):
+                self.assertEqual(expected_row.missing, row.missing)
 
     def test_splitby(self):
         self._test_init()
