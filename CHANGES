@@ -18,11 +18,13 @@ Version 2.0.6 (in development)
 - The Table.re_match comparator is deprecated, and can be replaced with
   this form:
 
-    # test if word_str is in name - DEPRECATED
+    word_str = "DOT"
+
+    # test if word_str is in field 'name' - DEPRECATED
     tbl.where(name=lt.Table.re_match(rf".*?\b{word_str}\b"))
 
-    # test if word_str is in name
-    contains_word = re.compile(rf".*?\b{word_str}\b").match
+    # test if word_str is in field 'name'
+    contains_word = re.compile(rf"\b{word_str}\b").search
     tbl.where(name=contains_word)
 
   See the explore_unicode.py example (line 185).

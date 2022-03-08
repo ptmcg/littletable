@@ -185,7 +185,7 @@ def present_symbol_group_contains_word(
     # tbl = source_table.where(name=lt.Table.re_match(rf".*\b{word_str}\b"))(title)
 
     # NEW FORM
-    contains_word = re.compile(rf".*?\b{word_str}\b").match
+    contains_word = re.compile(rf"\b{word_str}\b").search
     tbl = source_table.where(name=contains_word)(title)
 
     tbl = tbl.select("name character code_value code_value_hex")
@@ -225,3 +225,7 @@ die_faces = present_symbol_group("DIE FACE", "Die Faces")
 chess_pieces = present_symbol_group_contains_word(r"^(WHITE|BLACK) CHESS \w+$", "Chess Pieces")
 
 faces = present_symbol_group_contains_word(r"FACE", "Faces")
+
+dots = present_symbol_group_contains_word(r"DOT", "Dots")
+
+arrows = present_symbol_group_contains_word(r"ARROW", "Arrows")
