@@ -14,10 +14,10 @@ ALL_UNICODE_CHARS = False
 # initialize accumulator for ASCII character to collect Unicode characters
 # that normalize back to ASCII characters that can be used in Python
 # identifiers (A-Z, a-z, 0-9, _, and ·)
-_· = "·"
+_· = "_·"
 ident_chars = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                "abcdefghijklmnopqrstuvwxyz"
-               "0123456789_" + _·)
+               "0123456789" + _·)
 accum = {ch: [] for ch in ident_chars}
 
 # build up accumulator by walking Unicode range
