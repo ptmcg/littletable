@@ -154,7 +154,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "3 February 2022 03:12 UTC"
+__version_time__ = "29 March 2022 03:58 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -3246,7 +3246,7 @@ class _PivotTable(Table):
                 keytally[k] = sub_v
             for k, sub in self.items():
                 out.write(
-                    f"{str(k):<{maxkeylen}.{maxkeylen}s} {keytally[k]:{maxvallen}}\n"
+                    f"{str(k):<{maxkeylen}.{maxkeylen}s} {keytally[k]:>{maxvallen}}\n"
                 )
         elif len(self._pivot_attrs) == 2:
             out.write(f"Pivot: {','.join(self._pivot_attrs)}\n")
@@ -3258,11 +3258,11 @@ class _PivotTable(Table):
             out.write(f"{' ' * maxkeylen} ")
             out.write(
                 " ".join(
-                    f"{str(k):{maxvallen}.{maxvallen}s}"
+                    f"{str(k):>{maxvallen}.{maxvallen}s}"
                     for k in self.subtables[0].keys()
                 )
             )
-            out.write(f' {"Total":{maxvallen}s}\n')
+            out.write(f' {"Total":>{maxvallen}s}\n')
 
             for k, sub in self.items():
                 out.write(f"{str(k):<{maxkeylen}.{maxkeylen}s} ")
