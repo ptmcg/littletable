@@ -22,7 +22,7 @@ setup(# Distribution meta-data
     url="https://github.com/ptmcg/littletable/",
     download_url="https://pypi.org/project/littletable/",
     py_modules=modules,
-    python_requires=">=3.6",
+    python_requires=">=3.6.8",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
