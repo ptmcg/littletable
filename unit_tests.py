@@ -2021,6 +2021,51 @@ class TableImportExportTests:
         with self.subTest():
             self.assertEqual(type(t1[0]), type(csvtable2[0]))
 
+    def test_csv_numeric_transforms(self):
+        data = textwrap.dedent("""\
+            type,value
+            int,1000
+            float,3.14
+            empty,
+            str,ⓠ*bert
+            """)
+
+        with self.subTest("convert_numeric"):
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric})
+            tbl.present()
+            self.assertEqual([1000, 3.14, '', 'ⓠ*bert'], list(tbl.all.value))
+
+        with self.subTest("convert_numeric()"):
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric()})
+            tbl.present()
+            self.assertEqual([1000, 3.14, '', 'ⓠ*bert'], list(tbl.all.value))
+
+        with self.subTest("convert_numeric(non_numeric=None)"):
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(non_numeric=None)})
+            tbl.present()
+            self.assertEqual([1000, 3.14, '', None], list(tbl.all.value))
+
+        with self.subTest("convert_numeric(non_numeric=0)"):
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(non_numeric=0)})
+            tbl.present()
+            self.assertEqual([1000, 3.14, '', 0], list(tbl.all.value))
+
+        with self.subTest("convert_numeric(int_to_float=True)"):
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(force_float=True)})
+            tbl.present()
+            self.assertEqual([1000.0, 3.14, '', 'ⓠ*bert'], list(tbl.all.value))
+            self.assertEqual([float, float, str, str], list(type(v) for v in tbl.all.value))
+
+        with self.subTest("convert_numeric(non_numeric=None, empty=None)"):
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(non_numeric=None, empty=None)})
+            tbl.present()
+            self.assertEqual([1000, 3.14, None, None], list(tbl.all.value))
+
+        with self.subTest("convert_numeric(empty=None)"):
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(empty=None)})
+            tbl.present()
+            self.assertEqual([1000, 3.14, None, 'ⓠ*bert'], list(tbl.all.value))
+
     def test_json_export(self):
         from itertools import permutations
         test_size = 3

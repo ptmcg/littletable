@@ -154,7 +154,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "31 March 2022 10:50 UTC"
+__version_time__ = "10 April 2022 13:54 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -831,6 +831,61 @@ class Table(Generic[TableContent]):
             }
         )
         return ret
+
+    @staticmethod
+    def convert_numeric(s=None, empty='', non_numeric=object, force_float=False, _int_fn=int):
+        """
+        Convenience method for transforming columns of CSV data from str to float and/or int. By default,
+        convert_numeric will convert int values to int, float values to float, and leave all other values as-is.
+
+        Qualifying named args are:
+        - empty - value to use for any value that is '' (such as "N/A" or "<missing>")
+        - non_numeric - force a value for any value that is not int or float
+        - int_to_float - convert all numerics to floats
+
+        Examples::
+
+            # default conversion behavior, can specify the function with or without ()'s
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric})
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric()})
+
+            # force all non-numeric "value" entries to None
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(non_numeric=None)})
+
+            # force all non-numeric "value" entries to 0
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(non_numeric=0)})
+
+            # force all non-numeric or empty values to None
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(non_numeric=None, empty=None)})
+
+            # force empty values to None (default is "")
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(empty=None)})
+
+            # convert all numerics to float, even if ints
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(int_to_float=True)})
+
+        """
+        if s is None:
+            # being "called" as part of calling csv_import, not actually converting anything here
+            if empty != '' or non_numeric is not object or force_float:
+                return partial(Table.convert_numeric,
+                               empty=empty,
+                               non_numeric=non_numeric,
+                               force_float=force_float,
+                               _int_fn=(int, float)[force_float])
+            else:
+                return Table.convert_numeric
+
+        if s == '':
+            return empty
+
+        try:
+            return _int_fn(s)
+        except ValueError:
+            try:
+                return float(s)
+            except ValueError:
+                return s if non_numeric is object else non_numeric
 
     def __init__(self, table_name: str = ""):
         """

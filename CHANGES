@@ -3,7 +3,7 @@ Change History
 
 Version 2.0.6
 -------------
-- Simplified Table.where() when a filtering method takes a single
+- Simplified `Table.where()` when a filtering method takes a single
   value as found in a record attribute.
 
   For example, to find the odd `a` values in a Table, you would
@@ -15,7 +15,7 @@ Version 2.0.6
 
       tbl.where(a=is_odd)
 
-- The Table.re_match comparator is deprecated, and can be replaced with
+- The `Table.re_match` comparator is deprecated, and can be replaced with
   this form:
 
     word_str = "DOT"
@@ -27,11 +27,16 @@ Version 2.0.6
     contains_word = re.compile(rf"\b{word_str}\b").search
     tbl.where(name=contains_word)
 
-  See the explore_unicode.py example (line 185).
+  See the `explore_unicode.py` example (line 185).
 
-  Table.re_match will be removed in a future release.
+  `Table.re_match` will be removed in a future release.
 
-- Added example nfkc_normalization.py, to show Unicode characters
+- Added helper method `Table.convert_numeric` to simplify converting
+  imported CSV values from str to int or float, or to replace empty
+  values with placeholders such as "n/a". Use as a transform in the
+  `transforms` dict argument of `Table.csv_import`.
+
+- Added example `nfkc_normalization.py`, to show Unicode characters
   that normalize to ASCII in Python scripts.
 
 - Fixed internal bugs if using `groupby` when calling `Table.as_html()`.
