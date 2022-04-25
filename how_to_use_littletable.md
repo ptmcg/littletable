@@ -13,6 +13,7 @@ How to Use littletable
   * [Querying with indexed attributes](#querying-with-indexed-attributes)
   * [Querying for exact matching attribute values](#querying-for-exact-matching-attribute-values)
   * [Querying for attribute value ranges](#querying-for-attribute-value-ranges)
+  * [Range querying on index attributes using slice notation](#range-querying-on-indexed-attributes-using-slice-notation)
   * [Splitting a table using a criteria function](#splitting-a-table-using-a-criteria-function)
   * [Full-text search on text attributes](#full-text-search-on-text-attributes)
   * [Simple statistics on Tables of numeric values](#simple-statistics-on-tables-of-numeric-values)
@@ -451,6 +452,7 @@ warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
 Comparators can also be used as filter functions for import methods.
 
 [Added in version 2.0.6]
+
 You can write your own comparator functions also. Define a function that 
 takes a single value as would be stored in an attribute, and call 
 `Table.where()` using `attribute=function`:
@@ -468,6 +470,35 @@ tbl.where(lambda rec: is_odd(rec.a))
 # new simplified form
 tbl.where(a=is_odd)
 ```
+
+Range querying on indexed attributes using slice notation
+---------------------------------------------------------
+
+[Added in version 2.0.7]
+
+For indexed fields, range queries can also be done using slice notation.
+Compare these examples with operations shown [above](#querying-for-attribute-value-ranges)
+(given in comments):
+
+```python
+# employees.where(salary=Table.ge(50000))
+employees.create_index("salary")
+employees.by.salary[50000:]
+```
+
+Unlike Python list slices, `Table` index slices can use non-integer data 
+types (as long as they support `>=` and `<` comparison operations):
+
+```python
+jan_01 = datetime.date(2000, 1, 1)
+apr_01 = datetime.date(2000, 4, 1)
+
+# first_qtr_sales = sales.where(date=Table.in_range(jan_01, apr_01))
+sales.create_index("date")
+first_qtr_sales = sales.by.date[jan_01: apr_01]
+```
+
+Note that slices with a step field (as in `[start : stop : step]`) are not supported.
 
 
 Splitting a table using a criteria function
@@ -893,4 +924,11 @@ Some simple littletable recipes
 
   ```python
   employees.where(first_name=Table.startswith("X"))
+  ```
+
+  (or using sliced indexing):
+
+  ```python
+  employees.create_index("first_name")
+  employees.by.first_name["X": "Y"]
   ```

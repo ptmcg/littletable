@@ -590,6 +590,70 @@ class TableCreateTests:
 
         self.assertEqual(test_size, len(chained_table))
 
+    def test_sliced_indexing(self):
+        transforms = {
+            'pop': int,
+            'elev': int,
+            'lat': float,
+            'long': float,
+        }
+        us_ppl = lt.Table().csv_import("examples/us_ppl.csv",
+                                       transforms=transforms,
+                                       ).select("id name elev lat long pop")
+        print(us_ppl.info())
+        us_ppl.create_index("name")
+        us_ppl.create_index("elev")
+
+        test = "elev < 0"
+        low_ppl_where = us_ppl.where(elev=lt.Table.lt(0))(test)
+        low_ppl_slice = us_ppl.by.elev[:0](f"{test} (sliced)")
+        low_ppl_slice.present()
+        self.assertEqual(list(low_ppl_where.all.id), list(low_ppl_slice.all.id))
+
+        test = "elev >= 1000"
+        hi_ppl_where = us_ppl.where(elev=lt.Table.ge(1000))(test)
+        hi_ppl_slice = us_ppl.by.elev[1000:](f"{test} (sliced)")
+        self.assertEqual(list(hi_ppl_where.all.id), list(hi_ppl_slice.all.id))
+
+        test = "0 <= elev < 100"
+        low_ppl_where = us_ppl.where(elev=lt.Table.ge(0)).where(elev=lt.Table.lt(100))(test)
+        low_ppl_slice = us_ppl.by.elev[0:100](f"{test} (sliced)")
+        self.assertEqual(list(low_ppl_where.all.id), list(low_ppl_slice.all.id))
+
+        a_ppl_where = us_ppl.where(name=lt.Table.ge("A")).where(name=lt.Table.lt("C"))
+        a_ppl_slice = us_ppl.by.name["A":"C"]
+        self.assertEqual(list(a_ppl_where.all.id), list(a_ppl_slice.all.id))
+
+    def test_non_integer_sliced_indexing(self):
+        import datetime
+
+        sales_data = textwrap.dedent("""\
+            date,customer,sku,qty
+            2000/01/01,0020,ANVIL-001,1
+            2000/01/01,0020,BRDSD-001,5
+            2000/02/15,0020,BRDSD-001,5
+            2000/03/31,0020,BRDSD-001,5
+            2000/03/31,0020,MAGNT-001,1
+            2000/04/01,0020,ROBOT-001,1
+            2000/04/15,0020,BRDSD-001,5
+            """)
+
+        transforms = {'date': lambda s: datetime.datetime.strptime(s, "%Y/%m/%d").date(),
+                      'qty': int}
+        sales = lt.Table().csv_import(sales_data,
+                                      transforms=transforms,)
+
+        sales.create_index("date")
+        jan_01 = datetime.date(2000, 1, 1)
+        apr_01 = datetime.date(2000, 4, 1)
+        first_qtr_sales = sales.by.date[jan_01: apr_01]
+        first_qtr_sales.present()
+        print(list(first_qtr_sales.all.sku))
+
+        self.assertEqual(list(first_qtr_sales.all.sku),
+                         ['ANVIL-001', 'BRDSD-001', 'BRDSD-001', 'BRDSD-001', 'MAGNT-001'],
+                         )
+
     def test_index_dir(self):
         chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         make_rec = lambda aa, bb, cc: self.make_data_object(chars[aa % len(chars)],

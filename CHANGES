@@ -1,6 +1,28 @@
 Change History
 ==============
 
+Version 2.0.7 (in development)
+------------------------------
+- Added support for sliced indexing into `Table` indexes, as a simple
+  form of range selection and filtering.
+
+        # employees.where(salary=Table.ge(50000))
+        employees.create_index("salary")
+        employees.by.salary[50000:]
+
+  Unlike Python list slices, `Table` index slices can use non-integer data
+  types (as long as they support `>=` and `<` comparison operations):
+
+        jan_01 = datetime.date(2000, 1, 1)
+        apr_01 = datetime.date(2000, 4, 1)
+
+        # first_qtr_sales = sales.where(date=Table.in_range(jan_01, apr_01))
+        sales.create_index("date")
+        first_qtr_sales = sales.by.date[jan_01: apr_01]
+
+  Slices with a step field (as in `[start : stop : step]`) are not supported.
+
+
 Version 2.0.6
 -------------
 - Simplified `Table.where()` when a filtering method takes a single

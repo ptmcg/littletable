@@ -147,14 +147,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 0, 6, "final", 0)
+__version_info__ = version_info(2, 0, 7, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.release_level[0], __version_info__.serial), "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "10 April 2022 13:54 UTC"
+__version_time__ = "22 April 2022 12:15 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -404,15 +404,39 @@ class _UniqueObjIndex(_ObjIndex):
 
 
 class _ObjIndexWrapper:
-    def __init__(self, ind, table_template):
+    def __init__(self, ind, table):
         self._index = ind
-        self._table_template = table_template
+        self._table: Table = table
 
     def __getattr__(self, attr):
         return getattr(self._index, attr)
 
+    def _getitem_using_slice(self, k):
+        where_selector = {
+            (False, False, False): lambda: ValueError("must specify start and/or stop values for slice"),
+            (False, True, False): lambda: Table.lt(k.stop),
+            (True, False, False): lambda: Table.ge(k.start),
+            (True, True, False): lambda: (Table.in_range(k.start, k.stop)
+                                          if k.start < k.stop
+                                          else ValueError("slice end must be greater than slice start")),
+            (False, False, True): lambda: ValueError("step slicing not supported"),
+            (True, False, True): lambda: ValueError("step slicing not supported"),
+            (False, True, True): lambda: ValueError("step slicing not supported"),
+            (True, True, True): lambda: ValueError("step slicing not supported"),
+        }[k.start is not None,
+          k.stop is not None,
+          k.step is not None]()
+
+        if isinstance(where_selector, Exception):
+            raise where_selector
+
+        return self._table.where(**{self._index.attr: where_selector})
+
     def __getitem__(self, k):
-        ret = self._table_template.copy_template()
+        if isinstance(k, slice):
+            return self._getitem_using_slice(k)
+
+        ret = self._table.copy_template()
         if k in self._index:
             ret.insert_many(self._index[k])
         return ret
@@ -429,6 +453,8 @@ Mapping.register(_ObjIndexWrapper)
 class _UniqueObjIndexWrapper(_ObjIndexWrapper):
     def __getitem__(self, k):
         if k is not None:
+            if isinstance(k, slice):
+                return super().__getitem__(k)
             try:
                 return self._index[k][0]
             except IndexError:
@@ -530,9 +556,9 @@ class _IndexAccessor:
         if attr in self._table._indexes:
             ret = self._table._indexes[attr]
             if isinstance(ret, _UniqueObjIndex):
-                ret = _UniqueObjIndexWrapper(ret, self._table.copy_template())
+                ret = _UniqueObjIndexWrapper(ret, self._table)
             if isinstance(ret, _ObjIndex):
-                ret = _ObjIndexWrapper(ret, self._table.copy_template())
+                ret = _ObjIndexWrapper(ret, self._table)
             return ret
         raise AttributeError(f"Table {self._table.table_name!r} has no index {attr!r}")
 
