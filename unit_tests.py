@@ -590,6 +590,93 @@ class TableCreateTests:
 
         self.assertEqual(test_size, len(chained_table))
 
+    def test_parse_datetime_transform(self):
+        import datetime
+
+        data = textwrap.dedent("""\
+        a,b,c
+        2001-01-01 00:34:56,A,100
+        2001-01-02 01:34:56,B,101
+        2001-02-30 02:34:56,C,102
+        ,D,103
+        """)
+        test_kwargs = [
+            {'empty': '', 'on_error': None},
+            {'empty': 'N/A', 'on_error': datetime.datetime.min},
+            {'empty': datetime.datetime.min, 'on_error': ''},
+        ]
+        for kwargs in test_kwargs:
+            tbl = lt.Table().csv_import(data,
+                                        transforms={'a': lt.Table.parse_datetime('%Y-%m-%d %H:%M:%S',
+                                                                                 **kwargs)})
+            print([str(a) for a in tbl.all.a])
+
+            with self.subTest("test Table.parse_date_time errors", **kwargs):
+                self.assertEqual(
+                    [kwargs["on_error"], kwargs["empty"]],
+                    list(tbl.all.a)[-2:]
+                )
+
+            with self.subTest("test Table.parse_date_time valid", **kwargs):
+                self.assertEqual(
+                    [datetime.datetime(2001, 1, 1, 0, 34, 56),
+                     datetime.datetime(2001, 1, 2, 1, 34, 56)],
+                    list(tbl.all.a)[:2]
+                )
+
+    def test_parse_date_transform(self):
+        import datetime
+
+        data = textwrap.dedent("""\
+        a,b,c
+        2001-01-01 00:34:56,A,100
+        2001-01-02 01:34:56,B,101
+        2001-02-30 02:34:56,C,102
+        ,D,103
+        """)
+        test_kwargs = [
+            {'empty': '', 'on_error': None},
+            {'empty': 'N/A', 'on_error': datetime.date.min},
+            {'empty': datetime.date.min, 'on_error': ''},
+        ]
+        for kwargs in test_kwargs:
+            tbl = lt.Table().csv_import(data,
+                                        transforms={'a': lt.Table.parse_date('%Y-%m-%d %H:%M:%S',
+                                                                             **kwargs)})
+            print([str(a) for a in tbl.all.a])
+
+            with self.subTest("test Table.parse_date_time errors", **kwargs):
+                self.assertEqual(
+                    [kwargs["on_error"], kwargs["empty"]],
+                    list(tbl.all.a)[-2:]
+                )
+
+            with self.subTest("test Table.parse_date_time valid", **kwargs):
+                self.assertEqual(
+                    [datetime.date(2001, 1, 1),
+                     datetime.date(2001, 1, 2)],
+                    list(tbl.all.a)[:2]
+                )
+
+    def test_parse_timedelta_transform(self):
+        import datetime
+
+        process_data = textwrap.dedent("""\
+            elapsed_time,eqpt,event,lot,pieces
+            0:00:00,DRILL01,LotStart,PCB146,1
+            0:00:40,DRILL01,Tool1,PCB146,2
+            0:03:45,DRILL01,Tool2,PCB146,4
+            0:06:16,DRILL01,LotEnd,PCB146,8
+            """)
+
+        transforms = {'elapsed_time': lt.Table.parse_timedelta("%H:%M:%S"),
+                      'pieces': int}
+        data = lt.Table(f"Process step elapsed times").csv_import(process_data, transforms=transforms)
+        data.create_index("elapsed_time")
+
+        _00_01_30 = datetime.timedelta(seconds=90)
+        self.assertEqual(3, sum(data.by.elapsed_time[:_00_01_30].all.pieces))
+
     def test_sliced_indexing(self):
         transforms = {
             'pop': int,
@@ -630,15 +717,15 @@ class TableCreateTests:
         sales_data = textwrap.dedent("""\
             date,customer,sku,qty
             2000/01/01,0020,ANVIL-001,1
-            2000/01/01,0020,BRDSD-001,5
-            2000/02/15,0020,BRDSD-001,5
-            2000/03/31,0020,BRDSD-001,5
-            2000/03/31,0020,MAGNT-001,1
-            2000/04/01,0020,ROBOT-001,1
-            2000/04/15,0020,BRDSD-001,5
+            2000/01/01,0020,BRDSD-001,2
+            2000/02/15,0020,BRDSD-001,4
+            2000/03/31,0020,BRDSD-001,8
+            2000/03/31,0020,MAGNT-001,16
+            2000/04/01,0020,ROBOT-001,32
+            2000/04/15,0020,BRDSD-001,64
             """)
 
-        transforms = {'date': lambda s: datetime.datetime.strptime(s, "%Y/%m/%d").date(),
+        transforms = {'date': lt.Table.parse_date("%Y/%m/%d"),
                       'qty': int}
         sales = lt.Table().csv_import(sales_data,
                                       transforms=transforms,)
@@ -653,6 +740,25 @@ class TableCreateTests:
         self.assertEqual(list(first_qtr_sales.all.sku),
                          ['ANVIL-001', 'BRDSD-001', 'BRDSD-001', 'BRDSD-001', 'MAGNT-001'],
                          )
+        self.assertEqual(31, sum(first_qtr_sales.all.qty))
+
+        # use date strings as range values
+        transforms = {'qty': int}
+        sales = lt.Table().csv_import(sales_data,
+                                      transforms=transforms,)
+
+        sales.create_index("date")
+        first_qtr_sales = sales.by.date["2000/01/01": "2000/04/01"]
+        first_qtr_sales.present()
+        print(list(first_qtr_sales.all.sku))
+
+        self.assertEqual(list(first_qtr_sales.all.sku),
+                         ['ANVIL-001', 'BRDSD-001', 'BRDSD-001', 'BRDSD-001', 'MAGNT-001'],
+                         )
+        self.assertEqual(31, sum(first_qtr_sales.all.qty))
+
+        self.assertEqual(31, sum(sales.by.date[:"2000/04/01"].all.qty))
+        self.assertEqual(96, sum(sales.by.date["2000/04/01":].all.qty))
 
     def test_index_dir(self):
         chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

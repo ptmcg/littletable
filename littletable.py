@@ -116,6 +116,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 import csv
+import datetime
 import warnings
 from enum import Enum
 from io import StringIO
@@ -154,7 +155,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "22 April 2022 12:15 UTC"
+__version_time__ = "5 May 2022 06:49 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -717,7 +718,12 @@ def _make_comparator(cmp_fn):
 
     def comparator_with_value(value):
         def _Table_comparator_fn(attr):
-            return lambda table_rec: cmp_fn(getattr(table_rec, attr), value)
+            def _inner(table_rec):
+                try:
+                    return cmp_fn(getattr(table_rec, attr), value)
+                except TypeError:
+                    return False
+            return _inner
 
         _Table_comparator_fn.fn = cmp_fn
         _Table_comparator_fn.value = value
@@ -768,7 +774,12 @@ def _make_comparator2(cmp_fn):
 
     def comparator_with_value(lower, upper):
         def _Table_comparator_fn(attr):
-            return lambda table_rec: cmp_fn(lower, getattr(table_rec, attr), upper)
+            def _inner(table_rec):
+                try:
+                    return cmp_fn(lower, getattr(table_rec, attr), upper)
+                except TypeError:
+                    return False
+            return _inner
 
         _Table_comparator_fn.fn = cmp_fn
         _Table_comparator_fn.lower = lower
@@ -788,7 +799,12 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
     cmp_fn = regex.match
 
     def _Table_comparator_fn(attr):
-        return lambda table_rec: cmp_fn(str(getattr(table_rec, attr, "")))
+        def _inner(table_rec):
+            try:
+                return cmp_fn(str(getattr(table_rec, attr, "")))
+            except TypeError:
+                return False
+        return _inner
 
     _Table_comparator_fn.fn = cmp_fn
     return _Table_comparator_fn
@@ -830,15 +846,15 @@ class Table(Generic[TableContent]):
     is_not_null = staticmethod(_make_comparator_null(False))
     is_in = staticmethod(_make_comparator(lambda x, seq: x in seq))
     not_in = staticmethod(_make_comparator(lambda x, seq: x not in seq))
-    startswith = staticmethod(_make_comparator(lambda x, s: x.startswith(s)))
-    endswith = staticmethod(_make_comparator(lambda x, s: x.endswith(s)))
+    startswith = staticmethod(_make_comparator(lambda x, s: x is not None and str(x).startswith(s)))
+    endswith = staticmethod(_make_comparator(lambda x, s: x is not None and str(x).endswith(s)))
     re_match = staticmethod(_make_comparator_regex)
-    between = staticmethod(_make_comparator2(lambda lower, x, upper: lower < x < upper))
+    between = staticmethod(_make_comparator2(lambda lower, x, upper: x is not None and lower < x < upper))
     within = staticmethod(
-        _make_comparator2(lambda lower, x, upper: lower <= x <= upper)
+        _make_comparator2(lambda lower, x, upper: x is not None and lower <= x <= upper)
     )
     in_range = staticmethod(
-        _make_comparator2(lambda lower, x, upper: lower <= x < upper)
+        _make_comparator2(lambda lower, x, upper: x is not None and lower <= x < upper)
     )
 
     INNER_JOIN = object()
@@ -864,10 +880,10 @@ class Table(Generic[TableContent]):
         Convenience method for transforming columns of CSV data from str to float and/or int. By default,
         convert_numeric will convert int values to int, float values to float, and leave all other values as-is.
 
-        Qualifying named args are:
+        Supported named args are:
         - empty - value to use for any value that is '' (such as "N/A" or "<missing>")
         - non_numeric - force a value for any value that is not int or float
-        - int_to_float - convert all numerics to floats
+        - force_float - convert all numerics to floats
 
         Examples::
 
@@ -888,7 +904,7 @@ class Table(Generic[TableContent]):
             tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(empty=None)})
 
             # convert all numerics to float, even if ints
-            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(int_to_float=True)})
+            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(force_float=True)})
 
         """
         if s is None:
@@ -912,6 +928,62 @@ class Table(Generic[TableContent]):
                 return float(s)
             except ValueError:
                 return s if non_numeric is object else non_numeric
+
+    @staticmethod
+    def parse_datetime(time_format: str, empty: Any = '', on_error: Any = None):
+        """Convenience method to convert string data to a datetime.datetime instance,
+           given a parse string (following strptime format).
+
+           Can be used for transforming data loaded from CSV data sets.
+        """
+
+        def _converter(s=None):
+            if s == '':
+                return empty
+            try:
+                return datetime.datetime.strptime(s, time_format)
+            except ValueError:
+                return on_error
+        return _converter
+
+    @staticmethod
+    def parse_date(time_format: str, empty: Any = '', on_error: Any = None):
+        """Convenience method to convert string data to a datetime.date instance,
+           given a parse string (following strptime format).
+
+           Can be used for transforming data loaded from CSV data sets.
+        """
+
+        def _converter(s=None):
+            if s == '':
+                return empty
+            try:
+                return datetime.datetime.strptime(s, time_format).date()
+            except ValueError:
+                return on_error
+        return _converter
+
+    @staticmethod
+    def parse_timedelta(time_format: str,
+                        reference_time: datetime.datetime = datetime.datetime.strptime("0:00:00", "%H:%M:%S"),
+                        empty: Any = '',
+                        on_error: Any = None):
+        """Convenience method to convert string data to a datetime.timedelta instance,
+           given a parse string (following strptime format), and optionally a
+           reference datetime.datetime.
+
+           Can be used for transforming data loaded from CSV data sets.
+        """
+
+        def _converter(s=None):
+            if s == '':
+                return empty
+            try:
+                ret = datetime.datetime.strptime(s, time_format)
+                return ret - reference_time
+            except ValueError:
+                return on_error
+        return _converter
 
     def __init__(self, table_name: str = ""):
         """
@@ -2941,6 +3013,7 @@ class Table(Generic[TableContent]):
 
         attr_names = []
         field_settings = []
+        right_justify_types = (*_numeric_type, datetime.timedelta)
         for field_spec in fields:
             if isinstance(field_spec, str):
                 name, field_spec = field_spec, {}
@@ -2948,7 +3021,7 @@ class Table(Generic[TableContent]):
                 next_v = next(
                     (v for v in getattr(self.all, name) if v is not None), None
                 )
-                if isinstance(next_v, _numeric_type):
+                if isinstance(next_v, right_justify_types):
                     field_spec["justify"] = "right"
                 else:
                     try:

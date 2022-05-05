@@ -22,6 +22,22 @@ Version 2.0.7 (in development)
 
   Slices with a step field (as in `[start : stop : step]`) are not supported.
 
+  See full example code in examples/sliced_indexing.py.
+
+- Added new transform methods for importing timestamps as part of
+  CSV's.
+
+  - Table.parse_datetime(pattern, empty, on_error)
+  - Table.parse_date(pattern, empty, on_error)
+  - Table.parse_timedelta(pattern, reference_time, empty, on_error)
+
+  Each takes a pattern as would be used for `datetime.strptime()``, plus
+  optional values for empty inputs (default='') or error inputs
+  (default=None). `parse_timedelta` also takes a reference_time argument
+  to compute the resulting timedelta - default is 00:00:00.
+
+  See full example code in examples/time_conversions.py.
+
 
 Version 2.0.6
 -------------
