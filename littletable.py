@@ -155,7 +155,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "5 May 2022 06:49 UTC"
+__version_time__ = "7 May 2022 21:21 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -169,6 +169,8 @@ else:
 default_row_class = SimpleNamespace
 
 _numeric_type: Tuple = (int, float)
+right_justify_types = (*_numeric_type, datetime.timedelta)
+
 try:
     import numpy
 except ImportError:
@@ -3013,7 +3015,7 @@ class Table(Generic[TableContent]):
 
         attr_names = []
         field_settings = []
-        right_justify_types = (*_numeric_type, datetime.timedelta)
+
         for field_spec in fields:
             if isinstance(field_spec, str):
                 name, field_spec = field_spec, {}
@@ -3051,7 +3053,7 @@ class Table(Generic[TableContent]):
                 grouping = True
 
         table_defaults = dict(show_header=True, header_style="bold", box=box.ASCII)
-        if sys.stdout.isatty():
+        if getattr(sys.stdout, "isatty", lambda: False)():
             table_defaults["box"] = box.SIMPLE
         if self.table_name:
             table_defaults["title"] = self.table_name
@@ -3151,7 +3153,7 @@ class Table(Generic[TableContent]):
                 align = "left"
                 if fld not in suppress:
                     v = getattr(r, fld, "")
-                    if isinstance(v, _numeric_type):
+                    if isinstance(v, right_justify_types):
                         align = "right"
                     if fld not in field_format_map:
                         field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
@@ -3245,7 +3247,7 @@ class Table(Generic[TableContent]):
                 if align_center and v in center_vals:
                     continue
                 align_center = False
-                if not (v is None or isinstance(v, _numeric_type)):
+                if not (v is None or isinstance(v, right_justify_types)):
                     align_right = False
                 if not align_right and not align_center:
                     break
@@ -3527,7 +3529,7 @@ class _PivotTableSummary:
                 ret_tr = ["<tr>"]
                 for v, hdg in zip(r, hdgs):
                     v_format = formats.get(hdg, formats.get(type(v), "{}"))
-                    v_align = "right" if isinstance(v, _numeric_type) else "left"
+                    v_align = "right" if isinstance(v, right_justify_types) else "left"
                     str_v = (
                         v_format.format(v) if isinstance(v_format, str) else v_format(v)
                     )
