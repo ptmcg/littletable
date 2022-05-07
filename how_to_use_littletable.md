@@ -247,7 +247,7 @@ table.select("col1 col2 col3")(title_str).present(caption="caption text")
 
 ```python
 from IPython.display import HTML, display
-display(HTML(table.as_html()))
+display(HTML(table.as_html(table_properties={"border": 1, "cellpadding": 5})))
 ```
 
 - Using `tabulate`:

@@ -3119,7 +3119,8 @@ class Table(Generic[TableContent]):
         console.print(table)
 
     def as_html(
-        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby = None
+        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby = None,
+            table_properties: Dict = None,
     ) -> str:
         """
         Output the table as a rudimentary HTML table.
@@ -3169,10 +3170,15 @@ class Table(Generic[TableContent]):
             if group_attrs:
                 grouping = True
 
+        if table_properties is not None:
+            table_modifiers = "".join(f' {k}="{v}"' for k, v in table_properties.items())
+        else:
+            table_modifiers = ""
+
         headers = "".join(f'<th><div align="center">{fld}</div></th>' for fld in fields)
         if not grouping:
             ret = (
-                "<table>\n<thead>\n"
+                f"<table{table_modifiers}>\n<thead>\n"
                 f"<tr>{headers}</tr>\n"
                 "</thead>\n<tbody>"
                 f"{''.join(row_to_tr(row) for row in self)}"
@@ -3188,7 +3194,7 @@ class Table(Generic[TableContent]):
                 rows.append(row_to_tr(row, suppress=suppress_attrs))
                 prev = curr
             ret = (
-                "<table>\n<thead>\n"
+                f"<table{table_modifiers}>\n<thead>\n"
                 f"<tr>{headers}</tr>\n"
                 "</thead>\n<tbody>"
                 f"{''.join(rows)}"

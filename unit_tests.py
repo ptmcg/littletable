@@ -1003,6 +1003,12 @@ class TableListTests:
                          data_line,
                          "failed as_html with groupby")
 
+        html_output = self.t1[:10].as_html(fields="a b c", table_properties={"border": "2"})
+        print(html_output)
+        self.assertTrue("<thead>" in html_output and "<tbody>" in html_output,
+                        "as_html does not include thead and tbody tags")
+
+
     def test_delete_slices(self):
         compare_list = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz")
         t1 = lt.Table().insert_many(lt.DataObject(A=c) for c in compare_list)
