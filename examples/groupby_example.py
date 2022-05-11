@@ -15,33 +15,33 @@ year,award,movie,recipient
 1962,Best Actress,Two Women,Sophia Loren
 1962,Best Director,West Side Story,Willian Wise/Jerome Robbins
 1963,Best Picture,Lawrence of Arabia,
-1963,Best Actor,Gregory Peck,To Kill A Mockingbird
-1963,Best Actress,Anne Bancroft,The Miracle Worker
-1963,Best Director,David Lean,Lawrence of Arabia
+1963,Best Actor,To Kill A Mockingbird,Gregory Peck
+1963,Best Actress,The Miracle Worker,Anne Bancroft
+1963,Best Director,Lawrence of Arabia,David Lean
 1964,Best Picture,Tom Jones,
-1964,Best Actor,Sidney Poitier,Lilies of the Field
-1964,Best Actress,Patricia Neal,Hud
-1964,Best Director,Tony Richardson,Tom Jones
+1964,Best Actor,Lilies of the Field,Sidney Poitier
+1964,Best Actress,Hud,Patricia Neal
+1964,Best Director,Tom Jones,Tony Richardson
 1965,Best Picture,My Fair Lady,
-1965,Best Actor,Rex Harrison,My Fair Lady
-1965,Best Actress,Julie Andrews,Mary Poppins
-1965,Best Director,George Kukor,My Fair Lady
+1965,Best Actor,My Fair Lady,Rex Harrison
+1965,Best Actress,Mary Poppins,Julie Andrews
+1965,Best Director,My Fair Lady,George Kukor
 1966,Best Picture,The Sound of Music,
-1966,Best Actor,Lee Marvin,Cat Ballou
-1966,Best Actress,Julie Christie,Darling
-1966,Best Director,Robert Wise,The Sound of Music
+1966,Best Actor,Cat Ballou,Lee Marvin
+1966,Best Actress,Darling,Julie Christie
+1966,Best Director,The Sound of Music,Robert Wise
 1967,Best Picture,A Man for All Season,
-1967,Best Actor,Paul Scofield,A Man for All Seasons
-1967,Best Actress,Elizabeth Taylor,Who's Afraid of Virginia Woolf
-1967,Best Director,Fred Zinnemann,A Man for All Seasons
+1967,Best Actor,A Man for All Seasons,Paul Scofield
+1967,Best Actress,Who's Afraid of Virginia Woolf,Elizabeth Taylor
+1967,Best Director,A Man for All Seasons,Fred Zinnemann
 1968,Best Picture,In The Heat of The Night,
-1968,Best Actor,Rod Steiger,In The Heat of The Night
-1968,Best Actress,Katherine Hepburn,Guess Who's Coming to Dinner
-1968,Best Director,Mike Nichols,The Graduate
+1968,Best Actor,In The Heat of The Night,Rod Steiger
+1968,Best Actress,Guess Who's Coming to Dinner,Katherine Hepburn
+1968,Best Director,The Graduate,Mike Nichols
 1969,Best Picture,Oliver!,
-1969,Best Actor,Cliff Robertson,Charly
-1969,Best Actress,Barbra Streisand,Funny Girl
-1969,Best Director,Carol Reed,Oliver!
+1969,Best Actor,Charly,Cliff Robertson
+1969,Best Actress,Funny Girl,Barbra Streisand
+1969,Best Director,Oliver!,Carol Reed
 """)
 
 tbl.present(groupby="year")
