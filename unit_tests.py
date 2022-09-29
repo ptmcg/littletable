@@ -336,6 +336,27 @@ def make_dataobject_from_ob(rec):
     return lt.DataObject(**dict((k, getattr(rec, k)) for k in lt._object_attrnames(rec)))
 
 
+class TableTypeTests(unittest.TestCase):
+    def test_types(self):
+        from collections.abc import (Callable, Container, Iterable, Collection, Mapping, Reversible, Sequence, Sized)
+
+        tbl = lt.Table()
+        tbl.create_index("idx")
+
+        for superclass in (Callable, Sized, Iterable, Container, Collection, Reversible, Sequence):
+            with self.subTest(superclass=superclass):
+                print(superclass.__name__)
+                self.assertTrue(isinstance(tbl, superclass))
+
+        with self.subTest():
+            print("isinstance(_ObjIndex, Mapping)")
+            self.assertTrue(isinstance(tbl._indexes["idx"], Mapping))
+
+        with self.subTest():
+            print("isinstance(_ObjIndexWrapper, Mapping)")
+            self.assertTrue(isinstance(tbl.by.idx, Mapping))
+
+
 @make_test_classes
 class TableCreateTests:
     def test_inserts(self):

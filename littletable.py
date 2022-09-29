@@ -148,14 +148,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 0, 7, "final", 0)
+__version_info__ = version_info(2, 0, 8, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.release_level[0], __version_info__.serial), "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "7 May 2022 21:21 UTC"
+__version_time__ = "29 Sept 2022 05:56 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -995,8 +995,8 @@ class Table(Generic[TableContent]):
         """
         self(table_name)
         self.obs: List = []
-        self._indexes: Dict[str, Any] = {}
-        self._uniqueIndexes: List[Any] = []
+        self._indexes: Dict[str, _ObjIndex] = {}
+        self._uniqueIndexes: List[_UniqueObjIndex] = []
         self._search_indexes: Dict[str, Dict[str, List]] = {}
 
         self.import_source_type: Optional[ImportSourceType] = None

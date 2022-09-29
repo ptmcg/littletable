@@ -1,6 +1,29 @@
 Change History
 ==============
 
+Version 2.0.8 (in development)
+------------------------------
+- Fixed type annotations for Table indexes, and verified type subclassing.
+
+  For this table:
+
+        tbl = lt.Table()
+        tbl.create_index("idx")
+
+  The following `isinstance()` tests are True:
+
+         Object      collections.abc Abstract Base Classes
+        ───────────────────────────────────────────────────
+         tbl         Callable
+                     Sized
+                     Iterable
+                     Container
+                     Collection
+                     Reversible
+                     Sequence
+         tbl.by.idx  Mapping
+
+
 Version 2.0.7
 -------------
 - Added support for sliced indexing into `Table` indexes, as a simple
