@@ -23,6 +23,19 @@ Version 2.0.8 (in development)
                      Sequence
          tbl.by.idx  Mapping
 
+- `Table.csv_export()`, `tsv_export()`, and `json_export()`, if called with None as
+  the output destination (None is now the default), will return a string
+  containing the exported data.
+
+    # print first 10 rows of my_table as CSV data
+    print(my_table[:10].csv_export())
+
+- `Table.json_export()` takes an optional parameter, `streaming` to control
+  whether the resulting JSON is a single JSON list element (if streaming is False),
+  or a separate JSON element per Table item (if streaming is True); the default
+  value is True. `streaming` is useful when passing data over a streaming protocol,
+  so that the Table contents can be unmarshaled separately on the receiving end.
+
 
 Version 2.0.7
 -------------

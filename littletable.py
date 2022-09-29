@@ -117,6 +117,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 
 import csv
 import datetime
+import io
 import warnings
 from enum import Enum
 from io import StringIO
@@ -155,7 +156,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "29 Sept 2022 05:56 UTC"
+__version_time__ = "29 Sept 2022 07:27 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2529,17 +2530,18 @@ class Table(Generic[TableContent]):
 
     def csv_export(
         self,
-        csv_dest: _ImportExportDataContainer,
+        csv_dest: _ImportExportDataContainer = None,
         fieldnames: Iterable[str] = None,
         encoding: str = "utf-8",
         delimiter: str = ",",
         **kwargs,
-    ):
+    ) -> Optional[str]:
         """
         Exports the contents of the table to a CSV-formatted file.
         @param csv_dest: CSV file - if a string is given, the file with that name will be
             opened, written, and closed; if a file object is given, then that object
             will be written as-is, and left for the caller to be closed.
+            If None, then a string containing the exported data is returned.
         @type csv_dest: string or file
         @param fieldnames: attribute names to be exported; can be given as a single
             string with space-delimited names, or as a list of attribute names
@@ -2563,7 +2565,11 @@ class Table(Generic[TableContent]):
             ]
         )
         close_on_exit = False
+        return_dest_value = False
 
+        if csv_dest is None:
+            csv_dest = io.StringIO()
+            return_dest_value = True
         if isinstance(csv_dest, Path):
             csv_dest = str(csv_dest)
         if isinstance(csv_dest, str):
@@ -2594,9 +2600,14 @@ class Table(Generic[TableContent]):
             if close_on_exit:
                 csv_dest.close()
 
+        if return_dest_value:
+            return csv_dest.getvalue()
+        else:
+            return None
+
     def tsv_export(
         self,
-        tsv_dest: _ImportExportDataContainer,
+        tsv_dest: Optional[_ImportExportDataContainer],
         fieldnames: Iterable[str] = None,
         encoding: str = "UTF-8",
         **kwargs,
@@ -2660,15 +2671,17 @@ class Table(Generic[TableContent]):
 
     def json_export(
         self,
-        dest: _ImportExportDataContainer,
+        dest: Optional[_ImportExportDataContainer] = None,
         fieldnames: Union[Iterable[str], str] = None,
         encoding: str = "UTF-8",
-    ):
+        streaming: bool = True,
+    ) -> Optional[str]:
         """
         Exports the contents of the table to a JSON-formatted file.
         @param dest: output file - if a string is given, the file with that name will be
             opened, written, and closed; if a file object is given, then that object
             will be written as-is, and left for the caller to be closed.
+            If None, then a string containing the exported data is returned.
         @type dest: string or file
         @param fieldnames: attribute names to be exported; can be given as a single
             string with space-delimited names, or as a list of attribute names
@@ -2676,9 +2689,17 @@ class Table(Generic[TableContent]):
         @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
             representing an output filename, an encoding argument can be provided
         @type encoding: string
+        @param streaming: bool (default=True); flag to return JSON as a separate
+            JSON string for each object in the table. If False, returns a single
+            JSON list containing all the table objects.
+        @type streaming: bool
         """
         close_on_exit = False
+        return_dest_value = False
 
+        if dest is None:
+            dest = io.StringIO()
+            return_dest_value = True
         if isinstance(dest, Path):
             dest = str(Path)
         if isinstance(dest, str):
@@ -2688,17 +2709,40 @@ class Table(Generic[TableContent]):
             if isinstance(fieldnames, str):
                 fieldnames = fieldnames.split()
 
-            if fieldnames is None:
-                for o in self.obs:
-                    dest.write(_to_json(o) + "\n")
+            if streaming:
+                if fieldnames is None:
+                    for i, o in enumerate(self.obs):
+                        dest.write(_to_json(o) + "\n")
+                else:
+                    for i, o in enumerate(self.obs):
+                        dest.write(
+                            json.dumps(ODict((f, getattr(o, f, None)) for f in fieldnames)) + "\n"
+                        )
+
             else:
-                for o in self.obs:
-                    dest.write(
-                        json.dumps(ODict((f, getattr(o, f)) for f in fieldnames)) + "\n"
-                    )
+                dest.write("[\n")
+                last_obs = len(self.obs) - 1
+
+                if fieldnames is None:
+                    for i, o in enumerate(self.obs):
+                        dest.write(_to_json(o) + ("\n" if i == last_obs else ",\n"))
+                else:
+                    for i, o in enumerate(self.obs):
+                        dest.write(
+                            json.dumps(ODict((f, getattr(o, f, None)) for f in fieldnames))
+                            + ("\n" if i == last_obs else ",\n")
+                        )
+
+                dest.write("]\n")
+
         finally:
             if close_on_exit:
                 dest.close()
+
+        if return_dest_value:
+            return dest.getvalue()
+        else:
+            return None
 
     def excel_export(
         self,
