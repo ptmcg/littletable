@@ -1,8 +1,16 @@
 Change History
 ==============
 
-Version 2.0.8 (in development)
-------------------------------
+Version 2.1.0
+-------------
+- BREAKING CHANGES:
+
+  - littletable drops support for Python 3.6.
+
+  - `Table.json_import()` and `Table.json_export()` now default to non-streamed JSON.
+    Code that uses these methods in streaming mode must now call them with the
+    new `streaming=True` argument.
+
 - Fixed type annotations for Table indexes, and verified type subclassing.
 
   For this table:
@@ -33,14 +41,14 @@ Version 2.0.8 (in development)
 - `Table.json_export()` takes an optional parameter, `streaming` to control
   whether the resulting JSON is a single JSON list element (if streaming is False),
   or a separate JSON element per Table item (if streaming is True); the default
-  value is True. `streaming` is useful when passing data over a streaming protocol,
+  value is False. `streaming` is useful when passing data over a streaming protocol,
   so that the Table contents can be unmarshaled separately on the receiving end.
 
 - `Table.json_import()` takes two optional parameters:
 
   - `streaming` to indicate that the input stream contains multiple JSON objects
     (if streaming=True), or a single JSON list of objects (if streaming=False);
-    defaults to True
+    defaults to False
   - `path`, a dot-delimited path of keys to read a list of JSON objects from a
     sub-element of the input JSON text (only valid if streaming=False); defaults
     to ""

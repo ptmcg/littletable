@@ -1928,7 +1928,7 @@ class TableImportExportTests:
 
         # test separately, no transforms for JSON imports
         import_source_name = "test/abc.json.gz"
-        tt2 = lt.Table().json_import("test/abc.json.gz")
+        tt2 = lt.Table().json_import("test/abc.json.gz", streaming=True)
         print("abc.json.gz", tt2.info())
         expected_info = {**tt.info(), "name": import_source_name}
         with self.subTest():
@@ -2281,16 +2281,13 @@ class TableImportExportTests:
             tbl.present()
             self.assertEqual([1000, 3.14, None, 'ⓠ*bert'], list(tbl.all.value))
 
-    def test_json_export(self):
+    def test_json_export_streaming(self):
         from itertools import permutations
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
         for fieldnames in permutations(list('abc')):
-            out = io.StringIO()
-            t1.json_export(out, fieldnames)
-            out.seek(0)
-            outlines = out.read().splitlines()
-            out.close()
+            out_string = t1.json_export(None, fieldnames=fieldnames, streaming=True)
+            outlines = out_string.splitlines()
 
             with self.subTest(fieldnames=fieldnames):
                 self.assertEqual(test_size**3, len(outlines))
@@ -2301,10 +2298,27 @@ class TableImportExportTests:
                 with self.subTest(ob=ob, line=line):
                     self.assertEqual(t1_dataobj, lt.DataObject(**json_dict))
 
+    def test_json_export_nonstreaming(self):
+        from itertools import permutations
+        import json
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+        for fieldnames in permutations(list('abc')):
+            out_string = t1.json_export(None, fieldnames=fieldnames, streaming=False)
+            observed_json = json.loads(out_string)
+
+            with self.subTest(fieldnames=fieldnames):
+                self.assertEqual(test_size**3, len(observed_json))
+
+            for ob, json_dict in zip(t1, observed_json):
+                t1_dataobj = make_dataobject_from_ob(ob)
+                with self.subTest(ob=ob, json_dict=json_dict):
+                    self.assertEqual(t1_dataobj, lt.DataObject(**json_dict))
+
     def test_json_import(self):
         data = json_data
         injson = io.StringIO(data)
-        jsontable = lt.Table().json_import(injson, transforms={'a': int, 'b': int, 'c': int})
+        jsontable = lt.Table().json_import(injson, streaming=True, transforms={'a': int, 'b': int, 'c': int})
 
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
@@ -2316,7 +2330,7 @@ class TableImportExportTests:
 
     def test_json_string_import(self):
         data = json_data
-        jsontable = lt.Table().json_import(data, transforms={'a': int, 'b': int, 'c': int})
+        jsontable = lt.Table().json_import(data, streaming=True, transforms={'a': int, 'b': int, 'c': int})
 
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
@@ -2328,7 +2342,7 @@ class TableImportExportTests:
 
     def test_json_string_list_import(self):
         data = json_data
-        jsontable = lt.Table().json_import(data.splitlines(), transforms={'a': int, 'b': int, 'c': int})
+        jsontable = lt.Table().json_import(data.splitlines(), streaming=True, transforms={'a': int, 'b': int, 'c': int})
 
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
@@ -2351,7 +2365,6 @@ class TableImportExportTests:
             (json_input2, "data.items"),
         ]:
             jsontable = lt.Table().json_import(json_input,
-                                               streaming=False,
                                                path=path,
                                                transforms={'a': int, 'b': int, 'c': int})
 

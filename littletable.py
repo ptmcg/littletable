@@ -118,6 +118,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 import csv
 import datetime
 import io
+import itertools
 import warnings
 from enum import Enum
 from io import StringIO
@@ -149,23 +150,17 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 0, 8, "final", 0)
+__version_info__ = version_info(2, 1, 0, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.release_level[0], __version_info__.serial), "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "25 Oct 2022 17:30 UTC"
+__version_time__ = "25 Oct 2022 23:15 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
-
-# 3.7 and later, Python dicts preserve insertion order
-if sys.version_info[:2] >= (3, 7):
-    ODict = dict
-else:
-    from collections import OrderedDict as ODict
 
 default_row_class = SimpleNamespace
 
@@ -224,21 +219,21 @@ def _object_attrnames(obj):
 
 def _to_dict(obj):
     if hasattr(obj, "trait_names"):
-        return ODict(
-            (k, v)
+        return {
+            k: v
             for k, v in zip(obj.trait_names(), (getattr(obj, a) for a in obj.trait_names()))
-        )
+        }
     if hasattr(obj, "__dict__"):
         # normal object
         return obj.__dict__
     if isinstance(obj, tuple) and hasattr(obj, "_fields"):
         # namedtuple
-        return ODict(zip(obj._fields, obj))
+        return dict(zip(obj._fields, obj))
     if hasattr(obj, "__slots__"):
-        return ODict(
-            (k, v)
+        return {
+            k: v
             for k, v in zip(obj.__slots__, (getattr(obj, a) for a in obj.__slots__))
-        )
+        }
     raise UnableToExtractAttributeNamesError("object with unknown attributes")
 
 
@@ -711,7 +706,7 @@ class FixedWidthReader:
             for line in _srciter:
                 if not line.strip():
                     continue
-                yield dict((label, fn(line[slc])) for label, slc, fn in self._slices)
+                yield {label: fn(line[slc]) for label, slc, fn in self._slices}
 
 
 def _make_comparator(cmp_fn):
@@ -1172,7 +1167,7 @@ class Table(Generic[TableContent]):
         """
         ret: Table[TableContent] = Table(self.table_name)
         ret._indexes.update(
-            dict((k, v.copy_template()) for k, v in self._indexes.items())
+            {k: v.copy_template() for k, v in self._indexes.items()}
         )
         ret(name)
         return ret
@@ -1479,9 +1474,9 @@ class Table(Generic[TableContent]):
             new_objs = list(new_objs)
             for ind in unique_indexes:
                 ind_attr = ind.attr
-                new_keys = dict(
-                    (getattr(obj, ind_attr, NO_SUCH_ATTR), obj) for obj in new_objs
-                )
+                new_keys = {
+                    getattr(obj, ind_attr, NO_SUCH_ATTR): obj for obj in new_objs
+                }
                 if not ind.accept_none and (
                     None in new_keys or NO_SUCH_ATTR in new_keys
                 ):
@@ -1762,7 +1757,7 @@ class Table(Generic[TableContent]):
             else:
                 return expr
 
-        exprs = dict((k, _make_string_callable(v)) for k, v in exprs.items())
+        exprs = {k: _make_string_callable(v) for k, v in exprs.items()}
 
         raw_tuples = []
         for ob in self.obs:
@@ -1774,11 +1769,7 @@ class Table(Generic[TableContent]):
         all_names = tuple(fields) + tuple(exprs.keys())
         ret: Table[TableContent] = Table(self.table_name)
         ret._indexes.update(
-            dict(
-                (k, v.copy_template())
-                for k, v in self._indexes.items()
-                if k in all_names
-            )
+            {k: v.copy_template() for k, v in self._indexes.items() if k in all_names}
         )
         if self:
             ret.insert_many(
@@ -1796,7 +1787,7 @@ class Table(Generic[TableContent]):
         @param exprs: one or more named string arguments, to format the given attribute with a formatting string
         @type exprs: name=string
         """
-        select_exprs = ODict()
+        select_exprs = dict()
         for fld in fields:
             if fld not in select_exprs:
                 select_exprs[fld] = lambda r, f=fld: str(getattr(r, f, "None"))
@@ -2344,18 +2335,10 @@ class Table(Generic[TableContent]):
         @param fieldnames: names for imported columns; used if there is no header line in the input file
         @type fieldnames: list[str] or str
         """
-        reader_args = dict(
-            (k, v)
-            for k, v in kwargs.items()
-            if k
-            not in [
-                "encoding",
-                "csv_source",
-                "transforms",
-                "row_class",
-                "limit",
-            ]
-        )
+        non_reader_args = "encoding csv_source transforms row_class limit".split()
+        reader_args = {
+            k: v for k, v in kwargs.items() if k not in non_reader_args
+        }
         reader_args["fieldnames"] = fieldnames.split() if isinstance(fieldnames, str) else fieldnames
         return self._import(
             csv_source,
@@ -2377,19 +2360,10 @@ class Table(Generic[TableContent]):
         limit: int = None,
         **kwargs,
     ):
-        reader_args = dict(
-            (k, v)
-            for k, v in kwargs.items()
-            if k
-            not in [
-                "encoding",
-                "xsv_source",
-                "transforms",
-                "row_class",
-                "limit",
-                "filters,",
-            ]
-        )
+        non_reader_args = "encoding xsv_source transforms row_class limit filters".split()
+        reader_args = {
+            k: v for k, v in kwargs.items() if k not in non_reader_args
+        }
         return self._import(
             xsv_source,
             encoding=encoding,
@@ -2554,16 +2528,10 @@ class Table(Generic[TableContent]):
         @param kwargs: additional keyword args to pass through to csv.DictWriter
         @type kwargs: named arguments (optional)
         """
-        writer_args = dict(
-            (k, v)
-            for k, v in kwargs.items()
-            if k
-            not in [
-                "encoding",
-                "csv_dest",
-                "fieldnames",
-            ]
-        )
+        non_writer_args = "encoding csv_dest fieldnames".split()
+        writer_args = {
+            k: v for k, v in kwargs.items() if k not in non_writer_args
+        }
         close_on_exit = False
         return_dest_value = False
 
@@ -2595,7 +2563,7 @@ class Table(Generic[TableContent]):
             except UnableToExtractAttributeNamesError:
                 attr_fetch = operator.attrgetter(*fieldnames)
                 for o in self.obs:
-                    csvout.writerow(ODict(zip(fieldnames, attr_fetch(o))))
+                    csvout.writerow(dict(zip(fieldnames, attr_fetch(o))))
         finally:
             if close_on_exit:
                 csv_dest.close()
@@ -2625,7 +2593,7 @@ class Table(Generic[TableContent]):
         encoding: str = "UTF-8",
         transforms: Dict = None,
         row_class: type = None,
-        streaming: bool = True,
+        streaming: bool = False,
         path: str = "",
     ) -> "Table":
         """
@@ -2644,7 +2612,7 @@ class Table(Generic[TableContent]):
         @param row_class: class to construct for each imported row when populating table (default=DataObject)
         @type row_class: type
         @param streaming: boolean flag to indicate whether inbound JSON will be a stream of multiple objects
-            or a single list object (default=True)
+            or a single list object (default=False)
         @type streaming: bool
         @param path: (only valid if streaming=False) a '.'-delimited path into the inbound JSON, in case
             the objects to import are not in a top-level JSON list
@@ -2690,7 +2658,7 @@ class Table(Generic[TableContent]):
         dest: Optional[_ImportExportDataContainer] = None,
         fieldnames: Union[Iterable[str], str] = None,
         encoding: str = "UTF-8",
-        streaming: bool = True,
+        streaming: bool = False,
     ) -> Optional[str]:
         """
         Exports the contents of the table to a JSON-formatted file.
@@ -2705,7 +2673,7 @@ class Table(Generic[TableContent]):
         @param encoding: string (default="UTF-8"); if csv_dest is provided as a string
             representing an output filename, an encoding argument can be provided
         @type encoding: string
-        @param streaming: bool (default=True); flag to return JSON as a separate
+        @param streaming: bool (default=False); flag to return JSON as a separate
             JSON string for each object in the table. If False, returns a single
             JSON list containing all the table objects.
         @type streaming: bool
@@ -2727,28 +2695,30 @@ class Table(Generic[TableContent]):
 
             if streaming:
                 if fieldnames is None:
-                    for i, o in enumerate(self.obs):
+                    for o in self.obs:
                         dest.write(_to_json(o) + "\n")
                 else:
-                    for i, o in enumerate(self.obs):
+                    for o in self.obs:
                         dest.write(
-                            json.dumps(ODict((f, getattr(o, f, None)) for f in fieldnames)) + "\n"
+                            json.dumps({f: getattr(o, f, None) for f in fieldnames}) + "\n"
                         )
-
             else:
                 dest.write("[\n")
-                last_obs = len(self.obs) - 1
-
-                if fieldnames is None:
-                    for i, o in enumerate(self.obs):
-                        dest.write(_to_json(o) + ("\n" if i == last_obs else ",\n"))
-                else:
-                    for i, o in enumerate(self.obs):
+                if self.obs:
+                    if fieldnames is None:
+                        for o in itertools.islice(self.obs, len(self.obs)-1):
+                            dest.write(_to_json(o) + ",\n")
+                        o = self.obs[-1]
+                        dest.write(_to_json(o) + "\n")
+                    else:
+                        for o in itertools.islice(self.obs, len(self.obs)-1):
+                            dest.write(
+                                json.dumps({f: getattr(o, f, None) for f in fieldnames}) + ",\n"
+                            )
+                        o = self.obs[-1]
                         dest.write(
-                            json.dumps(ODict((f, getattr(o, f, None)) for f in fieldnames))
-                            + ("\n" if i == last_obs else ",\n")
+                            json.dumps({f: getattr(o, f, None) for f in fieldnames}) + "\n"
                         )
-
                 dest.write("]\n")
 
         finally:
@@ -3374,7 +3344,7 @@ class _PivotTable(Table):
         # for k,v in parent._indexes.items():
         #     self._indexes[k] = v.copy_template()
         self._indexes.update(
-            dict((k, v.copy_template()) for k, v in parent._indexes.items())
+            {k: v.copy_template() for k, v in parent._indexes.items()}
         )
         if not attr_val_path:
             self.insert_many(parent.obs)
@@ -3476,7 +3446,7 @@ class _PivotTable(Table):
             maxvallen = max(
                 max(len(str(k)) for k in self.subtables[0].keys()), colwidth
             )
-            keytally = dict((k, 0) for k in self.subtables[0].keys())
+            keytally = dict.fromkeys(self.subtables[0].keys(), 0)
             out.write(f"{' ' * maxkeylen} ")
             out.write(
                 " ".join(
@@ -3582,7 +3552,7 @@ class _PivotTableSummary:
             return data.as_html((col, col_label), formats=formats)
 
         elif len(self._pivot_attrs) == 2:
-            keytally = dict((k, 0) for k in self._pt.subtables[0].keys())
+            keytally = dict.fromkeys(self._pt.subtables[0].keys(), 0)
             hdgs = [self._pivot_attrs[0]] + sorted(keytally) + ["Total"]
 
             def row_to_tr(r):
@@ -3602,7 +3572,7 @@ class _PivotTableSummary:
             ret = ""
             ret += "<table>\n"
             ret += "<thead>\n"
-            keytally = dict((k, 0) for k in self._pt.subtables[0].keys())
+            keytally = dict.fromkeys(self._pt.subtables[0].keys(), 0)
             hdgs = sorted(keytally)
             ret += (
                 "<tr>"
