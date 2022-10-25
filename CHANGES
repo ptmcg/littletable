@@ -36,6 +36,15 @@ Version 2.0.8 (in development)
   value is True. `streaming` is useful when passing data over a streaming protocol,
   so that the Table contents can be unmarshaled separately on the receiving end.
 
+- `Table.json_import()` takes two optional parameters:
+
+  - `streaming` to indicate that the input stream contains multiple JSON objects
+    (if streaming=True), or a single JSON list of objects (if streaming=False);
+    defaults to True
+  - `path`, a dot-delimited path of keys to read a list of JSON objects from a
+    sub-element of the input JSON text (only valid if streaming=False); defaults
+    to ""
+
 
 Version 2.0.7
 -------------

@@ -1863,6 +1863,24 @@ class TableImportExportTests:
             with self.subTest():
                 self.assertEqual(1, len(outlines))
 
+    def test_csv_export_to_string(self):
+        from itertools import permutations
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+        for fieldnames in permutations(list('abc')):
+            out_string = t1.csv_export(None, fieldnames)
+            outlines = out_string.splitlines()
+            with self.subTest():
+                self.assertEqual(','.join(fieldnames), outlines[0])
+            with self.subTest():
+                self.assertEqual(test_size ** 3 + 1, len(outlines))
+            for ob, line in zip(t1, outlines[1:]):
+                csv_vals = line.split(',')
+                with self.subTest(ob=ob, csv_vals=csv_vals):
+                    self.assertTrue(all(
+                        int(csv_vals[i]) == getattr(ob, fld) for i, fld in enumerate(fieldnames)
+                    ))
+
     def test_csv_import(self):
         data = csv_data
         incsv = io.StringIO(data)
@@ -2319,6 +2337,31 @@ class TableImportExportTests:
             self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
         with self.subTest():
             self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
+
+    def test_json_nonstreaming_with_path_import(self):
+        data = json_data
+        data = ',\n'.join(data.rstrip().splitlines())
+        json_input0 = '[' + data + ']'
+        json_input1 = '{ "data": [' + data + ']}'
+        json_input2 = '{ "data": { "items": [' + data + ']}}'
+
+        for json_input, path in [
+            (json_input0, ""),
+            (json_input1, "data"),
+            (json_input2, "data.items"),
+        ]:
+            jsontable = lt.Table().json_import(json_input,
+                                               streaming=False,
+                                               path=path,
+                                               transforms={'a': int, 'b': int, 'c': int})
+
+            test_size = 3
+            t1 = make_test_table(self.make_data_object, test_size)
+
+            with self.subTest():
+                self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
+            with self.subTest():
+                self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
 
     def test_fixed_width_import(self):
         data = fixed_width_data

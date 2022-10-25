@@ -156,7 +156,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "29 Sept 2022 07:27 UTC"
+__version_time__ = "25 Oct 2022 17:30 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2625,6 +2625,8 @@ class Table(Generic[TableContent]):
         encoding: str = "UTF-8",
         transforms: Dict = None,
         row_class: type = None,
+        streaming: bool = True,
+        path: str = "",
     ) -> "Table":
         """
         Imports the contents of a JSON data file into this table.
@@ -2641,23 +2643,37 @@ class Table(Generic[TableContent]):
         @type transforms: dict (optional)
         @param row_class: class to construct for each imported row when populating table (default=DataObject)
         @type row_class: type
+        @param streaming: boolean flag to indicate whether inbound JSON will be a stream of multiple objects
+            or a single list object (default=True)
+        @type streaming: bool
+        @param path: (only valid if streaming=False) a '.'-delimited path into the inbound JSON, in case
+            the objects to import are not in a top-level JSON list
+        @type path: str
         """
 
         class _JsonFileReader:
             def __init__(self, src):
                 self.source = src
+                self.streaming = streaming
 
             def __iter__(self):
-                current = ""
-                for line in self.source:
-                    if current:
-                        current += " "
-                    current += line
-                    try:
-                        yield json.loads(current)
-                        current = ""
-                    except Exception:
-                        pass
+                if self.streaming:
+                    current = ""
+                    for line in self.source:
+                        if current:
+                            current += " "
+                        current += line
+                        try:
+                            yield json.loads(current)
+                            current = ""
+                        except Exception:
+                            pass
+                else:
+                    inbound_json = '\n'.join(self.source)
+                    obs = json.loads(inbound_json)
+                    for path_item in filter(None, path.split(".")):
+                        obs = obs.get(path_item)
+                    yield from obs
 
         if row_class is None:
             row_class = default_row_class
