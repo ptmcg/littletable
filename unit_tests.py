@@ -1146,7 +1146,7 @@ class TableListTests:
         expected = lt.Table().csv_import(textwrap.dedent("""\
         name,mean,min,max,variance,std_dev,count,missing
         a,3.0,1,5,4,2.0,3,0
-        b,3.0,2,4,2,1.4142135623730951,2,1
+        b,3.0,2,4,2,1.414,2,1
         """), transforms={}.fromkeys("mean min max variance std_dev count missing".split(), ast.literal_eval))
         expected.present()
         print(expected.info())

@@ -157,7 +157,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "25 Oct 2022 23:15 UTC"
+__version_time__ = "26 Oct 2022 04:52 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -165,7 +165,7 @@ NL = os.linesep
 default_row_class = SimpleNamespace
 
 _numeric_type: Tuple = (int, float)
-right_justify_types = (*_numeric_type, datetime.timedelta)
+right_justify_types = (int, float, datetime.timedelta)
 
 try:
     import numpy
@@ -2971,12 +2971,22 @@ class Table(Generic[TableContent]):
             except Exception:
                 return None
 
-        stats = (
-            ("mean", partial(safe_fn, getattr(statistics, "fmean", statistics.mean))),
+        def rounding(fn, x):
+            import math
+            v = fn(x)
+            if v in (None, 0.0):
+                return v
+            if abs(v) > 1:
+                mag = int(math.log10(abs(v))) + 1
+                return round(v, max(4-mag, 0))
+            return v
+
+        stat_fn_map = (
+            ("mean", partial(rounding, partial(safe_fn, getattr(statistics, "fmean", statistics.mean)))),
             ("min", partial(safe_fn, min)),
             ("max", partial(safe_fn, max)),
-            ("variance", partial(safe_fn, statistics.variance)),
-            ("std_dev", partial(safe_fn, statistics.stdev)),
+            ("variance", partial(rounding, partial(safe_fn, statistics.variance))),
+            ("std_dev", partial(rounding, partial(safe_fn, statistics.stdev))),
             ("count", len),
             ("missing", lambda seq: len(self) - len(seq)),
         )
@@ -2985,14 +2995,14 @@ class Table(Generic[TableContent]):
             ret.create_index("name", unique=True)
             ret.insert_many(default_row_class(name=fname,
                                               **dict((stat_name, stat_fn(accum[fname]))
-                                                     for stat_name, stat_fn in stats))
+                                                     for stat_name, stat_fn in stat_fn_map))
                             for fname in field_names)
         else:
             ret.create_index("stat", unique=True)
             ret.insert_many(default_row_class(stat=stat_name,
                                               **dict((fname, stat_fn(accum[fname]))
                                                      for fname in field_names))
-                            for stat_name, stat_fn in stats)
+                            for stat_name, stat_fn in stat_fn_map)
         return ret
 
     def _parse_fields_string(self, field_names: Union[str, Iterable[str]]) -> List[str]:
@@ -3072,7 +3082,7 @@ class Table(Generic[TableContent]):
             attr_names.append(name)
             header = field_spec.pop("header", None)
             if header is None:
-                header = name.title()
+                header = name.replace("_", " ").title() if name.islower() else name
             field_settings.append((header, field_spec))
 
         grouping = False
