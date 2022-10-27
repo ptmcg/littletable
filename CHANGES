@@ -1,6 +1,12 @@
 Change History
 ==============
 
+Version 2.1.1 (in development)
+------------------------------
+- Passing an unknown path element in `Table.json_import(path=path)` now raises
+  KeyError instead of unhelpful TypeError.
+
+
 Version 2.1.0
 -------------
 - BREAKING CHANGES:

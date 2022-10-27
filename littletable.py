@@ -150,14 +150,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 1, 0, "final", 0)
+__version_info__ = version_info(2, 1, 1, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + ("{}{}".format(__version_info__.release_level[0], __version_info__.serial), "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "26 Oct 2022 04:52 UTC"
+__version_time__ = "27 Oct 2022 08:23 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2641,6 +2641,8 @@ class Table(Generic[TableContent]):
                     obs = json.loads(inbound_json)
                     for path_item in filter(None, path.split(".")):
                         obs = obs.get(path_item)
+                        if obs is None:
+                            raise KeyError(path_item)
                     yield from obs
 
         if row_class is None:
