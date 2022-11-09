@@ -9,6 +9,9 @@ Version 2.1.1 (in development)
   record's score and optional match words are added as
   `<search_attribute>_search_score` and `<search_attribute>_search_words` fields.
 
+  New example `peps.py` showcases some of these new JSON and full-text search,
+  features, using PEP data gathered from python.org.
+
 - Added docstring and annotations for generated `table.search.<search_attr>` methods.
 
 - Passing an unknown path element in `Table.json_import(path=path)` now raises
