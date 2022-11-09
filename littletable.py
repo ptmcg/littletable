@@ -153,7 +153,7 @@ version_info = namedtuple("version_info", "major minor micro release_level seria
 __version_info__ = version_info(2, 1, 1, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
-    + ("{}{}".format(__version_info__.release_level[0], __version_info__.serial), "")[
+    + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
@@ -271,7 +271,7 @@ class DataObject:
     def __setattr__(self, attr, val):
         # make all attributes write-once
         if attr not in self.__dict__:
-            super(DataObject, self).__setattr__(attr, val)
+            super().__setattr__(attr, val)
         else:
             raise AttributeError("can't set existing attribute")
 
@@ -351,7 +351,7 @@ Mapping.register(_ObjIndex)
 
 class _UniqueObjIndex(_ObjIndex):
     def __init__(self, attr, accept_none=False):
-        super(_UniqueObjIndex, self).__init__(attr)
+        super().__init__(attr)
         self.obs = {}
         self.is_unique = True
         self.accept_none = accept_none
@@ -517,7 +517,7 @@ class _TableSearcher:
 
     def __getattr__(self, attr):
         ret = partial(self.__table._search, attr)
-        ret.__name__ = "Table.search.{}".format(attr)
+        ret.__name__ = f"Table.search.{attr}"
         ret.__doc__ = """
         {0}
         Search function for attribute {1!r} in a Table.
@@ -1234,7 +1234,7 @@ class Table(Generic[TableContent]):
         @type accept_none: boolean
         """
         if attr in self._indexes:
-            raise ValueError("index {!r} already defined for table".format(attr))
+            raise ValueError(f"index {attr!r} already defined for table")
 
         if unique:
             self._indexes[attr] = _UniqueObjIndex(attr, accept_none)
@@ -1468,8 +1468,8 @@ class Table(Generic[TableContent]):
             tuple_ret = ret
             ret = self.copy_template()
             ret.insert_many(rec[0] for rec in tuple_ret)
-            score_attr = "{}_search_score".format(attrname)
-            words_attr = "{}_search_words".format(attrname)
+            score_attr = f"{attrname}_search_score"
+            words_attr = f"{attrname}_search_words"
             try:
                 for rec, tup in zip(ret, tuple_ret):
                     setattr(rec, score_attr, tup[1])
@@ -1989,7 +1989,7 @@ class Table(Generic[TableContent]):
             matchingrows.append((this_rows, other_rows))
 
         # remove attr_specs from other_attr_specs if alias is duplicate of any alias in this_attr_specs
-        this_attr_specs_aliases = set(alias for tbl, col, alias in this_attr_specs)
+        this_attr_specs_aliases = {alias for tbl, col, alias in this_attr_specs}
         other_attr_specs = [
             (tbl, col, alias)
             for tbl, col, alias in other_attr_specs
@@ -2191,7 +2191,7 @@ class Table(Generic[TableContent]):
             matchingrows.append((this_rows, other_rows))
 
         # remove attr_specs from other_attr_specs if alias is duplicate of any alias in this_attr_specs
-        this_attr_specs_aliases = set(alias for tbl, col, alias in this_attr_specs)
+        this_attr_specs_aliases = {alias for tbl, col, alias in this_attr_specs}
         other_attr_specs = [
             (tbl, col, alias)
             for tbl, col, alias in other_attr_specs
@@ -3047,14 +3047,14 @@ class Table(Generic[TableContent]):
         if by_field:
             ret.create_index("name", unique=True)
             ret.insert_many(default_row_class(name=fname,
-                                              **dict((stat_name, stat_fn(accum[fname]))
-                                                     for stat_name, stat_fn in stat_fn_map))
+                                              **{stat_name: stat_fn(accum[fname])
+                                                     for stat_name, stat_fn in stat_fn_map})
                             for fname in field_names)
         else:
             ret.create_index("stat", unique=True)
             ret.insert_many(default_row_class(stat=stat_name,
-                                              **dict((fname, stat_fn(accum[fname]))
-                                                     for fname in field_names))
+                                              **{fname: stat_fn(accum[fname])
+                                                     for fname in field_names})
                             for stat_name, stat_fn in stat_fn_map)
         return ret
 
@@ -3361,7 +3361,7 @@ class Table(Generic[TableContent]):
                     str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
                 else:
                     str_v = ""
-                ret_tr.append(" {} |".format(str_v))
+                ret_tr.append(f" {str_v} |")
             ret_tr.append("\n")
             return "".join(ret_tr)
 
@@ -3399,7 +3399,7 @@ class _PivotTable(Table):
         """PivotTable initializer - do not create these directly, use
         L{Table.pivot}.
         """
-        super(_PivotTable, self).__init__()
+        super().__init__()
         self._attr_path = attr_val_path[:]
         self._pivot_attrs = attrlist[:]
         self._subtable_dict = {}
@@ -3431,7 +3431,7 @@ class _PivotTable(Table):
         if self._subtable_dict:
             return self._subtable_dict[val]
         else:
-            return super(_PivotTable, self).__getitem__(val)
+            return super().__getitem__(val)
 
     def keys(self):
         return sorted(self._subtable_dict.keys())
@@ -3627,7 +3627,7 @@ class _PivotTableSummary:
                         v_format.format(v) if isinstance(v_format, str) else v_format(v)
                     )
                     ret_tr.append(
-                        '<td><div align="{}">{}</div></td>'.format(v_align, str_v)
+                        f'<td><div align="{v_align}">{str_v}</div></td>'
                     )
                 ret_tr.append("</tr>\n")
                 return "".join(ret_tr)
@@ -3639,7 +3639,7 @@ class _PivotTableSummary:
             hdgs = sorted(keytally)
             ret += (
                 "<tr>"
-                + "".join('<th><div align="center">{}</div></th>'.format(h) for h in hdgs)
+                + "".join(f'<th><div align="center">{h}</div></th>' for h in hdgs)
                 + "</tr>\n"
             )
             ret += "</thead>\n<tbody>\n"

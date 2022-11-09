@@ -88,7 +88,7 @@ else:
                 setattr(self, k, w)
 
         def __repr__(self):
-            return "{}:(a={}, b={}, c={})".format(type(self).__name__, self.a, self.b, self.c)
+            return f"{type(self).__name__}:(a={self.a}, b={self.b}, c={self.c})"
 
         def __dir__(self):
             return self.trait_names()
@@ -124,7 +124,7 @@ class Slotted:
                 all(getattr(self, attr) == getattr(other, attr) for attr in self.__slots__))
 
     def __repr__(self):
-        return "{}:(a={}, b={}, c={})".format(type(self).__name__, self.a, self.b, self.c)
+        return f"{type(self).__name__}:(a={self.a}, b={self.b}, c={self.c})"
 
 
 if python_version >= (3, 8):
@@ -141,7 +141,7 @@ if python_version >= (3, 8):
                     all(getattr(self, attr) == getattr(other, attr) for attr in self.__slots__))
 
         def __repr__(self):
-            return "{}:(a={}, b={}, c={})".format(type(self).__name__, self.a, self.b, self.c)
+            return f"{type(self).__name__}:(a={self.a}, b={self.b}, c={self.c})"
 else:
     SlottedWithDict = None
 
@@ -210,7 +210,7 @@ class TestTableTypes(unittest.TestCase):
 def announce_test(fn):
     def _inner(*args):
         print("\n" + "-" * 50)
-        print("{}.{}".format(type(args[0]).__name__, fn.__name__))
+        print(f"{type(args[0]).__name__}.{fn.__name__}")
         return fn(*args)
 
     return _inner
@@ -333,7 +333,7 @@ def make_test_table(rec_factory_fn, table_size):
 
 
 def make_dataobject_from_ob(rec):
-    return lt.DataObject(**dict((k, getattr(rec, k)) for k in lt._object_attrnames(rec)))
+    return lt.DataObject(**{k: getattr(rec, k) for k in lt._object_attrnames(rec)})
 
 
 class TableTypeTests(unittest.TestCase):
@@ -1096,7 +1096,7 @@ class TableListTests:
                                                max=self.test_size - 1,
                                                mean=(self.test_size - 1) / 2),
                                  stat_rec,
-                                 "invalid stat for {}".format(fieldname))
+                                 f"invalid stat for {fieldname}")
 
     def test_stats2(self):
         self._test_init()
@@ -1107,7 +1107,7 @@ class TableListTests:
             for fieldname in field_names:
                 with self.subTest("check computed stat", stat=stat, fieldname=fieldname):
                     self.assertEqual(value, getattr(t1_stats.by.stat[stat], fieldname),
-                                 "invalid {} stat for {}".format(stat, fieldname))
+                                 f"invalid {stat} stat for {fieldname}")
 
     def test_stats3(self):
         self._test_init()
@@ -1420,7 +1420,7 @@ class TableTransformTests:
         print(tt.info()['fields'])
 
         sort_arg = "c b".split()
-        print("Sorting by {!r}".format(sort_arg))
+        print(f"Sorting by {sort_arg!r}")
         tt.shuffle()
         tt.sort(sort_arg)
         t1_tuples = to_tuples(tt)
@@ -1440,7 +1440,7 @@ class TableTransformTests:
             self.assertEqual(t1_tuples, t2_tuples, "failed multi-attribute sort, given list of attributes")
 
         sort_arg = "c,b"
-        print("Sorting by {!r}".format(sort_arg))
+        print(f"Sorting by {sort_arg!r}")
         tt.shuffle()
         tt.sort(sort_arg)
         t1_tuples = to_tuples(tt)
@@ -1460,7 +1460,7 @@ class TableTransformTests:
             self.assertEqual(t1_tuples, t2_tuples, "failed multi-attribute sort, given comma-separated attributes string")
 
         sort_arg = "c,b desc"
-        print("Sorting by {!r}".format(sort_arg))
+        print(f"Sorting by {sort_arg!r}")
         tt.shuffle()
         tt.sort(sort_arg)
         t1_tuples = to_tuples(tt)
@@ -2520,7 +2520,7 @@ class TableSearchTests(unittest.TestCase):
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
             with self.subTest(query=query):
                 self.assertEqual(expected, match_ids,
-                                 "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+                                 f"invalid results for query {query!r}, expected {expected}, got {match_ids}")
 
     @announce_test
     def test_invalidate_index(self):
@@ -2540,7 +2540,7 @@ class TableSearchTests(unittest.TestCase):
             print(repr(query), '->', [(recipe.id, score, words) for recipe, score, words in matches])
             with self.subTest():
                 self.assertEqual(expected, match_ids,
-                                 "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+                                 f"invalid results for query {query!r}, expected {expected}, got {match_ids}")
             match_words = [set(words) for recipe, score, words in matches]
             with self.subTest():
                 self.assertEqual(expected_words, match_words,
@@ -2568,7 +2568,7 @@ class TableSearchTests(unittest.TestCase):
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
             with self.subTest(query=query):
                 self.assertEqual(expected, match_ids,
-                                 "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+                                 f"invalid results for query {query!r}, expected {expected}, got {match_ids}")
 
     @announce_test
     def test_search_with_min_score(self):
@@ -2590,7 +2590,7 @@ class TableSearchTests(unittest.TestCase):
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
             with self.subTest(query=query):
                 self.assertEqual(expected, match_ids,
-                                 "invalid results for query {!r}, expected {}, got {}".format(query, expected, match_ids))
+                                 f"invalid results for query {query!r}, expected {expected}, got {match_ids}")
 
 
 class TableSearchTests_DataObjects(TableSearchTests, UsingDataObjects):
