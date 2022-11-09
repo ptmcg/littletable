@@ -115,6 +115,7 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
+import copy
 import csv
 import datetime
 import io
@@ -1467,7 +1468,7 @@ class Table(Generic[TableContent]):
         if as_table:
             tuple_ret = ret
             ret = self.copy_template()
-            ret.insert_many(rec[0] for rec in tuple_ret)
+            ret.insert_many(copy.copy(rec[0]) for rec in tuple_ret)
             score_attr = f"{attrname}_search_score"
             words_attr = f"{attrname}_search_words"
             try:

@@ -2489,6 +2489,7 @@ class TableSearchTests(unittest.TestCase):
 
     def setUp(self):
         self.recipes = lt.Table().csv_import(self.recipe_data, transforms=dict(id=int))
+        self.recipes.create_index("id", unique=True)
         self.recipes.create_search_index("ingredients")
 
     @announce_test
@@ -2592,6 +2593,44 @@ class TableSearchTests(unittest.TestCase):
                 self.assertEqual(expected, match_ids,
                                  f"invalid results for query {query!r}, expected {expected}, got {match_ids}")
 
+    @announce_test
+    def test_search_with_as_table(self):
+        for query, expected in [
+            ("", []),
+            ("tuna", []),
+            ("tuna +cheese", [6,]),
+            ("pineapple +bacon lettuce beef -sauerkraut tomato", [9, 13]),
+            ("pizza dough -pineapple", []),
+            ("pizza dough --pineapple", []),
+            ("bread bacon", []),
+            ("bread ++bacon", [9,]),
+            ("bread ++anchovies", []),
+            ("bread ++bacon ++anchovies", []),
+            ("bread bacon --anchovies", []),
+        ]:
+            matches = self.recipes.search.ingredients(query, min_score=1000, as_table=True)
+            match_ids = [recipe.id for recipe in matches]
+            print(repr(query), '->', [(recipe.id, recipe.ingredients_search_score) for recipe in matches])
+            with self.subTest(query=query):
+                self.assertEqual(expected, match_ids,
+                                 f"invalid results for query {query!r}, expected {expected}, got {match_ids}")
+
+            score_attr = "ingredients_search_score"
+            self.assertTrue(
+                all(
+                    hasattr(matches.by.id[mid], score_attr)
+                    for mid in match_ids
+                ),
+                f"as_table did not populate some search records with {score_attr!r}"
+            )
+
+            self.assertFalse(
+                any(
+                    hasattr(self.recipes.by.id[mid], score_attr)
+                    for mid in match_ids
+                ),
+                f"as_table populated some original records with {score_attr!r}"
+            )
 
 class TableSearchTests_DataObjects(TableSearchTests, UsingDataObjects):
     pass
