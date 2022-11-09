@@ -532,7 +532,7 @@ comments, etc.). To perform a full-text search, a search index must first be
 created, using `Table.create_search_index()`, naming the attribute to be 
 indexed, and optionally any stop words that should be ignored.
 
-Afterward, queries can be run using `table.search.attribute(query)`, 
+Afterward, queries can be run using `table.search.<attribute>(query)`, 
 where `attribute` is the attribute that was indexed, and `query` is
 a list or space-delimited string of search terms. Search terms may be
 prefixed by '++' or '--' to indicate required or prohibited terms, or
@@ -541,8 +541,9 @@ uses these prefixes to compute a matching score, and the matching records
 are returned in descending score order, along with their scores, and optionally
 each record's parsed keywords.
 
-In addition to the query, you may also specify a limit, and whether to include
-each entry's indexed search words.
+In addition to the query, you may also specify a limit; whether to include
+each entry's indexed search words; and whether to return the results as a new
+table or as a list of (record, search_score) tuples. 
 
 Example:
 
@@ -557,7 +558,22 @@ recipe_data = textwrap.dedent("""\
 recipes = lt.Table().csv_import(recipe_data)
 
 recipes.create_search_index("ingredients")
-matches = recipes.search.ingredients("+bacon tomato --pineapple")
+matches = recipes.search.ingredients("+bacon tomato --pineapple", as_table=True)
+matches.present()
+```
+
+Will display:
+
+```
++-----------------------------------------------------------------------------+
+| Title              | Ingredients                 | Ingredients Search Score |
+|--------------------+-----------------------------+--------------------------|
+| BLT                | bread bacon lettuce tomato  |                     1100 |
+|                    | mayonnaise                  |                          |
+| Bacon cheeseburger | ground beef bun lettuce     |                     1000 |
+|                    | ketchup mustard pickle      |                          |
+|                    | cheese bacon                |                          |
++-----------------------------------------------------------------------------+
 ```
 
 Search indexes will become invalid if records are added or removed from the table 

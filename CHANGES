@@ -3,6 +3,14 @@ Change History
 
 Version 2.1.1 (in development)
 ------------------------------
+- Added `as_table` argument to text search functions, to return search results
+  as a table instead of as a list of (record, score) tuples. If `as_table` is
+  True and table records are of a type that will accept new attributes, each
+  record's score and optional match words are added as
+  `<search_attribute>_search_score` and `<search_attribute>_search_words` fields.
+
+- Added docstring and annotations for generated `table.search.<search_attr>` methods.
+
 - Passing an unknown path element in `Table.json_import(path=path)` now raises
   KeyError instead of unhelpful TypeError.
 

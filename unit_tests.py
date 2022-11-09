@@ -2532,8 +2532,8 @@ class TableSearchTests(unittest.TestCase):
     @announce_test
     def test_search_with_keywords(self):
         for query, expected, expected_words in [
-                ("tuna", [1, 6], [{'tuna', 'noodles', 'cream', 'of', 'mushroom', 'soup'},
-                                  {'tuna', 'mayonnaise', 'tomato', 'bread', 'cheese'}]),
+                ("tuna", [1, 6], [{'tuna', 'cream', 'soup', 'noodles', 'mushroom'},
+                                  {'tomato', 'tuna', 'mayonnaise', 'bread', 'cheese'}]),
                 ]:
             matches = self.recipes.search.ingredients(query, min_score=-10000, include_words=True)
             match_ids = [recipe.id for recipe, score, words in matches]

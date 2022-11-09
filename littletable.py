@@ -157,7 +157,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "27 Oct 2022 08:23 UTC"
+__version_time__ = "09 Nov 2022 15:59 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -516,7 +516,40 @@ class _TableSearcher:
         self.__table = table
 
     def __getattr__(self, attr):
-        return partial(self.__table._search, attr)
+        ret = partial(self.__table._search, attr)
+        ret.__name__ = "Table.search.{}".format(attr)
+        ret.__doc__ = """
+        {0}
+        Search function for attribute {1!r} in a Table.
+        
+        Parameters:
+        - query: str - query expression containing one or more search terms
+        - limit: int - limit number of returned values, default=no limit
+        - min_score: int - minimum matching score for returned values
+        - include_words - include each records raw words in the search results
+        - as_table: bool - flag to select whether to return the results as a
+          of tuples or as a table (default=False, returns as a list of tuples)
+        
+        Query search terms can be single words, optionally marked with 
+        leading +, ++, -, or -- prefixes to indicate preference in records
+        with those words. 
+        
+        Returns:
+        - list or Table of search result tuples, each tuple containing:
+          - matched table record
+          - search score
+          - (if include_words=True) deduplicated list of words in the matched
+            record's {1!r}
+        """.format(ret.__name__, attr)
+        ret.__annotations__ = {
+            "query": str,
+            "limit": int,
+            "min_score": int,
+            "include_words": bool,
+            "as_table": bool,
+            "return": 'Table | list[tuple]'
+        }
+        return ret
 
     def __dir__(self):
         return list(self.__table._search_indexes)
@@ -1263,7 +1296,7 @@ class Table(Generic[TableContent]):
         return ""
 
     def _normalize_split(self, s: str) -> List[str]:
-        return [self._normalize_word(wd) for wd in s.split()]
+        return filter(None, (self._normalize_word(wd) for wd in s.split()))
 
     def create_search_index(
         self,
@@ -1332,7 +1365,7 @@ class Table(Generic[TableContent]):
         return self
 
     def _search(
-        self, attrname, query, limit=int(1e9), min_score=0, include_words=False
+        self, attrname, query, limit=int(1e9), min_score=0, include_words=False, as_table=False
     ):
         if attrname not in self._search_indexes:
             raise ValueError(f"no search index defined for attribute {attrname!r}")
@@ -1419,16 +1452,34 @@ class Table(Generic[TableContent]):
                     tally[obj] += score
 
         if include_words:
-            return [(self[rec_idx], score,
-                     list({}.fromkeys(self._normalize_split(getattr(self[rec_idx], attrname, ""))).keys()))
-                    for rec_idx, score in tally.most_common(limit)
-                    if score > min_score]
+            ret = [
+                (self[rec_idx], score,
+                 sorted({}.fromkeys(self._normalize_split(getattr(self[rec_idx], attrname, ""))).keys() - stopwords))
+                for rec_idx, score in tally.most_common(limit)
+                if score > min_score]
         else:
-            return [
+            ret = [
                 (self[rec_idx], score)
                 for rec_idx, score in tally.most_common(limit)
                 if score > min_score
             ]
+
+        if as_table:
+            tuple_ret = ret
+            ret = self.copy_template()
+            ret.insert_many(rec[0] for rec in tuple_ret)
+            score_attr = "{}_search_score".format(attrname)
+            words_attr = "{}_search_words".format(attrname)
+            try:
+                for rec, tup in zip(ret, tuple_ret):
+                    setattr(rec, score_attr, tup[1])
+                    if len(tup) > 2:
+                        setattr(rec, words_attr, tup[2])
+            except AttributeError:
+                # not all record content types will accept new attributes
+                pass
+
+        return ret
 
     def delete_search_index(self, attrname: str):
         """
