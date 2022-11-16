@@ -17,12 +17,16 @@ print(peps.info())
 peps.create_index("id", unique=True)
 print(peps.by.id[20].title)
 
-# add a numeric "year" field
+# add a numeric "year" field, and index it
 peps.add_field("year", lambda pep: pep.created.year)
 peps.create_index("year")
 
 # present PEPs created in 2016
 peps.by.year[2016].select("id title").present()
+
+# how many PEPs since 2020?
+print("Number of PEPs since 2020", len(peps.by.year[2020:]))
+print()
 
 # pivot by year and dump counts, or present as nice table
 peps.pivot("year").dump_counts()
