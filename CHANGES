@@ -1,8 +1,8 @@
 Change History
 ==============
 
-Version 2.1.1 (in development)
-------------------------------
+Version 2.1.1
+-------------
 - Added `as_table` argument to text search functions, to return search results
   as a table instead of as a list of (record, score) tuples. If `as_table` is
   True and table records are of a type that will accept new attributes, each
@@ -12,7 +12,13 @@ Version 2.1.1 (in development)
   New example `peps.py` showcases some of these new JSON and full-text search,
   features, using PEP data gathered from python.org.
 
+- New example `future_import_features.py` peeks into the `__future__` module
+  to list out all the features that are defined, and their related metadata.
+
 - Added docstring and annotations for generated `table.search.<search_attr>` methods.
+
+- Added docstring for generated `table.by.<index_attr>` methods, and more explanation
+  in `create_index()` docstring on how to use indexed fields.
 
 - Passing an unknown path element in `Table.json_import(path=path)` now raises
   KeyError instead of unhelpful TypeError.

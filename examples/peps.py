@@ -1,3 +1,13 @@
+#
+# peps.py
+#
+# Using PEP data extracted from Python.org, this program demonstrates
+# pulling data from a compressed JSON file, and accessing PEP entries
+# by id, year created, and text search of the PEP abstracts.
+#
+# Copyright Paul McGuire, 2022
+#
+
 import littletable as lt
 
 # import PEP data from JSON, converting id's to ints and created
@@ -22,7 +32,7 @@ peps.add_field("year", lambda pep: pep.created.year)
 peps.create_index("year")
 
 # present PEPs created in 2016
-peps.by.year[2016].select("id title").present()
+peps.by.year[2016]("PEPs Created in 2016").select("id python_version title").present()
 
 # how many PEPs since 2020?
 print("Number of PEPs since 2020", len(peps.by.year[2020:]))

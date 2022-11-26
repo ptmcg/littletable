@@ -120,6 +120,7 @@ import csv
 import datetime
 import io
 import itertools
+import textwrap
 import warnings
 from enum import Enum
 from io import StringIO
@@ -158,7 +159,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "09 Nov 2022 15:59 UTC"
+__version_time__ = "26 Nov 2022 07:00 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -590,8 +591,24 @@ class _IndexAccessor:
             ret = self._table._indexes[attr]
             if isinstance(ret, _UniqueObjIndex):
                 ret = _UniqueObjIndexWrapper(ret, self._table)
+                ret.__doc__ = textwrap.dedent(
+                    f"""\
+                    Index accessor by {attr!r}
+                    
+                    tbl.by.{attr}[attr_value] returns the object having {attr}=attr_value.
+                    If no such object exists, raises KeyError.
+                    """
+                )
             if isinstance(ret, _ObjIndex):
                 ret = _ObjIndexWrapper(ret, self._table)
+                ret.__doc__ = textwrap.dedent(
+                    f"""\
+                    Index accessor by {attr!r}
+
+                    tbl.by.{attr}[attr_value] returns a new Table of all objects having {attr}=attr_value.
+                    If no matching objects exist, returns an empty Table.
+                    """
+                )
             return ret
         raise AttributeError(f"Table {self._table.table_name!r} has no index {attr!r}")
 
@@ -1219,6 +1236,17 @@ class Table(Generic[TableContent]):
     ) -> "Table":
         """
         Create a new index on a given attribute.
+
+        Having an index improves performance of sort and pivot methods.
+        It also enables retrieving table contents using
+        'table.by.<attr_name>[attr_value]' syntax.
+
+        If this is a unique index, this makes the table act like a 'dict[K,T]',
+        keyed by the values of the attr field. If not a unique index,
+        then makes the table act like a 'defaultdict[Table[T]]', always returning
+        a new Table of matching records (which may be empty if no records
+        match).
+
         If C{unique} is True and records are found in the table with duplicate
         attribute values, the index is deleted and C{KeyError} is raised.
 
@@ -1296,7 +1324,7 @@ class Table(Generic[TableContent]):
                 return ret
         return ""
 
-    def _normalize_split(self, s: str) -> List[str]:
+    def _normalize_split(self, s: str) -> Iterable[str]:
         return filter(None, (self._normalize_word(wd) for wd in s.split()))
 
     def create_search_index(
@@ -1897,6 +1925,10 @@ class Table(Generic[TableContent]):
             (list may contain both strings and tuples)
         @param kwargs: attributes to join on, given as additional named arguments
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
+        @type auto_create_indexes: bool
+        @param auto_create_indexes: flag to simplify joining tables, to automatically
+            create necessary indexes instead of raising ValueError if a join field
+            is not yet indexed (default=True)
         @returns: a new Table containing the joined data as new DataObjects
         """
         if not kwargs:
@@ -2318,8 +2350,8 @@ class Table(Generic[TableContent]):
 
             if limit is not None:
 
-                def limiter(n, iter):
-                    for i, obj in enumerate(iter, start=1):
+                def limiter(n, objiter):
+                    for i, obj in enumerate(objiter, start=1):
                         if i > n:
                             break
                         yield obj
@@ -3049,13 +3081,13 @@ class Table(Generic[TableContent]):
             ret.create_index("name", unique=True)
             ret.insert_many(default_row_class(name=fname,
                                               **{stat_name: stat_fn(accum[fname])
-                                                     for stat_name, stat_fn in stat_fn_map})
+                                                 for stat_name, stat_fn in stat_fn_map})
                             for fname in field_names)
         else:
             ret.create_index("stat", unique=True)
             ret.insert_many(default_row_class(stat=stat_name,
                                               **{fname: stat_fn(accum[fname])
-                                                     for fname in field_names})
+                                                 for fname in field_names})
                             for stat_name, stat_fn in stat_fn_map)
         return ret
 
@@ -3184,7 +3216,7 @@ class Table(Generic[TableContent]):
         return rt
 
     def present(
-        self, fields: Iterable[str] = None, file: TextIO = None, groupby = None, **kwargs
+        self, fields: Iterable[str] = None, file: TextIO = None, groupby=None, **kwargs
     ) -> None:
         """
         Print a nicely-formatted table of the records in the Table, using the `rich`
@@ -3215,7 +3247,7 @@ class Table(Generic[TableContent]):
         console.print(table)
 
     def as_html(
-        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby = None,
+        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby=None,
             table_properties: Dict = None,
     ) -> str:
         """
@@ -3299,7 +3331,7 @@ class Table(Generic[TableContent]):
         return ret
 
     def as_markdown(
-        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby = None,
+        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby=None,
     ) -> str:
         """
         Output the table as a Markdown table.
