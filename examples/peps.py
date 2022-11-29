@@ -45,11 +45,24 @@ peps.pivot("year").as_table().present()
 # create full text search on PEP abstracts
 peps.create_search_index("abstract")
 
-walrus_pep = peps.search.abstract("walrus")[0][0]
-print(f"{walrus_pep.id} {walrus_pep.title} {walrus_pep.year} ")
-
 # search for PEPs referring to GvR or Guido or BDFL
 # (as_table requires littletable 2.1.1)
 if lt.__version_info__[:3] >= (2, 1, 1):
-    bdfl_peps = peps.search.abstract("gvr guido bdfl", as_table=True)
-    bdfl_peps.sort("id").select("id title year").present()
+    walrus_pep = peps.search.abstract("walrus", as_table=True)("'walrus' Search Results")
+    walrus_pep.select("id title year").present()
+    print(walrus_pep.select("id title year").json_export())
+
+    bdfl_peps = peps.search.abstract("gvr guido bdfl", as_table=True)("GvR PEPs")
+
+else:
+    walrus_pep = peps.search.abstract("walrus")[0][0]
+    print("\n'walrus' Search Results")
+    print(f"{walrus_pep.id} {walrus_pep.title} {walrus_pep.year} ")
+
+    bdfl_peps_search_result = peps.search.abstract("gvr guido bdfl")("GvR PEPs")
+    # we have to make our own table from the returned (row, score) tuples
+    bdfl_peps = lt.Table().insert_many(pep for pep, _ in bdfl_peps_search_result)
+
+bdfl_peps.sort("id")
+bdfl_peps.select("id title year").present()
+print(bdfl_peps.select("id title year").json_export())
