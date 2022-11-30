@@ -159,7 +159,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "29 Nov 2022 22:54 UTC"
+__version_time__ = "30 Nov 2022 14:53 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -202,7 +202,8 @@ you'd you'll you're you've your yours yourself yourselves""".split()
 )
 
 
-class UnableToExtractAttributeNamesError(ValueError): pass
+class UnableToExtractAttributeNamesError(ValueError):
+    """Exception raised when attributes cannot be determined from an object."""
 
 
 def _object_attrnames(obj):
@@ -857,6 +858,11 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
 
     _Table_comparator_fn.fn = cmp_fn
     return _Table_comparator_fn
+
+
+def _determine_suppressed_attrs(group_attrs, prev, curr,
+                                _compare=lambda apc: apc[1] == apc[2]):
+    return [a for a, _, _ in takewhile(_compare, zip(group_attrs, prev, curr))]
 
 
 TableContent = TypeVar("TableContent")
@@ -3155,15 +3161,12 @@ class Table(Generic[TableContent]):
         field_names = [nm for nm in field_names if nm not in suppress_names]
         return field_names
 
-    def _determine_suppressed_attrs(self, group_attrs, prev, curr,
-                                    _compare=lambda apc: apc[1] == apc[2]):
-        return [a for a, _, _ in takewhile(_compare, zip(group_attrs, prev, curr))]
-
     def _rich_table(self, fields=None, empty="", groupby=None, **kwargs):
         if rich is None:
             raise Exception("rich module not installed")
 
         from rich.table import Table as RichTable
+        from rich.markup import escape as rich_escape
 
         if fields is None:
             fields = self.info()["fields"]
@@ -3201,9 +3204,10 @@ class Table(Generic[TableContent]):
             field_settings.append((header, field_spec))
 
         grouping = False
+        group_attrs = ()
         if groupby is not None:
-            group_attrs = self._parse_fields_string(groupby)
-            group_attrs = [g for g in group_attrs if g in attr_names]
+            group_attrs = tuple(g for g in self._parse_fields_string(groupby)
+                                if g in attr_names)
             if group_attrs:
                 grouping = True
 
@@ -3224,22 +3228,17 @@ class Table(Generic[TableContent]):
 
         # add row data from self to rich Table
         if not grouping:
-            for rec in self.formatted_table(*fields):
-                rt.add_row(*[getattr(rec, attr_name, empty) for attr_name in attr_names])
+            for row in self.formatted_table(*fields):
+                rt.add_row(*[getattr(row, attr_name, empty) for attr_name in attr_names])
         else:
-            get_fn = lambda r: tuple(getattr(r, attr, "") for attr in group_attrs)
             prev = ("",) * len(group_attrs)
-            for rec in self.formatted_table(*fields):
-                curr = get_fn(rec)
-                suppress_attrs = self._determine_suppressed_attrs(group_attrs, prev, curr)
-                if not suppress_attrs:
-                    rt.add_row(*[getattr(rec, attr_name, empty) for attr_name in attr_names])
-                else:
-                    row_items = [getattr(rec, attr_name, empty) for attr_name in attr_names]
-                    for attr in suppress_attrs:
-                        group_pos = attr_names.index(attr)
-                        row_items[group_pos] = ""
-                    rt.add_row(*row_items)
+            determine_suppressed_attrs = _determine_suppressed_attrs
+            for row in self.formatted_table(*fields):
+                curr = tuple(getattr(row, attr, "") for attr in group_attrs)
+                suppress_attrs = determine_suppressed_attrs(group_attrs, prev, curr)
+                row_items = ["" if attr_name in suppress_attrs else getattr(row, attr_name, empty)
+                             for attr_name in attr_names]
+                rt.add_row(*row_items)
                 prev = curr
 
         return rt
@@ -3321,9 +3320,10 @@ class Table(Generic[TableContent]):
             return "".join(ret_tr)
 
         grouping = False
+        group_attrs = ()
         if groupby is not None:
-            group_attrs = self._parse_fields_string(groupby)
-            group_attrs = [g for g in group_attrs if g in attr_names]
+            group_attrs = tuple(g for g in self._parse_fields_string(groupby)
+                                if g in attr_names)
             if group_attrs:
                 grouping = True
 
@@ -3343,11 +3343,11 @@ class Table(Generic[TableContent]):
             )
         else:
             rows = []
-            get_fn = lambda r: tuple(getattr(r, attr, "") for attr in group_attrs)
             prev = ("",) * len(group_attrs)
+            determine_suppressed_attrs = _determine_suppressed_attrs
             for row in self:
-                curr = get_fn(row)
-                suppress_attrs = self._determine_suppressed_attrs(group_attrs, prev, curr)
+                curr = tuple(getattr(row, attr, "") for attr in group_attrs)
+                suppress_attrs = determine_suppressed_attrs(group_attrs, prev, curr)
                 rows.append(row_to_tr(row, suppress=suppress_attrs))
                 prev = curr
             ret = (
@@ -3386,9 +3386,10 @@ class Table(Generic[TableContent]):
         attr_names = fields
 
         grouping = False
+        group_attrs = ()
         if groupby is not None:
-            group_attrs = self._parse_fields_string(groupby)
-            group_attrs = [g for g in group_attrs if g in attr_names]
+            group_attrs = tuple(g for g in self._parse_fields_string(groupby)
+                                if g in attr_names)
             if group_attrs:
                 grouping = True
 
@@ -3434,12 +3435,12 @@ class Table(Generic[TableContent]):
                 f"{''.join(row_to_tr(row) for row in self)}"
             )
         else:
-            get_fn = lambda r: tuple(getattr(r, attr, "") for attr in group_attrs)
-            prev = ("",) * len(group_attrs)
             rows = []
+            prev = ("",) * len(group_attrs)
+            determine_suppressed_attrs = _determine_suppressed_attrs
             for row in self:
-                curr = get_fn(row)
-                suppress_attrs = self._determine_suppressed_attrs(group_attrs, prev, curr)
+                curr = tuple(getattr(row, attr, "") for attr in group_attrs)
+                suppress_attrs = determine_suppressed_attrs(group_attrs, prev, curr)
                 rows.append(row_to_tr(row, suppress=suppress_attrs))
                 prev = curr
             ret = (
