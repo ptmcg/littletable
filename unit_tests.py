@@ -2376,6 +2376,69 @@ class TableImportExportTests:
             with self.subTest():
                 self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
 
+    def test_json_import_with_custom_encoder(self):
+        from datetime import date
+        data = [
+            {'a': 100, 'b': date(2000, 1, 1), 'c': 200},
+            {'a': 101, 'b': date(2001, 1, 1), 'c': 201},
+        ]
+        tbl = lt.Table().insert_many(data)
+        with self.assertRaises(TypeError):
+            x = tbl.json_export()
+
+        class JsonDateEncoder(json.JSONEncoder):
+            def default(self, o):
+                import datetime
+                if isinstance(o, datetime.date):
+                    return str(o)
+                return super().default(o)
+
+        expected = textwrap.dedent("""\
+            [
+            {"a": 100, "b": "2000-01-01", "c": 200},
+            {"a": 101, "b": "2001-01-01", "c": 201}
+            ]
+            """)
+        json_result = tbl.json_export(json_encoder=JsonDateEncoder)
+        self.assertEqual(expected, json_result)
+
+    def test_json_import_with_multiple_custom_encoders(self):
+        from datetime import date
+
+        class AAA:
+            def __init__(self, name):
+                self.name = name
+
+        data = [
+            {'a': 100, 'b': date(2000, 1, 1), 'c': 200, 'd': AAA("Alice")},
+            {'a': 101, 'b': date(2001, 1, 1), 'c': 201, 'd': AAA("Bob")},
+        ]
+        tbl = lt.Table().insert_many(data)
+        with self.assertRaises(TypeError):
+            x = tbl.json_export()
+
+        class JsonDateEncoder(json.JSONEncoder):
+            def default(self, o):
+                import datetime
+                if isinstance(o, datetime.date):
+                    return str(o)
+                return super().default(o)
+
+        class JsonAAAEncoder(json.JSONEncoder):
+            def default(self, o):
+                if isinstance(o, AAA):
+                    return f"AAA(name={o.name!r})"
+
+        expected = textwrap.dedent("""\
+            [
+            {"a": 100, "b": "2000-01-01", "c": 200, "d": "AAA(name='Alice')"},
+            {"a": 101, "b": "2001-01-01", "c": 201, "d": "AAA(name='Bob')"}
+            ]
+        """)
+
+        json_result = tbl.json_export(json_encoder=(JsonDateEncoder, JsonAAAEncoder))
+        self.assertEqual(expected, json_result)
+
     def test_fixed_width_import(self):
         data = fixed_width_data
         data_file = io.StringIO(data)

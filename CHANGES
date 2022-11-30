@@ -1,6 +1,20 @@
 Change History
 ==============
 
+Version 2.1.2 (in development)
+------------------------------
+- Added `json_encoder` argument to `Table.json_export`, so that custom data
+  fields can get exported without raising JSONEncodeError. peps.py example
+  has been modified to demonstrate this. The `json_encoder` argument can
+  take a single JSONEncoder subclass, or a tuple of subclasses, to be tried
+  in sequence. Each should follow the pattern given in the online Python
+  docs for the json module. (See updated code in examples/peps.py to see a
+  custom JSONEncoder.)
+
+  Also added `json_decoder` argument to `Table.json_import`, though it only
+  supports passing a single class.
+
+
 Version 2.1.1
 -------------
 - Added `as_table` argument to text search functions, to return search results

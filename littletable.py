@@ -152,14 +152,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 1, 1, "final", 0)
+__version_info__ = version_info(2, 1, 2, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "26 Nov 2022 07:00 UTC"
+__version_time__ = "29 Nov 2022 22:54 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -239,8 +239,8 @@ def _to_dict(obj):
     raise UnableToExtractAttributeNamesError("object with unknown attributes")
 
 
-def _to_json(obj):
-    return json.dumps(_to_dict(obj))
+def _to_json(obj, enc_cls):
+    return json.dumps(_to_dict(obj), cls=enc_cls)
 
 
 # special Exceptions
@@ -2679,6 +2679,7 @@ class Table(Generic[TableContent]):
         row_class: type = None,
         streaming: bool = False,
         path: str = "",
+        json_decoder: json.JSONDecoder = None,
     ) -> "Table":
         """
         Imports the contents of a JSON data file into this table.
@@ -2701,6 +2702,8 @@ class Table(Generic[TableContent]):
         @param path: (only valid if streaming=False) a '.'-delimited path into the inbound JSON, in case
             the objects to import are not in a top-level JSON list
         @type path: str
+        @param json_decoder: subclass of json.JSONDecoder to pass through to json.loads (default=None)
+        @type json_decoder: json.JSONDecoder
         """
 
         class _JsonFileReader:
@@ -2716,13 +2719,13 @@ class Table(Generic[TableContent]):
                             current += " "
                         current += line
                         try:
-                            yield json.loads(current)
+                            yield json.loads(current, cls=json_decoder)
                             current = ""
                         except Exception:
                             pass
                 else:
                     inbound_json = '\n'.join(self.source)
-                    obs = json.loads(inbound_json)
+                    obs = json.loads(inbound_json, cls=json_decoder)
                     for path_item in filter(None, path.split(".")):
                         obs = obs.get(path_item)
                         if obs is None:
@@ -2745,6 +2748,7 @@ class Table(Generic[TableContent]):
         fieldnames: Union[Iterable[str], str] = None,
         encoding: str = "UTF-8",
         streaming: bool = False,
+        json_encoder=None,
     ) -> Optional[str]:
         """
         Exports the contents of the table to a JSON-formatted file.
@@ -2763,9 +2767,31 @@ class Table(Generic[TableContent]):
             JSON string for each object in the table. If False, returns a single
             JSON list containing all the table objects.
         @type streaming: bool
+        @param json_encoder: an encoder or tuple of encoders to perform custom
+            JSON encoding for fields in table objects
+        @type json_encoder: json.JSONEncoder or tuple(json.JSONEncoder)
         """
         close_on_exit = False
         return_dest_value = False
+
+        class JsonEncoderChain(json.JSONEncoder):
+            def __init__(self, encoders, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.encoders = encoders
+
+            def default(self, oo):
+                self_vars = {**vars(self)}
+                self_vars.pop('encoders')
+                for enc in self.encoders:
+                    try:
+                        return enc(**self_vars).default(oo)
+                    except TypeError:
+                        pass
+                return super().default(oo)
+
+        if json_encoder:
+            if isinstance(json_encoder, tuple):
+                json_encoder = partial(JsonEncoderChain, encoders=json_encoder)
 
         if dest is None:
             dest = io.StringIO()
@@ -2782,28 +2808,31 @@ class Table(Generic[TableContent]):
             if streaming:
                 if fieldnames is None:
                     for o in self.obs:
-                        dest.write(_to_json(o) + "\n")
+                        dest.write(_to_json(o, json_encoder) + "\n")
                 else:
                     for o in self.obs:
                         dest.write(
-                            json.dumps({f: getattr(o, f, None) for f in fieldnames}) + "\n"
+                            json.dumps({f: getattr(o, f, None) for f in fieldnames},
+                                       cls=json_encoder) + "\n"
                         )
             else:
                 dest.write("[\n")
                 if self.obs:
                     if fieldnames is None:
                         for o in itertools.islice(self.obs, len(self.obs)-1):
-                            dest.write(_to_json(o) + ",\n")
+                            dest.write(_to_json(o, json_encoder) + ",\n")
                         o = self.obs[-1]
-                        dest.write(_to_json(o) + "\n")
+                        dest.write(_to_json(o, json_encoder) + "\n")
                     else:
                         for o in itertools.islice(self.obs, len(self.obs)-1):
                             dest.write(
-                                json.dumps({f: getattr(o, f, None) for f in fieldnames}) + ",\n"
+                                json.dumps({f: getattr(o, f, None) for f in fieldnames},
+                                           cls=json_encoder) + ",\n"
                             )
                         o = self.obs[-1]
                         dest.write(
-                            json.dumps({f: getattr(o, f, None) for f in fieldnames}) + "\n"
+                            json.dumps({f: getattr(o, f, None) for f in fieldnames},
+                                       cls=json_encoder) + "\n"
                         )
                 dest.write("]\n")
 

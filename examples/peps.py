@@ -7,13 +7,15 @@
 #
 # Copyright Paul McGuire, 2022
 #
-
+import json
+from pathlib import Path
 import littletable as lt
+
 
 # import PEP data from JSON, converting id's to ints and created
 # date stings to Python datetimes
 peps = lt.Table().json_import(
-    "peps.json.zip",
+    Path(__file__).parent / "peps.json.zip",
     transforms={
         "id": int,
         "created": lt.Table.parse_date("%d-%b-%Y"),
@@ -65,4 +67,14 @@ else:
 
 bdfl_peps.sort("id")
 bdfl_peps.select("id title year").present()
-print(bdfl_peps.select("id title year").json_export())
+
+
+class JsonDateEncoder(json.JSONEncoder):
+    def default(self, o):
+        import datetime
+        if isinstance(o, datetime.date):
+            return str(o)
+        return super().default(o)
+
+
+print(bdfl_peps.select("id title created").json_export(json_encoder=(JsonDateEncoder,)))
