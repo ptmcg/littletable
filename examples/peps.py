@@ -48,33 +48,23 @@ peps.pivot("year").as_table().present()
 peps.create_search_index("abstract")
 
 # search for PEPs referring to GvR or Guido or BDFL
-# (as_table requires littletable 2.1.1)
-if lt.__version_info__[:3] >= (2, 1, 1):
-    walrus_pep = peps.search.abstract("walrus", as_table=True)("'walrus' Search Results")
-    walrus_pep.select("id title year").present()
-    print(walrus_pep.select("id title year").json_export())
+walrus_pep = peps.search.abstract("walrus", as_table=True)("'walrus' Search Results")
+walrus_pep.select("id title year").present()
+print(walrus_pep.select("id title year").json_export())
 
-    bdfl_peps = peps.search.abstract("gvr guido bdfl", as_table=True)("GvR PEPs")
-
-else:
-    walrus_pep = peps.search.abstract("walrus")[0][0]
-    print("\n'walrus' Search Results")
-    print(f"{walrus_pep.id} {walrus_pep.title} {walrus_pep.year} ")
-
-    bdfl_peps_search_result = peps.search.abstract("gvr guido bdfl")("GvR PEPs")
-    # we have to make our own table from the returned (row, score) tuples
-    bdfl_peps = lt.Table().insert_many(pep for pep, _ in bdfl_peps_search_result)
-
+bdfl_peps = peps.search.abstract("gvr guido bdfl", as_table=True)("GvR PEPs")
 bdfl_peps.sort("id")
 bdfl_peps.select("id title year").present()
 
+# (json_encoder arg requires littletable > 2.1.1)
+if lt.__version_info__[:3] > (2, 1, 1):
 
-class JsonDateEncoder(json.JSONEncoder):
-    def default(self, o):
-        import datetime
-        if isinstance(o, datetime.date):
-            return str(o)
-        return super().default(o)
+    class JsonDateEncoder(json.JSONEncoder):
+        def default(self, o):
+            import datetime
+            if isinstance(o, datetime.date):
+                return str(o)
+            return super().default(o)
 
 
-print(bdfl_peps.select("id title created").json_export(json_encoder=(JsonDateEncoder,)))
+    print(bdfl_peps.select("id title created").json_export(json_encoder=(JsonDateEncoder,)))
