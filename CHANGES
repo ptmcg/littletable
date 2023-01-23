@@ -1,8 +1,8 @@
 Change History
 ==============
 
-Version 2.1.2 (in development)
-------------------------------
+Version 2.1.2
+-------------
 - Added `json_encoder` argument to `Table.json_export`, so that custom data
   fields can get exported without raising JSONEncodeError. peps.py example
   has been modified to demonstrate this. The `json_encoder` argument can

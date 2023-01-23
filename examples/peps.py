@@ -56,15 +56,13 @@ bdfl_peps = peps.search.abstract("gvr guido bdfl", as_table=True)("GvR PEPs")
 bdfl_peps.sort("id")
 bdfl_peps.select("id title year").present()
 
-# (json_encoder arg requires littletable > 2.1.1)
-if lt.__version_info__[:3] > (2, 1, 1):
-
-    class JsonDateEncoder(json.JSONEncoder):
-        def default(self, o):
-            import datetime
-            if isinstance(o, datetime.date):
-                return str(o)
-            return super().default(o)
+# define a custom JSON encoder for datetime.date field
+class JsonDateEncoder(json.JSONEncoder):
+    def default(self, o):
+        import datetime
+        if isinstance(o, datetime.date):
+            return str(o)
+        return super().default(o)
 
 
-    print(bdfl_peps.select("id title created").json_export(json_encoder=(JsonDateEncoder,)))
+print(bdfl_peps.select("id title created").json_export(json_encoder=(JsonDateEncoder,)))
