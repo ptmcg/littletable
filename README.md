@@ -112,20 +112,23 @@ Sample Demo
 Here is a simple littletable data storage/retrieval example:
 
 ```python
-from littletable import Table, DataObject
+from littletable import Table
 
 customers = Table('customers')
 customers.create_index("id", unique=True)
-customers.insert(DataObject(id="0010", name="George Jetson"))
-customers.insert(DataObject(id="0020", name="Wile E. Coyote"))
-customers.insert(DataObject(id="0030", name="Jonny Quest"))
+customers.csv_import("""\
+id,name
+0010,George Jetson
+0020,Wile E. Coyote
+0030,Jonny Quest
+""")
 
 catalog = Table('catalog')
 catalog.create_index("sku", unique=True)
-catalog.insert(DataObject(sku="ANVIL-001", descr="1000lb anvil", unitofmeas="EA",unitprice=100))
-catalog.insert(DataObject(sku="BRDSD-001", descr="Bird seed", unitofmeas="LB",unitprice=3))
-catalog.insert(DataObject(sku="MAGNT-001", descr="Magnet", unitofmeas="EA",unitprice=8))
-catalog.insert(DataObject(sku="MAGLS-001", descr="Magnifying glass", unitofmeas="EA",unitprice=12))
+catalog.insert({"sku": "ANVIL-001", "descr": "1000lb anvil", "unitofmeas": "EA","unitprice": 100})
+catalog.insert({"sku": "BRDSD-001", "descr": "Bird seed", "unitofmeas": "LB","unitprice": 3})
+catalog.insert({"sku": "MAGNT-001", "descr": "Magnet", "unitofmeas": "EA","unitprice": 8})
+catalog.insert({"sku": "MAGLS-001", "descr": "Magnifying glass", "unitofmeas": "EA","unitprice": 12})
 
 wishitems = Table('wishitems')
 wishitems.create_index("custid")
@@ -141,7 +144,7 @@ custid,sku
 0030,MAGLS-001
 """)
 
-# print a particular customer name 
+# print a particular customer name
 # (unique indexes will return a single item; non-unique
 # indexes will return a list of all matching items)
 print(customers.by.id["0030"].name)
