@@ -37,7 +37,7 @@ catalog.csv_import(catalog_data, row_class=CatalogItem, transforms={"unitprice":
 wishitems = Table("wishitems")
 wishitems.create_index("custid")
 wishitems.create_index("sku")
-# there is no user-defined type for these items, just use DataObjects
+# there is no user-defined type for these items, just use SimpleNamespaces
 wishlist_data = """\
 custid,sku
 0030,MAGLS-001

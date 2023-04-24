@@ -5,6 +5,10 @@ Version 2.2.0
 -------------
 - Dropped support for Python versions prior to 3.8.
 
+- Added `DeprecationWarning` for usage of `DataObject` class. New code should
+  use `types.SimpleNamespaces`, or just plain Python dicts (which get stored
+  as `SimpleNamespaces`).
+
 
 Version 2.1.2
 -------------
