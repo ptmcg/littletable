@@ -3,7 +3,10 @@ Change History
 
 Version 2.2.0
 -------------
-- Dropped support for Python versions prior to 3.8.
+- BREAKING CHANGES:
+
+    - Support for Python versions <3.9 is dropped in this version. To run on
+      these older Python's, use `littletable` 2.1.2.
 
 - Added `DeprecationWarning` for usage of `DataObject` class. New code should
   use `types.SimpleNamespaces`, or just plain Python dicts (which get stored
@@ -13,12 +16,12 @@ Version 2.2.0
 Version 2.1.2
 -------------
 - Added `json_encoder` argument to `Table.json_export`, so that custom data
-  fields can get exported without raising JSONEncodeError. peps.py example
+  fields can get exported without raising `JSONEncodeError`. `peps.py` example
   has been modified to demonstrate this. The `json_encoder` argument can
-  take a single JSONEncoder subclass, or a tuple of subclasses, to be tried
+  take a single `JSONEncoder` subclass, or a tuple of subclasses, to be tried
   in sequence. Each should follow the pattern given in the online Python
   docs for the json module. (See updated code in examples/peps.py to see a
-  custom JSONEncoder.)
+  custom `JSONEncoder`.)
 
   Also added `json_decoder` argument to `Table.json_import`, though it only
   supports passing a single class.
@@ -44,7 +47,7 @@ Version 2.1.1
   in `create_index()` docstring on how to use indexed fields.
 
 - Passing an unknown path element in `Table.json_import(path=path)` now raises
-  KeyError instead of unhelpful TypeError.
+  `KeyError` instead of unhelpful `TypeError`.
 
 
 Version 2.1.0
@@ -85,8 +88,8 @@ Version 2.1.0
     print(my_table[:10].csv_export())
 
 - `Table.json_export()` takes an optional parameter, `streaming` to control
-  whether the resulting JSON is a single JSON list element (if streaming is False),
-  or a separate JSON element per Table item (if streaming is True); the default
+  whether the resulting JSON is a single JSON list element (if `streaming` is False),
+  or a separate JSON element per Table item (if `streaming` is True); the default
   value is False. `streaming` is useful when passing data over a streaming protocol,
   so that the Table contents can be unmarshaled separately on the receiving end.
 
