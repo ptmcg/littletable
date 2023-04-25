@@ -287,7 +287,7 @@ t.insert(bob)
 ```
 
 _(`DataObjects` are a legacy type from Python 2.6 - Python 3, before the availability of
-`types.SimpleNamespace`. `DataObject` is deprecated as version 2.2.0, will be removed 
+`types.SimpleNamespace`. The `DataObject` class will be deprecated
 in a future release.)_
 
 
@@ -667,7 +667,8 @@ dicts to a `Table.insert_many`:
 ```python
 characters = lt.Table()
 reader = lt.FixedWidthReader(columns, "cartoon_characters.txt")
-characters.insert_many(reader)
+characters.insert_many(lt.DataObject(**rec)
+                       for rec in reader)
 ```
 
 For each column, define:

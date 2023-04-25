@@ -7,7 +7,7 @@
 # to a collection of data objects, without dealing with SQL
 #
 #
-# Copyright (c) 2010-2023  Paul T. McGuire
+# Copyright (c) 2010-2022  Paul T. McGuire
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -33,19 +33,16 @@ __doc__ = r"""
 C{littletable} - a Python module to give ORM-like access to a collection of objects
 
 The C{littletable} module provides a low-overhead, schema-less, in-memory database access to a 
-collection of user objects.  C{Table}s can
+collection of user objects.  C{littletable} provides a L{DataObject} class for ad hoc creation
+of semi-immutable objects that can be stored in a C{littletable} L{Table}. C{Table}s can also
 contain user-defined objects, using those objects' C{__dict__}, C{__slots__}, or C{_fields}
 mappings to access object attributes. Table contents can thus also include namedtuples, 
 SimpleNamespaces, or dataclasses.
 
-C{Tables} can also be constructed using Python dicts. In this case, they are stored as 
-SimpleNamespaces.
-
 In addition to basic insert/remove/query/delete access to the contents of a 
 Table, C{littletable} offers:
- - indexing for improved retrieval performance, and optional enforcing key uniqueness
+ - simple indexing for improved retrieval performance, and optional enforcing key uniqueness
  - access to objects using indexed attributes
- - full text search on attributes containing extended text content
  - simplified joins using '+' operator syntax between annotated Tables
  - the result of any query or join is a new first-class C{littletable} Table
  - pivot on one or two attributes to gather tabulated data summaries
@@ -56,14 +53,14 @@ attributes in the stored values, and those referenced in any query parameters.
 
 Here is a simple C{littletable} data storage/retrieval example::
 
-    from littletable import Table
+    from littletable import Table, DataObject
 
     # create table of customers
     customers = Table('customers')
     customers.create_index("id", unique=True)
-    customers.insert({id="0010", name="George Jetson"})
-    customers.insert({id="0020", name="Wile E. Coyote"})
-    customers.insert({id="0030", name="Jonny Quest"})
+    customers.insert(DataObject(id="0010", name="George Jetson"))
+    customers.insert(DataObject(id="0020", name="Wile E. Coyote"))
+    customers.insert(DataObject(id="0030", name="Jonny Quest"))
 
     # create table of product catalog (load from CSV data)
     catalog_data = '''\
@@ -86,11 +83,11 @@ Here is a simple C{littletable} data storage/retrieval example::
     wishitems = Table('wishitems')
     wishitems.create_index("custid")
     wishitems.create_index("sku")
-    wishitems.insert({custid="0020", sku="ANVIL-001"})
-    wishitems.insert({custid="0020", sku="BRDSD-001"})
-    wishitems.insert({custid="0020", sku="MAGNT-001"})
-    wishitems.insert({custid="0030", sku="MAGNT-001"})
-    wishitems.insert({custid="0030", sku="MAGLS-001"})
+    wishitems.insert(DataObject(custid="0020", sku="ANVIL-001"))
+    wishitems.insert(DataObject(custid="0020", sku="BRDSD-001"))
+    wishitems.insert(DataObject(custid="0020", sku="MAGNT-001"))
+    wishitems.insert(DataObject(custid="0030", sku="MAGNT-001"))
+    wishitems.insert(DataObject(custid="0030", sku="MAGLS-001"))
 
     # print a particular customer name 
     # (unique indexes will return a single item; non-unique
@@ -155,14 +152,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 2, 0, "final", 0)
+__version_info__ = version_info(2, 1, 2, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "24 Apr 2023 11:04 UTC"
+__version_time__ = "23 Jan 2023 21:52 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -264,11 +261,6 @@ class DataObject:
     """
 
     def __init__(self, **kwargs):
-        warnings.warn(
-            "littletable.DataObject class is deprecated, use types.Simplenamespace or Python dict",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         if kwargs:
             self.__dict__.update(kwargs)
 
@@ -878,7 +870,7 @@ TableContent = TypeVar("TableContent")
 
 class Table(Generic[TableContent]):
     """
-    Table is the main class in C{littletable}, for representing a collection of SimpleNamespaces or
+    Table is the main class in C{littletable}, for representing a collection of DataObjects or
     user-defined objects with publicly accessible attributes or properties.  Tables can be:
      - created, with an optional name, using standard Python L{C{Table() constructor}<__init__>}
      - indexed, with multiple indexes, with unique or non-unique values, see L{create_index}
@@ -1534,13 +1526,10 @@ class Table(Generic[TableContent]):
         """
         Insert a new object into this Table.
         @param obj: any Python object -
-        Objects can be constructed using any Python object; C{littletable}
-        introspects the object's C{__dict__}, C{__slots__}, or C{_fields} attributes
-        (or keys() result if pass a Python dict) to obtain join and
+        Objects can be constructed using the defined DataObject type, or they can
+        be any Python object that does not use the Python C{__slots__} feature; C{littletable}
+        introspects the object's C{__dict__} or C{_fields} attributes to obtain join and
         index attributes and values.
-
-        If a table is constructed using Python dicts, they are stored as
-        types.SimpleNamespaces, to support C{object.attribute} style access.
 
         If the table contains a unique index, and the record to be inserted would add
         a duplicate value for the indexed attribute, then C{KeyError} is raised, and the
@@ -1946,7 +1935,7 @@ class Table(Generic[TableContent]):
         @param auto_create_indexes: flag to simplify joining tables, to automatically
             create necessary indexes instead of raising ValueError if a join field
             is not yet indexed (default=True)
-        @returns: a new Table containing the joined data as new SimpleNamespaces
+        @returns: a new Table containing the joined data as new DataObjects
         """
         if not kwargs:
             raise TypeError(
@@ -2101,7 +2090,7 @@ class Table(Generic[TableContent]):
             (list may contain both strings and tuples)
         @param kwargs: attributes to join on, given as additional named arguments
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
-        @returns: a new Table containing the joined data as new SimpleNamespaces
+        @returns: a new Table containing the joined data as new DataObjects
         """
         if join_type not in Table.OUTER_JOIN_TYPES:
             join_names = [
@@ -2426,7 +2415,7 @@ class Table(Generic[TableContent]):
             returns False, the record is not added to the table. Useful when reading large
             input files, to pre-screen only for data matching one or more filters
         @type filters: dict (optional)
-        @param row_class: class to construct for each imported row when populating table (default=SimpleNamespace)
+        @param row_class: class to construct for each imported row when populating table (default=DataObject)
         @type row_class: type
         @param limit: number of records to import
         @type limit: int (optional)
@@ -2499,7 +2488,7 @@ class Table(Generic[TableContent]):
             there is an Exception raised by the transform function, then the attribute will
             be set to the given default value
         @type transforms: dict (optional)
-        @param row_class: class to construct for each imported row when populating table (default=SimpleNamespace)
+        @param row_class: class to construct for each imported row when populating table (default=DataObject)
         @type row_class: type
         @param limit: number of records to import
         @type limit: int (optional)
@@ -2583,7 +2572,7 @@ class Table(Generic[TableContent]):
             returns False, the record is not added to the table. Useful when reading large
             input files, to pre-screen only for data matching one or more filters
         @type filters: dict (optional)
-        @param row_class: class to construct for each imported row when populating table (default=SimpleNamespace)
+        @param row_class: class to construct for each imported row when populating table (default=DataObject)
         @type row_class: type
         @param limit: number of records to import
         @type limit: int (optional)
@@ -2711,7 +2700,7 @@ class Table(Generic[TableContent]):
             there is an Exception raised by the transform function, then the attribute will
             be set to the given default value
         @type transforms: dict (optional)
-        @param row_class: class to construct for each imported row when populating table (default=SimpleNamespace)
+        @param row_class: class to construct for each imported row when populating table (default=DataObject)
         @type row_class: type
         @param streaming: boolean flag to indicate whether inbound JSON will be a stream of multiple objects
             or a single list object (default=False)
