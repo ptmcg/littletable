@@ -2752,6 +2752,76 @@ class InitialTest(unittest.TestCase):
     print()
 
 
+class StorageIndependentTests(unittest.TestCase):
+    @announce_test
+    def test_normalize_str(self):
+        for in_word, expected_word in [
+            ("nochange", "nochange"),
+            ("ToLower", "tolower"),
+            ("I.B.M.", "ibm"),
+            ("G.E.", "ge"),
+            ("M.", "m"),
+            ("M.xyz", "m"),
+            ("*xxx-hhh", "xxx-hhh"),
+            ("+blahFoo", "blahfoo"),
+            # ("foxes", "fox"),
+            # ("churches", "church"),
+            # ("dresses", "dress"),
+        ]:
+            with self.subTest(in_word):
+                self.assertEqual(expected_word, lt.Table._normalize_word(in_word))
+
+    def test_normalize_str_gen(self):
+        for in_word, expected_words in [
+            ("nochange", ["nochange"]),
+            ("ToLower", ["tolower"]),
+            ("I.B.M.", ["i.b.m.", "ibm"]),
+            ("G.E.", ["g.e.", "ge"]),
+            ("A.I.", ["a.i.", "ai"]),
+            ("AI", ["ai"]),
+            ("M.", ["m", "m."]),
+            ("m.xyz", ["m", "m.xyz", "xyz"]),
+            ("M.xyz", ["m.xyz", "xyz"]),
+            ("Threading.isAlive()", ['isalive', 'threading', 'threading.isalive']),
+            ("*xxx-hhh", ['hhh', 'xxx', 'xxx-hhh']),
+            ("+blahFoo", ["blahfoo"]),
+            ("str.lstrip", ["lstrip", "str", "str.lstrip"]),
+            ("str.lstrip()", ["lstrip", "str", "str.lstrip"]),
+            ("self.assertEquals", ["assertequals", "self", "self.assertequals"]),
+            ("TestCase.assertEquals", ["assertequals", "testcase", "testcase.assertequals"]),
+            ("unittest.TestCase.assertEquals",
+             ["assertequals", "testcase", "unittest", "unittest.testcase.assertequals"]),
+            ("foxes", ["fox", "foxes"]),
+            ("churches", ["church", "churches"]),
+            ("dresses", ["dress", "dresses"]),
+            ("dress", ["dress", ]),
+            ("bias", ["bias", ]),
+            ("toys", ["toy", "toys"]),
+            ("babies", ["babies", "baby"]),
+            ("addenda", ["addenda", "addendum"]),
+            ("rabies", ["rabies"]),
+            ("laziness", ["laziness"]),
+            ("physics", ["physics"]),
+            ("Python's", ["python"]),
+        ]:
+            with self.subTest(in_word):
+                self.assertEqual(expected_words,
+                                 sorted(list(lt.Table._normalize_word_gen(in_word))))
+
+    @announce_test
+    def test_normalize_split(self):
+        for in_str, expected_str_set in [
+            ("str.lstrip()", ["lstrip", "str", "str.lstrip"]),
+            ("str.lstrip() str.rstrip()", ["lstrip", "rstrip", "str", "str.lstrip", "str.rstrip"]),
+            # ("", []),
+            # ("", []),
+            # ("", []),
+        ]:
+            with self.subTest(in_str):
+                self.assertEqual(expected_str_set,
+                                 sorted(set(lt.Table._normalize_split(in_str))))
+
+
 if __name__ == '__main__':
 
     unittest.main()

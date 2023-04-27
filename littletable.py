@@ -162,7 +162,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "25 Apr 2023 11:04 UTC"
+__version_time__ = "27 Apr 2023 10:27 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -186,7 +186,15 @@ except ImportError:
 
 PredicateFunction = Callable[[Any], bool]
 
-__all__ = ["DataObject", "Table", "FixedWidthReader"]
+__all__ = [
+    "__author__",
+    "__version__",
+    "__version_info__",
+    "__version_time__",
+    "DataObject",
+    "FixedWidthReader",
+    "Table",
+]
 
 # define default stopwords for full_text_search
 _stopwords = set(
@@ -204,6 +212,36 @@ where where's which while who who's whom why why's with won't would wouldn't you
 you'd you'll you're you've your yours yourself yourselves""".split()
 )
 
+# irregular plurals and singulars for text search handling
+_common_english_irregular_plurals = {
+    'addenda': 'addendum', 'addendums': 'addendum', 'alumnae': 'alumna', 'alumni': 'alumnus', 'analyses': 'analysis',
+    'antennae': 'antenna', 'antennas': 'antenna', 'antitheses': 'antithesis',
+    'appendices': 'appendix', 'appendixes': 'appendix', 'bacilli': 'bacillus', 'bacteria': 'bacterium',
+    'cacti': 'cactus', 'calves': 'calf', 'children': 'child', 'corpora': 'corpus', 'crises': 'crisis',
+    'criteria': 'criterion', 'curricula': 'curriculum', 'diagnoses': 'diagnosis', 'dice': 'die',
+    'dwarves': 'dwarf', 'dwarfs': 'dwarf', 'elves': 'elf', 'ellipses': 'ellipsis', 'errata': 'erratum',
+    'firemen': 'fireman', 'foci': 'focus', 'feet': 'foot', 'formulae': 'formula', 'fungi': 'fungus', 'genera': 'genus',
+    'geese': 'goose', 'halves': 'half', 'hooves': 'hoof', 'hypotheses': 'hypothesis',
+    'indices': 'index', 'indexes': 'index', 'knives': 'knife', 'larvae': 'larva', 'leaves': 'leaf', 'lives': 'life',
+    'loaves': 'loaf', 'loci': 'locus', 'lice': 'louse', 'men': 'man', 'matrices': 'matrix', 'media': 'medium',
+    'memoranda': 'memorandum', 'minutiae': 'minutia', 'mice': 'mouse', 'nebulae': 'nebula', 'nuclei': 'nucleus',
+    'oases': 'oasis', 'opera': 'opus', 'ova': 'ovum', 'oxen': 'ox', 'parentheses': 'parenthesis',
+    'phenomena': 'phenomenon', 'phyla': 'phylum', 'quizzes': 'quiz', 'radii': 'radius', 'referenda': 'referendum',
+    'scarves': 'scarf', 'selves': 'self', 'shelves': 'shelf', 'staves': 'staff', 'stimuli': 'stimulus',
+    'strata': 'stratum', 'syllabi': 'syllabus', 'symposia': 'symposium', 'synopses': 'synopsis', 'tableaux': 'tableau',
+    'theses': 'thesis', 'thieves': 'thief', 'teeth': 'tooth', 'vertebrae': 'vertebra', 'vertices': 'vertex',
+    'vitae': 'vita', 'vortices': 'vortex', 'wharves': 'wharf', 'wives': 'wife', 'wolves': 'wolf', 'women': 'woman',
+}
+_singulars_that_look_like_plurals = [
+    'rabies', 'scabies', 'caries', 'aries', 'series', 'billiards', 'grits', 'pliers', 'whereabouts', 'jeans',
+    'binoculars', 'scissors', 'tidings', 'trousers', 'clothes', 'news', 'measles', 'mumps', 'calculus', 'molasses',
+    'tweezers', 'dominoes', 'pants', 'odds', 'riches', 'alms', 'barracks', 'chassis', 'corps', 'headquarters', 'ides',
+    'kudos', 'species'
+]
+_plurals_map = {
+    **_common_english_irregular_plurals,
+    **{s: s for s in _singulars_that_look_like_plurals}
+}
 
 class UnableToExtractAttributeNamesError(ValueError):
     """Exception raised when attributes cannot be determined from an object."""
@@ -1322,6 +1360,14 @@ class Table(Generic[TableContent]):
     def get_index(self, attr: str):
         return _ReadonlyObjIndexWrapper(self._indexes[attr], self.copy_template())
 
+    NON_WORD_STRIPPER_RE = re.compile(r"[^\w_]?([\w._-]*)[^\w.]*")
+    NON_WORD_STRIPPER2_RE = re.compile(r"[^\w_-]?((?:\w|[-_]\w)+)(!>_-)$")
+    PLURAL_ENDING_IN_IES = re.compile(r"(.*[^aeiouy])ies$")
+    PLURAL_ENDING_IN_ES = re.compile(r"(.*(?:ch|ss|sh|x))es$")
+    PLURAL_ENDING_IN_S = re.compile(r"(.*[^aeious])s$")
+    SINGULAR_ENDING_IN_S = re.compile(r"(.*(?:ness|ics))$")
+    ACRONYM_WITH_PERIODS = re.compile(r"((?:\w\.){2,})(!>\.)$")
+
     @staticmethod
     def _normalize_word(s: str) -> str:
         match_res = [
@@ -1332,14 +1378,70 @@ class Table(Generic[TableContent]):
             re.compile(r"[^\w_-]?((?:\w|[-_]\w)+)"),
         ]
         for match_re in match_res:
-            match = match_re.match(s)
-            if match:
+            if match := match_re.match(s):
                 ret = match.group(1).lower().replace(".", "")
                 return ret
         return ""
 
-    def _normalize_split(self, s: str) -> Iterable[str]:
-        return filter(None, (self._normalize_word(wd) for wd in s.split()))
+    @staticmethod
+    def _normalize_word_gen(s: str) -> str:
+        # strip non-word chars from front and back
+        stripper = Table.NON_WORD_STRIPPER_RE
+        s = stripper.match(s).group(1)
+
+        # catch plurals
+        if s.isalpha():
+            s = s.lower()
+
+            # check common plurals - if not found, check common plural patterns
+            if not (sing := _plurals_map.get(s)):
+
+                match_subs = (
+                    (Table.PLURAL_ENDING_IN_IES, r"\1y"),
+                    (Table.PLURAL_ENDING_IN_ES, r"\1"),
+                    (Table.SINGULAR_ENDING_IN_S, r"\1"),
+                    (Table.PLURAL_ENDING_IN_S, r"\1"),
+                )
+                sing = next((sub_match[0] for re_sub, re_repl in match_subs
+                            if (sub_match := re_sub.subn(re_repl, s))[1]),
+                            s)
+
+            if sing and sing != s:
+                yield sing
+            yield s
+            return
+
+        match_res = [
+            # an acronym of 2 or more "X." sequences, such as G.E. or I.B.M.
+            Table.ACRONYM_WITH_PERIODS,
+            # words that may be hyphenated or snake-case
+            # (strip off any leading single non-word character)
+            Table.NON_WORD_STRIPPER2_RE,
+        ]
+        for match_re in match_res:
+            if match := match_re.match(s):
+                g1 = match.group(1).lower()
+                yield g1.replace(".", "")
+                for sep in "-":
+                    if sep in g1:
+                        yield from filter(None, g1.split(sep))
+                break
+        else:
+            for sep in ".-":
+                if sep in s:
+                    yield from (
+                        ss.lower() for ss in s.split(sep)
+                        if (ss.islower() or len(ss) > 1)
+                    )
+                    if sep == "." and all(len(ss) <= 1 for ss in s.split(".")):
+                        yield s.lower().replace(".", "")
+            yield s.lower()
+
+    @staticmethod
+    def _normalize_split(s: str) -> Iterable[str]:
+        return (
+            filter(None, (ss for wd in s.split() for ss in Table._normalize_word_gen(wd)))
+        )
 
     def create_search_index(
         self,

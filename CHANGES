@@ -12,6 +12,9 @@ Version 2.2.0
   use `types.SimpleNamespaces`, or just plain Python dicts (which get stored
   as `SimpleNamespaces`).
 
+- Text search handles common English regular and irregular plural forms and
+  resolves to their singular forms for word searching.
+
 
 Version 2.1.2
 -------------
