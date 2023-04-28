@@ -437,8 +437,7 @@ class _UniqueObjIndex(_ObjIndex):
         return ((k, [v]) for k, v in self.obs.items())
 
     def remove(self, obj):
-        k = getattr(obj, self.attr)
-        if k is not None:
+        if (k := getattr(obj, self.attr)) is not None:
             self.obs.pop(k, None)
         else:
             try:
@@ -1384,7 +1383,7 @@ class Table(Generic[TableContent]):
         return ""
 
     @staticmethod
-    def _normalize_word_gen(s: str) -> str:
+    def _normalize_word_gen(s: str) -> Iterable[str]:
         # strip non-word chars from front and back
         stripper = Table.NON_WORD_STRIPPER_RE
         s = stripper.match(s).group(1)
@@ -1498,7 +1497,9 @@ class Table(Generic[TableContent]):
         self._search_indexes[attrname] = defaultdict(list)
         new_index: Dict[str, Any] = self._search_indexes[attrname]
         for i, rec in enumerate(self.obs):
-            words = self._normalize_split(getattr(rec, attrname, ""))
+            if not (attrvalue := getattr(rec, attrname, "")):
+                continue
+            words = self._normalize_split(attrvalue)
             for wd in set(words) - stopwords_set:
                 new_index[wd].append(i)
 
@@ -1524,11 +1525,12 @@ class Table(Generic[TableContent]):
             raise SearchIndexInconsistentError(msg)
         stopwords = search_index["STOPWORDS"]
 
-        plus_matches = {}
-        minus_matches = {}
-        opt_matches = {}
-        reqd_matches = set()
-        excl_matches = set()
+        plus_matches: dict[str, set[int]] = {}
+        minus_matches: dict[str, list[int]] = {}
+        opt_matches: dict[str, list[int]] = {}
+        reqd_matches: set[int] = set()
+        excl_matches: set[int] = set()
+        reqd_words: dict[tuple[str], dict[str, set[int]]] = {}
 
         if isinstance(query, str):
             query = shlex.split(query.strip())
@@ -1536,53 +1538,70 @@ class Table(Generic[TableContent]):
         for keyword in query:
             keyword = keyword.lower()
             if keyword.startswith("++"):
-                kwd = self._normalize_word(keyword[2:])
-                if kwd in stopwords:
-                    continue
+                kwds = tuple(self._normalize_word_gen(keyword[2:]))
+                reqd_words[kwds] = {}
+                for kwd in kwds:
+                    # kwd = self._normalize_word(keyword[2:])
+                    if kwd in stopwords:
+                        continue
 
-                if kwd not in plus_matches:
-                    plus_matches[kwd] = set(search_index.get(kwd, []))
+                    matched_entries = set(search_index.get(kwd, []))
+                    reqd_words[kwds][kwd] = matched_entries
+                    if not matched_entries:
+                        continue
 
-                if kwd in search_index:
-                    if reqd_matches:
-                        reqd_matches &= set(search_index.get(kwd, []))
-                    else:
-                        reqd_matches = set(search_index.get(kwd, []))
-                else:
-                    # required keyword is not present at all - define unmatchable required match and break
-                    reqd_matches = {-1}
-                    break
+                    if kwd not in plus_matches:
+                        plus_matches[kwd] = matched_entries
 
             elif keyword.startswith("--"):
-                kwd = self._normalize_word(keyword[2:])
-                if kwd in stopwords:
-                    continue
-                excl_matches |= set(search_index.get(kwd, []))
+                # kwd = self._normalize_word(keyword[2:])
+                for kwd in self._normalize_word_gen(keyword[2:]):
+                    if kwd in stopwords:
+                        continue
+                    excl_matches |= set(search_index.get(kwd, []))
 
             elif keyword.startswith("+"):
-                kwd = self._normalize_word(keyword[1:])
-                if kwd in stopwords:
-                    continue
-                minus_matches.pop(kwd, None)
-                if kwd not in plus_matches and kwd not in reqd_matches:
-                    plus_matches[kwd] = set(search_index.get(kwd, []))
+                # kwd = self._normalize_word(keyword[1:])
+                for kwd in self._normalize_word_gen(keyword[1:]):
+                    if kwd in stopwords:
+                        continue
+                    minus_matches.pop(kwd, None)
+                    if kwd not in plus_matches and kwd not in reqd_matches:
+                        plus_matches[kwd] = set(search_index.get(kwd, []))
 
             elif keyword.startswith("-"):
-                kwd = self._normalize_word(keyword[1:])
-                if kwd in stopwords:
-                    continue
-                plus_matches.pop(kwd, None)
-                if kwd not in minus_matches and kwd not in excl_matches:
-                    minus_matches[kwd] = set(search_index.get(kwd, []))
+                # kwd = self._normalize_word(keyword[1:])
+                for kwd in self._normalize_word_gen(keyword[1:]):
+                    if kwd in stopwords:
+                        continue
+                    plus_matches.pop(kwd, None)
+                    if kwd not in minus_matches and kwd not in excl_matches:
+                        minus_matches[kwd] = set(search_index.get(kwd, []))
 
             else:
-                kwd = self._normalize_word(keyword)
-                if kwd in stopwords:
-                    continue
-                if kwd in plus_matches or kwd in minus_matches:
-                    continue
-                opt_matches[kwd] = set(search_index.get(kwd, []))
+                # kwd = self._normalize_word(keyword)
+                for kwd in self._normalize_word_gen(keyword):
+                    if kwd in stopwords:
+                        continue
+                    if kwd in plus_matches or kwd in minus_matches:
+                        continue
+                    opt_matches[kwd] = set(search_index.get(kwd, []))
 
+        # process word groups to determine correct set of reqd_matches
+        if reqd_words:
+            reqd_matches = set(range(len(self.obs)))
+            for reqd_word_tuple, word_matches_tuples in reqd_words.items():
+                group_matches = set()
+                for _, submatch in word_matches_tuples.items():
+                    group_matches |= submatch
+                if not group_matches:
+                    # no possible match, force an impossible match set
+                    reqd_matches = {-1,}
+                    break
+                else:
+                    reqd_matches &= group_matches
+
+        # walk through plus, minus, and optional matches to build matching scores
         tally = Counter()
         for match_type, score in (
             (plus_matches, 1000),
@@ -1596,6 +1615,7 @@ class Table(Generic[TableContent]):
                 for obj in obj_set:
                     tally[obj] += score
 
+        # compose return structure, depending on whether the actual matched words in each entry should be included
         if include_words:
             ret = [
                 (self[rec_idx], score,

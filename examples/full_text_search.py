@@ -54,11 +54,15 @@ for query in queries:
     matches = recipes.search.ingredients(query, limit=5, min_score=-100000)
 
     print(query)
-    for rec, score in matches:
-        print(" -", rec.title, score)
+    if matches:
+        for rec, score in matches:
+            print(" -", rec.title, score)
+    else:
+        print("  <no matching recipes>")
     print()
 
 # redo last match, getting the words for each match
+print("repeat last match, including matched words")
 matches = recipes.search.ingredients(
     query, limit=5, min_score=-100000, include_words=True
 )
@@ -68,5 +72,6 @@ for rec, score, search_words in matches:
 
 # exception gets raised if search() is called after the table has been modified without
 # rebuilding the search index
+print("\nmodify source table to show exception raised when search index is no longer valid")
 recipes.pop(0)
 matches = recipes.search.ingredients(query)
