@@ -1,0 +1,7 @@
+attrs
+rich
+openpyxl
+traits
+traitlets
+pydantic
+pytest
