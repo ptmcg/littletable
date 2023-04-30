@@ -8,12 +8,21 @@ Version 2.2.0
     - Support for Python versions <3.9 is dropped in this version. To run on
       these older Python's, use `littletable` 2.1.2.
 
+    - The results from full text searches now return a Table by default.
+
 - Added `DeprecationWarning` for usage of `DataObject` class. New code should
   use `types.SimpleNamespaces`, or just plain Python dicts (which get stored
   as `SimpleNamespaces`).
 
 - Text search handles common English regular and irregular plural forms and
   resolves to their singular forms for word searching.
+
+- The Table of results returned from a full text search now gets titled with
+  the search query string.
+
+- A new example for full text searches is included, `star_trek_tos.py`,
+  illustrating CSV import and table sorting, and searching episode descriptions
+  for keywords.
 
 
 Version 2.1.2

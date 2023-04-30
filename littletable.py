@@ -144,7 +144,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import urllib.request
 from typing import (
-    Tuple, List, Callable, Any, TextIO, Dict, Union, Optional, Iterable, Iterator, Set, Generic, TypeVar
+    Callable, Any, TextIO, Union, Optional, Iterable, Iterator, Generic, TypeVar
 )
 
 try:
@@ -162,14 +162,14 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "27 Apr 2023 10:27 UTC"
+__version_time__ = "30 Apr 2023 06:40 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
 
 default_row_class = SimpleNamespace
 
-_numeric_type: Tuple = (int, float)
+_numeric_type: tuple = (int, float)
 right_justify_types = (int, float, datetime.timedelta)
 
 try:
@@ -747,9 +747,9 @@ class _MultiIterator:
 
 
 FixedWidthParseSpec = Union[
-    Tuple[str, int],
-    Tuple[str, int, Optional[int]],
-    Tuple[str, int, Optional[int], Optional[Callable[[str], Any]]],
+    tuple[str, int],
+    tuple[str, int, Optional[int]],
+    tuple[str, int, Optional[int], Optional[Callable[[str], Any]]],
 ]
 
 
@@ -775,13 +775,13 @@ class FixedWidthReader:
 
     def __init__(
         self,
-        slice_spec: List[FixedWidthParseSpec],
+        slice_spec: list[FixedWidthParseSpec],
         src_file: Union[str, Iterable, TextIO],
         encoding: str = "utf-8",
     ):
         def parse_spec(
-            spec: List[FixedWidthParseSpec],
-        ) -> List[Tuple[str, slice, Callable[[str], Any]]]:
+            spec: list[FixedWidthParseSpec],
+        ) -> list[tuple[str, slice, Callable[[str], Any]]]:
             ret = []
             for cur, next_ in zip(spec, spec[1:] + [("", sys.maxsize, None, None)]):
                 label, col, endcol, fn = (cur + (None, None,))[:4]
@@ -1092,10 +1092,10 @@ class Table(Generic[TableContent]):
         @type table_name: string (optional)
         """
         self(table_name)
-        self.obs: List = []
-        self._indexes: Dict[str, _ObjIndex] = {}
-        self._uniqueIndexes: List[_UniqueObjIndex] = []
-        self._search_indexes: Dict[str, Dict[str, List]] = {}
+        self.obs: list = []
+        self._indexes: dict[str, _ObjIndex] = {}
+        self._uniqueIndexes: list[_UniqueObjIndex] = []
+        self._search_indexes: dict[str, dict[str, list]] = {}
 
         self.import_source_type: Optional[ImportSourceType] = None
         self.import_source: Optional[str] = None
@@ -1257,7 +1257,7 @@ class Table(Generic[TableContent]):
             self.table_name = table_name
         return self
 
-    def _attr_names(self) -> List[str]:
+    def _attr_names(self) -> list[str]:
         return list(
             _object_attrnames(self.obs[0]) if self.obs else self._indexes.keys()
         )
@@ -1488,14 +1488,14 @@ class Table(Generic[TableContent]):
             else:
                 return self
 
-        stopwords_set: Set[str]
+        stopwords_set: set[str]
         if stopwords is None:
             stopwords_set = _stopwords
         else:
             stopwords_set = set(stopwords)
 
         self._search_indexes[attrname] = defaultdict(list)
-        new_index: Dict[str, Any] = self._search_indexes[attrname]
+        new_index: dict[str, Any] = self._search_indexes[attrname]
         for i, rec in enumerate(self.obs):
             if not (attrvalue := getattr(rec, attrname, "")):
                 continue
@@ -1511,7 +1511,7 @@ class Table(Generic[TableContent]):
         return self
 
     def _search(
-        self, attrname, query, limit=int(1e9), min_score=0, include_words=False, as_table=False
+        self, attrname, query, limit=int(1e9), min_score=0, include_words=False, as_table=True
     ):
         if attrname not in self._search_indexes:
             raise ValueError(f"no search index defined for attribute {attrname!r}")
@@ -1632,6 +1632,7 @@ class Table(Generic[TableContent]):
         if as_table:
             tuple_ret = ret
             ret = self.copy_template()
+            ret.table_name = " ".join(query)
             ret.insert_many(copy.copy(rec[0]) for rec in tuple_ret)
             score_attr = f"{attrname}_search_score"
             words_attr = f"{attrname}_search_words"
@@ -1793,7 +1794,7 @@ class Table(Generic[TableContent]):
         for idx in self._search_indexes.values():
             idx["VALID"] = False
 
-    def _query_attr_sort_fn(self, attr_val: Tuple[str, Any]) -> int:
+    def _query_attr_sort_fn(self, attr_val: tuple[str, Any]) -> int:
         """Used to order where keys by most selective key first"""
         attr, v = attr_val
         if attr in self._indexes:
@@ -1830,7 +1831,7 @@ class Table(Generic[TableContent]):
             # for each individual given attribute; this will minimize the number
             # of filtering records that each subsequent attribute will have to
             # handle
-            kwargs_list: List[Tuple[str, Any]] = list(kwargs.items())
+            kwargs_list: list[tuple[str, Any]] = list(kwargs.items())
             if len(kwargs_list) > 1 and len(self) > 100:
                 kwargs_list.sort(key=self._query_attr_sort_fn)
 
@@ -1914,7 +1915,7 @@ class Table(Generic[TableContent]):
         @return: self
         """
         if isinstance(key, (str, list, tuple)):
-            attr_orders: List[List[str]]
+            attr_orders: list[list[str]]
             if isinstance(key, str):
                 attrdefs = [s.strip() for s in key.split(",")]
                 attr_orders = [(a.split() + ["asc", ])[:2] for a in attrdefs]
@@ -2096,7 +2097,7 @@ class Table(Generic[TableContent]):
             attr_spec_list = re.split(r"[,\s]+", attrlist)
 
         # expand attrlist to full (table, name, alias) tuples
-        full_attr_specs: List[Tuple[Table, str, str]]
+        full_attr_specs: list[tuple[Table, str, str]]
         if attr_spec_list is None:
             full_attr_specs = [(self, namestr, namestr) for namestr in self._attr_names()]
             full_attr_specs += [(other, namestr, namestr) for namestr in other._attr_names()]
@@ -2135,7 +2136,7 @@ class Table(Generic[TableContent]):
                         tbl.create_index(col)
         else:
             # make sure all join columns are indexed
-            unindexed_cols: List[str] = []
+            unindexed_cols: list[str] = []
             for tbl, col_list in ((self, this_cols), (other, other_cols)):
                 unindexed_cols.extend(
                     col for col in col_list if col not in tbl._indexes
@@ -2260,7 +2261,7 @@ class Table(Generic[TableContent]):
             attr_spec_list = re.split(r"[,\s]+", attrlist)
 
         # expand attrlist to full (table, name, alias) tuples
-        full_attr_specs: List[Tuple[Table, str, str]]
+        full_attr_specs: list[tuple[Table, str, str]]
         if attr_spec_list is None:
             full_attr_specs = [(self, namestr, namestr) for namestr in self._attr_names()]
             full_attr_specs += [(other, namestr, namestr) for namestr in other._attr_names()]
@@ -2299,7 +2300,7 @@ class Table(Generic[TableContent]):
                         tbl.create_index(col)
         else:
             # make sure all join columns are indexed
-            unindexed_cols: List[str] = []
+            unindexed_cols: list[str] = []
             for tbl, col_list in ((self, this_cols), (other, other_cols)):
                 unindexed_cols.extend(
                     col for col in col_list if col not in tbl._indexes
@@ -2519,8 +2520,8 @@ class Table(Generic[TableContent]):
         self,
         csv_source: _ImportExportDataContainer,
         encoding: str = "utf-8",
-        transforms: Dict = None,
-        filters: Dict = None,
+        transforms: dict = None,
+        filters: dict = None,
         row_class: type = None,
         limit: int = None,
         fieldnames: Union[Iterable[str], str] = None,
@@ -2577,8 +2578,8 @@ class Table(Generic[TableContent]):
         self,
         xsv_source: _ImportExportDataContainer,
         encoding: str = "utf-8",
-        transforms: Dict = None,
-        filters: Dict = None,
+        transforms: dict = None,
+        filters: dict = None,
         row_class: type = None,
         limit: int = None,
         **kwargs,
@@ -2601,8 +2602,8 @@ class Table(Generic[TableContent]):
         self,
         xsv_source: _ImportExportDataContainer,
         encoding: str = "utf-8",
-        transforms: Dict = None,
-        filters: Dict = None,
+        transforms: dict = None,
+        filters: dict = None,
         row_class: type = None,
         limit: int = None,
         fieldnames: Union[Iterable[str], str] = None,
@@ -2643,8 +2644,8 @@ class Table(Generic[TableContent]):
     def _excel_import(
         self,
         excel_source: _ImportExportDataContainer,
-        transforms: Dict = None,
-        filters: Dict = None,
+        transforms: dict = None,
+        filters: dict = None,
         row_class: type = None,
         limit: int = None,
         **kwargs,
@@ -2652,7 +2653,7 @@ class Table(Generic[TableContent]):
         if openpyxl is None:
             raise Exception("openpyxl module not installed")
 
-        def excel_as_dict(filename, **reader_args) -> Iterable[Dict[str, str]]:
+        def excel_as_dict(filename, **reader_args) -> Iterable[dict[str, str]]:
             with closing(openpyxl.load_workbook(filename, read_only=True)) as wb:
                 # read requested sheet if provided on kwargs, otherwise read active sheet
                 requested_sheet = reader_args.get("sheet")
@@ -2679,8 +2680,8 @@ class Table(Generic[TableContent]):
     def excel_import(
         self,
         excel_source: _ImportExportDataContainer,
-        transforms: Dict = None,
-        filters: Dict = None,
+        transforms: dict = None,
+        filters: dict = None,
         row_class: type = None,
         limit: int = None,
         fieldnames: Union[Iterable[str], str] = None,
@@ -2814,7 +2815,7 @@ class Table(Generic[TableContent]):
         self,
         source: _ImportExportDataContainer,
         encoding: str = "UTF-8",
-        transforms: Dict = None,
+        transforms: dict = None,
         row_class: type = None,
         streaming: bool = False,
         path: str = "",
@@ -3101,7 +3102,7 @@ class Table(Generic[TableContent]):
             tbl.insert(group_obj)
         return tbl
 
-    def splitby(self, pred: Union[str, PredicateFunction]) -> Tuple["Table", "Table"]:
+    def splitby(self, pred: Union[str, PredicateFunction]) -> tuple["Table", "Table"]:
         """
         Takes a predicate function (takes a table record and returns True or False)
         and returns two tables: a table with all the rows that returned False and
@@ -3153,7 +3154,7 @@ class Table(Generic[TableContent]):
                 ret.insert(ob)
         return ret
 
-    def info(self) -> Dict:
+    def info(self) -> dict:
         """
         Quick method to list informative table statistics
         :return: dict listing table information and statistics
@@ -3259,7 +3260,7 @@ class Table(Generic[TableContent]):
                             for stat_name, stat_fn in stat_fn_map)
         return ret
 
-    def _parse_fields_string(self, field_names: Union[str, Iterable[str]]) -> List[str]:
+    def _parse_fields_string(self, field_names: Union[str, Iterable[str]]) -> list[str]:
         """
         Convert raw string or list of names to actual column names:
         - names starting with '-' indicate to suppress that field
@@ -3408,8 +3409,8 @@ class Table(Generic[TableContent]):
         console.print(table)
 
     def as_html(
-        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby=None,
-            table_properties: Dict = None,
+        self, fields: Union[str, Iterable[str]] = "*", formats: dict = None, groupby=None,
+            table_properties: dict = None,
     ) -> str:
         """
         Output the table as a rudimentary HTML table.
@@ -3493,7 +3494,7 @@ class Table(Generic[TableContent]):
         return ret
 
     def as_markdown(
-        self, fields: Union[str, Iterable[str]] = "*", formats: Dict = None, groupby=None,
+        self, fields: Union[str, Iterable[str]] = "*", formats: dict = None, groupby=None,
     ) -> str:
         """
         Output the table as a Markdown table.
