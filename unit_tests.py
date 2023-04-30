@@ -2579,7 +2579,7 @@ class TableSearchTests(unittest.TestCase):
             ("bread ++bacon ++anchovies", []),
             ("bread bacon --anchovies", [9, 5, 6, 8, 10, 13]),
         ]:
-            matches = self.recipes.search.ingredients(query, min_score=-10000)
+            matches = self.recipes.search.ingredients(query, as_table=False, min_score=-10000)
             match_ids = [recipe.id for recipe, _ in matches]
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
             with self.subTest(query=query):
@@ -2599,7 +2599,7 @@ class TableSearchTests(unittest.TestCase):
                 ("tuna", [1, 6], [{'tuna', 'cream', 'soup', 'noodles', 'mushroom'},
                                   {'tomato', 'tuna', 'mayonnaise', 'bread', 'cheese'}]),
                 ]:
-            matches = self.recipes.search.ingredients(query, min_score=-10000, include_words=True)
+            matches = self.recipes.search.ingredients(query, min_score=-10000, as_table=False, include_words=True)
             match_ids = [recipe.id for recipe, score, words in matches]
             print(repr(query), '->', [(recipe.id, score, words) for recipe, score, words in matches])
             with self.subTest():
@@ -2627,7 +2627,7 @@ class TableSearchTests(unittest.TestCase):
             ("bread ++bacon ++anchovies", []),
             ("bread bacon --anchovies", [9, 5, 6]),
         ]:
-            matches = self.recipes.search.ingredients(query, min_score=-10000, limit=3)
+            matches = self.recipes.search.ingredients(query, as_table=False, min_score=-10000, limit=3)
             match_ids = [recipe.id for recipe, _ in matches]
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
             with self.subTest(query=query):
@@ -2649,7 +2649,7 @@ class TableSearchTests(unittest.TestCase):
             ("bread ++bacon ++anchovies", []),
             ("bread bacon --anchovies", []),
         ]:
-            matches = self.recipes.search.ingredients(query, min_score=1000)
+            matches = self.recipes.search.ingredients(query, as_table=False, min_score=1000)
             match_ids = [recipe.id for recipe, _ in matches]
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
             with self.subTest(query=query):
