@@ -1,6 +1,13 @@
 Change History
 ==============
 
+NOTE: Deprecated features will be removed in the 3.0 release of littletable:
+- DataObject class, replace with typing.SimpleNamespace, dict, namedtuple, or
+  other user-defined class
+- Table.re_match(patt) comparator is deprecated, replace with
+  re.compile(patt).match
+
+
 Version 2.2.0
 -------------
 - BREAKING CHANGES:
@@ -12,7 +19,7 @@ Version 2.2.0
 
 - Added `DeprecationWarning` for usage of `DataObject` class. New code should
   use `types.SimpleNamespaces`, or just plain Python dicts (which get stored
-  as `SimpleNamespaces`).
+  as `SimpleNamespaces`), namedtuples, or other user-defined class.
 
 - Text search handles common English regular and irregular plural forms and
   resolves to their singular forms for word searching.
