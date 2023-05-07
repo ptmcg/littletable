@@ -155,14 +155,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 2, 0, "final", 0)
+__version_info__ = version_info(2, 2, 1, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "30 Apr 2023 06:40 UTC"
+__version_time__ = "7 May 2023 01:48 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2914,24 +2914,14 @@ class Table(Generic[TableContent]):
         close_on_exit = False
         return_dest_value = False
 
-        class JsonEncoderChain(json.JSONEncoder):
-            def __init__(self, encoders, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.encoders = encoders
-
-            def default(self, oo):
-                self_vars = {**vars(self)}
-                self_vars.pop('encoders')
-                for enc in self.encoders:
-                    try:
-                        return enc(**self_vars).default(oo)
-                    except TypeError:
-                        pass
-                return super().default(oo)
-
         if json_encoder:
             if isinstance(json_encoder, tuple):
-                json_encoder = partial(JsonEncoderChain, encoders=json_encoder)
+                # use multiple inheritance to chain encoders
+                json_encoder = type(
+                    "littletable_JSON_encoder",
+                    (*json_encoder, json.JSONEncoder),
+                    {}
+                )
 
         if dest is None:
             dest = io.StringIO()
