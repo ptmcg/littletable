@@ -121,6 +121,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 import copy
 import csv
 import datetime
+import functools
 import io
 import itertools
 import textwrap
@@ -162,7 +163,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "15 May 2023 21:16 UTC"
+__version_time__ = "15 May 2023 23:02 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -194,6 +195,10 @@ __all__ = [
     "DataObject",
     "FixedWidthReader",
     "Table",
+    "csv_import",
+    "tsv_import",
+    "json_import",
+    "excel_import",
 ]
 
 # define default stopwords for full_text_search
@@ -3579,6 +3584,24 @@ class Table(Generic[TableContent]):
 
 
 Sequence.register(Table)
+
+
+# module-level convenience functions for Table.*_import() instance methods
+def _make_module_level_import_fn(name):
+    table_method = getattr(Table, name)
+
+    @functools.wraps(table_method)
+    def import_fn(*args, **kwargs):
+        ret = Table()
+        return table_method(ret, *args, **kwargs)
+
+    return import_fn
+
+
+csv_import = _make_module_level_import_fn("csv_import")
+tsv_import = _make_module_level_import_fn("tsv_import")
+json_import = _make_module_level_import_fn("json_import")
+excel_import = _make_module_level_import_fn("excel_import")
 
 
 class _PivotTable(Table):

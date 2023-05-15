@@ -2511,6 +2511,42 @@ class TableImportExportTests:
         with self.subTest():
             self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(exported_table, excel_table)))
 
+    def test_module_level_csv_importer(self):
+        data = csv_data
+        csvtable = lt.csv_import(csv_source=data, transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, csvtable)))
+        with self.subTest():
+            self.assertEqual(sum(1 for line in data.splitlines() if line.strip())-1, len(csvtable))
+
+    def test_module_level_json_importer(self):
+        data = json_data
+        jsontable = lt.json_import(data, streaming=True, transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
+        with self.subTest():
+            self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
+
+    def test_module_level_excel_import(self):
+        file_name = "test/abc.xlsx"
+        excel_table = lt.excel_import(file_name, transforms={'a': int, 'b': int, 'c': int})
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        with self.subTest():
+            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, excel_table)))
+        with self.subTest():
+            self.assertEqual(sum(1 for line in csv_data.splitlines() if line.strip())-1, len(excel_table))
+
 
 @make_test_classes
 class TablePivotTests:
