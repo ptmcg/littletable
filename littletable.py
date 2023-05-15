@@ -162,7 +162,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "7 May 2023 01:48 UTC"
+__version_time__ = "15 May 2023 21:16 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -1363,6 +1363,7 @@ class Table(Generic[TableContent]):
     NON_WORD_STRIPPER2_RE = re.compile(r"[^\w_-]?((?:\w|[-_]\w)+)(!>_-)$")
     PLURAL_ENDING_IN_IES = re.compile(r"(.*[^aeiouy])ies$")
     PLURAL_ENDING_IN_ES = re.compile(r"(.*(?:ch|ss|sh|x))es$")
+    PLURAL_ENDING_IN_ES2 = re.compile(r"(.*(?:[bcdfghklmnprstuvwxz|(qu)])e)s$")
     PLURAL_ENDING_IN_S = re.compile(r"(.*[^aeious])s$")
     SINGULAR_ENDING_IN_S = re.compile(r"(.*(?:ness|ics))$")
     ACRONYM_WITH_PERIODS = re.compile(r"((?:\w\.){2,})(!>\.)$")
@@ -1389,8 +1390,8 @@ class Table(Generic[TableContent]):
         s = stripper.match(s).group(1)
 
         # catch plurals
-        if s.isalpha():
-            s = s.lower()
+        if s.rstrip(",.!?;-").isalpha():
+            s = s.rstrip(",.!?;:'\"-").lower()
 
             # check common plurals - if not found, check common plural patterns
             if not (sing := _plurals_map.get(s)):
@@ -1398,6 +1399,7 @@ class Table(Generic[TableContent]):
                 match_subs = (
                     (Table.PLURAL_ENDING_IN_IES, r"\1y"),
                     (Table.PLURAL_ENDING_IN_ES, r"\1"),
+                    (Table.PLURAL_ENDING_IN_ES2, r"\1"),
                     (Table.SINGULAR_ENDING_IN_S, r"\1"),
                     (Table.PLURAL_ENDING_IN_S, r"\1"),
                 )
@@ -2918,7 +2920,7 @@ class Table(Generic[TableContent]):
             if isinstance(json_encoder, tuple):
                 # use multiple inheritance to chain encoders
                 json_encoder = type(
-                    "littletable_JSON_encoder",
+                    "compound_JSON_encoder",
                     (*json_encoder, json.JSONEncoder),
                     {}
                 )

@@ -2596,7 +2596,7 @@ class TableSearchTests(unittest.TestCase):
     @announce_test
     def test_search_with_keywords(self):
         for query, expected, expected_words in [
-                ("tuna", [1, 6], [{'tuna', 'cream', 'soup', 'noodles', 'mushroom'},
+                ("tuna", [1, 6], [{'noodles', 'noodle', 'tuna', 'soup', 'cream', 'mushroom'},
                                   {'tomato', 'tuna', 'mayonnaise', 'bread', 'cheese'}]),
                 ]:
             matches = self.recipes.search.ingredients(query, min_score=-10000, as_table=False, include_words=True)
@@ -2779,7 +2779,7 @@ class StorageIndependentTests(unittest.TestCase):
             ("G.E.", ["g.e.", "ge"]),
             ("A.I.", ["a.i.", "ai"]),
             ("AI", ["ai"]),
-            ("M.", ["m", "m."]),
+            ("M.", ["m"]),
             ("m.xyz", ["m", "m.xyz", "xyz"]),
             ("M.xyz", ["m.xyz", "xyz"]),
             ("Threading.isAlive()", ['isalive', 'threading', 'threading.isalive']),
@@ -2821,7 +2821,22 @@ class StorageIndependentTests(unittest.TestCase):
                 self.assertEqual(expected_str_set,
                                  sorted(set(lt.Table._normalize_split(in_str))))
 
+    @announce_test
+    def test_plurals_with_trailing_punctuation(self):
+        for (line, expected) in [
+            ('I could hear the babies cries.', ['babies', 'baby', 'could', 'cries', 'cry', 'hear', 'i', 'the']),
+            ('Who are those babies?', ['are', 'babies', 'baby', 'those', 'who']),
+            ("Who took the babies' rattles this time?",
+             ['babies', 'baby', 'rattle', 'rattles', 'the', 'this', 'time', 'took', 'who']),
+            ('I love these cakes!', ['cake', 'cakes', 'i', 'love', 'these']),
+            ('When my wife cooks, she bakes.', ['bake', 'bakes', 'cook', 'cooks', 'my', 'she', 'when', 'wife']),
+            ("Let's go shopping for antiques!", ['antique', 'antiques', 'for', 'go', 'let', 'shopping']),
+            ('This is an antique vase, worth thousands!',
+             ['an', 'antique', 'is', 'this', 'thousand', 'thousands', 'vase', 'worth']),
+        ]:
+            with self.subTest(line):
+                self.assertEqual(expected, sorted(lt.Table._normalize_split(line)))
+
 
 if __name__ == '__main__':
-
     unittest.main()

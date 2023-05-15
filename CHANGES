@@ -13,6 +13,8 @@ Version 2.2.1 (under development)
 - Rewrote handling of multiple custom `JSONEncoder`s to use multiple
   inheritance instead of explicit call chaining.
 
+- Better detection of English plurals when building search indexes.
+
 
 Version 2.2.0
 -------------
