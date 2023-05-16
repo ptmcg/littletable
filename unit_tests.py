@@ -2869,6 +2869,10 @@ class StorageIndependentTests(unittest.TestCase):
             ("Let's go shopping for antiques!", ['antique', 'antiques', 'for', 'go', 'let', 'shopping']),
             ('This is an antique vase, worth thousands!',
              ['an', 'antique', 'is', 'this', 'thousand', 'thousands', 'vase', 'worth']),
+            ('When we meet, you are a giant among men.',
+             ['a', 'among', 'are', 'giant', 'man', 'meet', 'men', 'we', 'when', 'you']),
+            ('When we are among men, you are a giant meatball.',
+             ['a', 'among', 'are', 'are', 'giant', 'man', 'meatball', 'men', 'we', 'when', 'you']),
         ]:
             with self.subTest(line):
                 self.assertEqual(expected, sorted(lt.Table._normalize_split(line)))
