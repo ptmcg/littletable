@@ -2839,6 +2839,9 @@ class StorageIndependentTests(unittest.TestCase):
             ("laziness", ["laziness"]),
             ("physics", ["physics"]),
             ("Python's", ["python"]),
+            ('ValueError', ['error', 'valueerror']),
+            ('DeprecationWarning', ['deprecationwarning', 'warning']),
+            ('CustomException', ['customexception', 'exception']),
         ]:
             with self.subTest(in_word):
                 self.assertEqual(expected_words,

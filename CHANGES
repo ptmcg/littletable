@@ -13,7 +13,9 @@ Version 2.2.1 (under development)
 - Rewrote handling of multiple custom `JSONEncoder`s to use multiple
   inheritance instead of explicit call chaining.
 
-- Better detection of English plurals when building search indexes.
+- Better detection of English plurals when building search indexes. Searching
+  will also detect `Error`, `Exception`, and `Warning` word endings, which are
+  common in code documentation.
 
 - Added module-level convenience methods for building `Table`s and importing from
   CSV, TSV, JSON, or Excel files, so that in place of:

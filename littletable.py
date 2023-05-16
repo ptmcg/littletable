@@ -248,6 +248,12 @@ _plurals_map = {
     **{s: s for s in _singulars_that_look_like_plurals}
 }
 
+_significant_word_endings = (
+    'error',
+    'warning',
+    'exception',
+)
+
 class UnableToExtractAttributeNamesError(ValueError):
     """Exception raised when attributes cannot be determined from an object."""
 
@@ -1372,6 +1378,7 @@ class Table(Generic[TableContent]):
     PLURAL_ENDING_IN_S = re.compile(r"(.*[^aeious])s$")
     SINGULAR_ENDING_IN_S = re.compile(r"(.*(?:ness|ics))$")
     ACRONYM_WITH_PERIODS = re.compile(r"((?:\w\.){2,})(!>\.)$")
+    SIGNIFICANT_WORD_ENDING_RE = re.compile(rf".*({'|'.join(_significant_word_endings)})$")
 
     @staticmethod
     def _normalize_word(s: str) -> str:
@@ -1415,6 +1422,10 @@ class Table(Generic[TableContent]):
             if sing and sing != s:
                 yield sing
             yield s
+
+            # also add special ending words for code and documentation parsing
+            if significant_ending := Table.SIGNIFICANT_WORD_ENDING_RE.match(s):
+                yield significant_ending[1]
             return
 
         match_res = [
