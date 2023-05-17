@@ -13,4 +13,4 @@ pep20.present()
 # use text search for "better"
 pep20.create_search_index("zen")
 for entry in pep20.search.zen("better"):
-    print(entry[0].zen)
+    print(entry.zen)

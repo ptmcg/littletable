@@ -55,8 +55,8 @@ for query in queries:
 
     print(query)
     if matches:
-        for rec, score in matches:
-            print(" -", rec.title, score)
+        for rec in matches:
+            print(" -", rec.title, rec.ingredients_search_score)
     else:
         print("  <no matching recipes>")
     print()
@@ -67,8 +67,8 @@ matches = recipes.search.ingredients(
     query, limit=5, min_score=-100000, include_words=True
 )
 print(query)
-for rec, score, search_words in matches:
-    print(" -", rec.title, score, search_words)
+for rec in matches:
+    print(" -", rec.title,rec.ingredients_search_score, rec.ingredients_search_words)
 
 # exception gets raised if search() is called after the table has been modified without
 # rebuilding the search index
