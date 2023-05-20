@@ -163,7 +163,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "15 May 2023 23:02 UTC"
+__version_time__ = "20 May 2023 10:11 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -188,10 +188,6 @@ except ImportError:
 PredicateFunction = Callable[[Any], bool]
 
 __all__ = [
-    "__author__",
-    "__version__",
-    "__version_info__",
-    "__version_time__",
     "DataObject",
     "FixedWidthReader",
     "Table",
@@ -202,19 +198,21 @@ __all__ = [
 ]
 
 # define default stopwords for full_text_search
-_stopwords = set(
-    """\
-a about above after again against all am an and any are aren't as at be because been 
-before being below between both but by can't cannot could couldn't did didn't do does 
-doesn't doing don't down during each few for from further had hadn't has hasn't have 
-haven't having he he'd he'll he's her here here's hers herself him himself his how how's i i'd 
-i'll i'm i've if in into is isn't it it's its itself let's me more most mustn't my myself no nor not 
-of off on once only or other ought our ours ourselves out over own same shan't she she'd 
-she'll she's should shouldn't so some such than that that's the their theirs them themselves 
-then there there's these they they'd they'll they're they've this those through to too under 
-until up very was wasn't we we'd we'll we're we've were weren't what what's when when's 
-where where's which while who who's whom why why's with won't would wouldn't you 
-you'd you'll you're you've your yours yourself yourselves""".split()
+_stopwords = frozenset(
+    (*"""\
+     a about above after again against all am an and any are aren't as at be because been 
+     before being below between both but by can't cannot could couldn't did didn't do does 
+     doesn't doing don't down during each few for from further had hadn't has hasn't have haven't 
+     having he he'd he'll he's her here here's hers herself him himself his how how's i i'd i'll
+     i'm i've if in into is isn't it it's its itself let's me more most mustn't my myself no nor
+     not of off on once only or other ought our ours ourselves out over own same shan't she she'd 
+     she'll she's should shouldn't so some such than that that's the their theirs them themselves 
+     then there there's these they they'd they'll they're they've this those through to too under 
+     until up very was wasn't we we'd we'll we're we've were weren't what what's when when's 
+     where where's which while who who's whom why why's with won't would wouldn't you 
+     you'd you'll you're you've your yours yourself yourselves""".split(),
+     *"d ll m re s t ve".split(), "",
+     )
 )
 
 # irregular plurals and singulars for text search handling
@@ -253,6 +251,7 @@ _significant_word_endings = (
     'warning',
     'exception',
 )
+
 
 class UnableToExtractAttributeNamesError(ValueError):
     """Exception raised when attributes cannot be determined from an object."""
@@ -1372,13 +1371,22 @@ class Table(Generic[TableContent]):
 
     NON_WORD_STRIPPER_RE = re.compile(r"[^\w_]?([\w._-]*)[^\w.]*")
     NON_WORD_STRIPPER2_RE = re.compile(r"[^\w_-]?((?:\w|[-_]\w)+)(!>_-)$")
+    ACRONYM_WITH_PERIODS = re.compile(r"((?:\w\.){2,})(!>\.)$")
+    SIGNIFICANT_WORD_ENDING_RE = re.compile(rf".*({'|'.join(_significant_word_endings)})$")
+
     PLURAL_ENDING_IN_IES = re.compile(r"(.*[^aeiouy])ies$")
     PLURAL_ENDING_IN_ES = re.compile(r"(.*(?:ch|ss|sh|x))es$")
     PLURAL_ENDING_IN_ES2 = re.compile(r"(.*(?:[bcdfghklmnprstuvwxz|(qu)])e)s$")
     PLURAL_ENDING_IN_S = re.compile(r"(.*[^aeious])s$")
     SINGULAR_ENDING_IN_S = re.compile(r"(.*(?:ness|ics))$")
-    ACRONYM_WITH_PERIODS = re.compile(r"((?:\w\.){2,})(!>\.)$")
-    SIGNIFICANT_WORD_ENDING_RE = re.compile(rf".*({'|'.join(_significant_word_endings)})$")
+
+    PLURAL_MATCH_SUBS = (
+        (PLURAL_ENDING_IN_IES, r"\1y"),
+        (PLURAL_ENDING_IN_ES, r"\1"),
+        (PLURAL_ENDING_IN_ES2, r"\1"),
+        (SINGULAR_ENDING_IN_S, r"\1"),
+        (PLURAL_ENDING_IN_S, r"\1"),
+    )
 
     @staticmethod
     def _normalize_word(s: str) -> str:
@@ -1396,26 +1404,24 @@ class Table(Generic[TableContent]):
         return ""
 
     @staticmethod
-    def _normalize_word_gen(s: str) -> Iterable[str]:
+    def _normalize_word_gen(s: str, sw: frozenset) -> Iterable[str]:
+        s = s.lower()
+        if s in sw:
+            return
+
         # strip non-word chars from front and back
         stripper = Table.NON_WORD_STRIPPER_RE
         s = stripper.match(s).group(1)
 
         # catch plurals
-        if s.rstrip(",.!?;-").isalpha():
-            s = s.rstrip(",.!?;:'\"-").lower()
+        if (sa := s.rstrip(",.!?;:'\"-")).isalpha():
+            s = sa
+            if s in sw:
+                return
 
             # check common plurals - if not found, check common plural patterns
             if not (sing := _plurals_map.get(s)):
-
-                match_subs = (
-                    (Table.PLURAL_ENDING_IN_IES, r"\1y"),
-                    (Table.PLURAL_ENDING_IN_ES, r"\1"),
-                    (Table.PLURAL_ENDING_IN_ES2, r"\1"),
-                    (Table.SINGULAR_ENDING_IN_S, r"\1"),
-                    (Table.PLURAL_ENDING_IN_S, r"\1"),
-                )
-                sing = next((sub_match[0] for re_sub, re_repl in match_subs
+                sing = next((sub_match[0] for re_sub, re_repl in Table.PLURAL_MATCH_SUBS
                             if (sub_match := re_sub.subn(re_repl, s))[1]),
                             s)
 
@@ -1423,9 +1429,10 @@ class Table(Generic[TableContent]):
                 yield sing
             yield s
 
-            # also add special ending words for code and documentation parsing
-            if significant_ending := Table.SIGNIFICANT_WORD_ENDING_RE.match(s):
-                yield significant_ending[1]
+            # # also add special ending words for code and documentation parsing
+            if s.endswith(_significant_word_endings):
+                yield Table.SIGNIFICANT_WORD_ENDING_RE.match(s)[1]
+
             return
 
         match_res = [
@@ -1447,17 +1454,17 @@ class Table(Generic[TableContent]):
             for sep in ".-":
                 if sep in s:
                     yield from (
-                        ss.lower() for ss in s.split(sep)
-                        if (ss.islower() or len(ss) > 1)
+                        ss for ss in s.split(sep)
+                        if len(ss) > 1
                     )
                     if sep == "." and all(len(ss) <= 1 for ss in s.split(".")):
-                        yield s.lower().replace(".", "")
-            yield s.lower()
+                        yield s.replace(".", "")
+            yield s
 
     @staticmethod
-    def _normalize_split(s: str) -> Iterable[str]:
+    def _normalize_split(s: str, sw: frozenset=frozenset()) -> Iterable[str]:
         return (
-            filter(None, (ss for wd in s.split() for ss in Table._normalize_word_gen(wd)))
+            ss for wd in s.split() for ss in Table._normalize_word_gen(wd, sw)
         )
 
     def create_search_index(
@@ -1506,19 +1513,19 @@ class Table(Generic[TableContent]):
             else:
                 return self
 
-        stopwords_set: set[str]
+        stopwords_set: frozenset[str]
         if stopwords is None:
             stopwords_set = _stopwords
         else:
-            stopwords_set = set(stopwords)
+            stopwords_set = frozenset(stopwords)
 
         self._search_indexes[attrname] = defaultdict(list)
         new_index: dict[str, Any] = self._search_indexes[attrname]
         for i, rec in enumerate(self.obs):
             if not (attrvalue := getattr(rec, attrname, "")):
                 continue
-            words = self._normalize_split(attrvalue)
-            for wd in set(words) - stopwords_set:
+            words = self._normalize_split(attrvalue, stopwords_set)
+            for wd in set(words):
                 new_index[wd].append(i)
 
         # use uppercase keys for index metadata, since they should not
@@ -1556,12 +1563,10 @@ class Table(Generic[TableContent]):
         for keyword in query:
             keyword = keyword.lower()
             if keyword.startswith("++"):
-                kwds = tuple(self._normalize_word_gen(keyword[2:]))
+                kwds = tuple(self._normalize_word_gen(keyword[2:], stopwords))
                 reqd_words[kwds] = {}
                 for kwd in kwds:
                     # kwd = self._normalize_word(keyword[2:])
-                    if kwd in stopwords:
-                        continue
 
                     matched_entries = set(search_index.get(kwd, []))
                     reqd_words[kwds][kwd] = matched_entries
@@ -1573,34 +1578,26 @@ class Table(Generic[TableContent]):
 
             elif keyword.startswith("--"):
                 # kwd = self._normalize_word(keyword[2:])
-                for kwd in self._normalize_word_gen(keyword[2:]):
-                    if kwd in stopwords:
-                        continue
+                for kwd in self._normalize_word_gen(keyword[2:], stopwords):
                     excl_matches |= set(search_index.get(kwd, []))
 
             elif keyword.startswith("+"):
                 # kwd = self._normalize_word(keyword[1:])
-                for kwd in self._normalize_word_gen(keyword[1:]):
-                    if kwd in stopwords:
-                        continue
+                for kwd in self._normalize_word_gen(keyword[1:], stopwords):
                     minus_matches.pop(kwd, None)
                     if kwd not in plus_matches and kwd not in reqd_matches:
                         plus_matches[kwd] = set(search_index.get(kwd, []))
 
             elif keyword.startswith("-"):
                 # kwd = self._normalize_word(keyword[1:])
-                for kwd in self._normalize_word_gen(keyword[1:]):
-                    if kwd in stopwords:
-                        continue
+                for kwd in self._normalize_word_gen(keyword[1:], stopwords):
                     plus_matches.pop(kwd, None)
                     if kwd not in minus_matches and kwd not in excl_matches:
                         minus_matches[kwd] = set(search_index.get(kwd, []))
 
             else:
                 # kwd = self._normalize_word(keyword)
-                for kwd in self._normalize_word_gen(keyword):
-                    if kwd in stopwords:
-                        continue
+                for kwd in self._normalize_word_gen(keyword, stopwords):
                     if kwd in plus_matches or kwd in minus_matches:
                         continue
                     opt_matches[kwd] = set(search_index.get(kwd, []))

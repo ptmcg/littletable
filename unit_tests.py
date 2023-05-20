@@ -2816,8 +2816,8 @@ class StorageIndependentTests(unittest.TestCase):
             ("A.I.", ["a.i.", "ai"]),
             ("AI", ["ai"]),
             ("M.", ["m"]),
-            ("m.xyz", ["m", "m.xyz", "xyz"]),
-            ("M.xyz", ["m.xyz", "xyz"]),
+            ("mm.xyz", ["mm", "mm.xyz", "xyz"]),
+            ("MM.xyz", ["mm", "mm.xyz", "xyz"]),
             ("Threading.isAlive()", ['isalive', 'threading', 'threading.isalive']),
             ("*xxx-hhh", ['hhh', 'xxx', 'xxx-hhh']),
             ("+blahFoo", ["blahfoo"]),
@@ -2845,7 +2845,7 @@ class StorageIndependentTests(unittest.TestCase):
         ]:
             with self.subTest(in_word):
                 self.assertEqual(expected_words,
-                                 sorted(list(lt.Table._normalize_word_gen(in_word))))
+                                 sorted(list(lt.Table._normalize_word_gen(in_word, frozenset()))))
 
     @announce_test
     def test_normalize_split(self):
