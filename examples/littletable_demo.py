@@ -3,25 +3,11 @@
 #
 # Copyright 2010, Paul T. McGuire
 #
-from __future__ import print_function
-
-from littletable import Table
 from collections import namedtuple
-import sys
+import littletable as lt
 
-Customer = namedtuple("Customer", "id name")
-CatalogItem = namedtuple("CatalogItem", "sku descr unitofmeas unitprice")
-
-customers = Table("customers")
-customers.create_index("id", unique=True)
-customer_data = """\
-id,name
-0010,George Jetson
-0020,Wile E. Coyote
-0030,Jonny Quest"""
-customers.csv_import(customer_data, row_class=Customer)
-
-catalog = Table("catalog")
+# load catalog of products
+catalog = lt.Table("ACME catalog")
 catalog.create_index("sku", unique=True)
 catalog_data = """\
 sku,descr,unitofmeas,unitprice
@@ -32,12 +18,31 @@ MAGLS-001,Magnifying glass,EA,12
 ANVIL-001,1000lb anvil,EA,100
 ROPE-001,1 in. heavy rope,100FT,10
 ROBOT-001,Domestic robot,EA,5000"""
-catalog.csv_import(catalog_data, row_class=CatalogItem, transforms={"unitprice": int})
+catalog.csv_import(catalog_data, transforms={"unitprice": int})
+catalog.present()
 
-wishitems = Table("wishitems")
+print(catalog.by.sku["ANVIL-001"].descr)
+catalog.create_index("unitofmeas")
+catalog.by.unitofmeas["EA"].present()
+
+# load table of customers
+Customer = namedtuple("Customer", "id name")
+customers = lt.Table("customers")
+customers.create_index("id", unique=True)
+customer_data = """\
+id,name
+0010,George Jetson
+0020,Wile E. Coyote
+0030,Jonny Quest"""
+customers.csv_import(customer_data, row_class=Customer)
+customers.present()
+
+# load wishlist items for each customer
+wishitems = lt.Table("wishitems")
 wishitems.create_index("custid")
 wishitems.create_index("sku")
-# there is no user-defined type for these items, just use SimpleNamespaces
+
+# there is no user-defined type for these items, the default is SimpleNamespace
 wishlist_data = """\
 custid,sku
 0030,MAGLS-001
@@ -81,9 +86,9 @@ wishlists = customers.join_on("id") + wishitems.join_on("custid") + catalog.join
 print(wishlists().table_name)
 print(wishlists()("wishlists").table_name)
 
-# print all wishlist items with price > 10 (use Tabe.gt instead of lambda)
+# print all wishlist items with price > 10 (use Table.gt instead of lambda)
 # bigticketitems = wishlists().where(lambda ob : ob.unitprice > 10)
-bigticketitems = wishlists().where(unitprice=Table.gt(10))
+bigticketitems = wishlists().where(unitprice=lt.Table.gt(10))
 for bti in bigticketitems:
     print(bti)
 print()
@@ -93,11 +98,10 @@ for item in wishlists().sort("custid, unitprice desc"):
     print(item)
 print()
 
-# display formatted tabular output (only on Python 3.6 and later)
-if sys.version_info >= (3, 6):
-    wishlists().sort("custid, unitprice desc")("Wishlists").select(
-        "custid name sku descr"
-    ).present()
+# display formatted tabular output
+wishlists().sort("custid, unitprice desc")("Wishlists").select(
+    "custid name sku descr"
+).present(groupby="custid name")
 
 # create simple pivot table, grouping wishlist data by customer name
 wishlistsdata = wishlists()
