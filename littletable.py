@@ -712,7 +712,7 @@ class _MultiIterator:
             if "\n" in seqobj:
                 self._iterobj = iter(StringIO(seqobj))
                 self.type = ImportSourceType.string
-            elif seqobj.startswith("http"):
+            elif seqobj.startswith(("http://", "https://")):
                 self._iterobj = _decoder(urllib.request.urlopen(seqobj))
                 self.type = ImportSourceType.url
             else:
@@ -1413,6 +1413,9 @@ class Table(Generic[TableContent]):
         stripper = Table.NON_WORD_STRIPPER_RE
         s = stripper.match(s).group(1)
 
+        if s in sw:
+            return
+
         # catch plurals
         if (sa := s.rstrip(",.!?;:'\"-")).isalpha():
             s = sa
@@ -1524,7 +1527,7 @@ class Table(Generic[TableContent]):
         for i, rec in enumerate(self.obs):
             if not (attrvalue := getattr(rec, attrname, "")):
                 continue
-            words = self._normalize_split(attrvalue, stopwords_set)
+            words = self._normalize_split(attrvalue.lower(), stopwords_set)
             for wd in set(words):
                 new_index[wd].append(i)
 

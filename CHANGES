@@ -13,6 +13,8 @@ Version 2.2.1 (under development)
 - Rewrote handling of multiple custom `JSONEncoder`s to use multiple
   inheritance instead of explicit call chaining.
 
+- 20-30% performance speedup when creating a search index.
+
 - Better detection of English plurals when building search indexes. Searching
   will also detect `Error`, `Exception`, and `Warning` word endings, which are
   common in code documentation.
@@ -28,6 +30,10 @@ Version 2.2.1 (under development)
 
       import littletable as lt
       tbl = lt.csv_import(csv_data_file)
+
+- Updated examples to new search return type, and new module-level `csv_import()`.
+  Also added new example `csv_import_examples.py` showing multiple snippets of
+  importing CSV data.
 
 
 Version 2.2.0
