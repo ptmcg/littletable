@@ -35,6 +35,9 @@ Version 2.2.1 (under development)
   Also added new example `csv_import_examples.py` showing multiple snippets of
   importing CSV data.
 
+- Tables now keep track of timestamps when they were created, last modified, and
+  last imported.
+
 
 Version 2.2.0
 -------------
