@@ -1110,6 +1110,10 @@ class Table(Generic[TableContent]):
         self.import_source_type: Optional[ImportSourceType] = None
         self.import_source: Optional[str] = None
 
+        self.import_time = None
+        self.create_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
+        self.modify_time = self.create_time
+
         """
         C{'by'} is added as a pseudo-attribute on tables, to provide
         dict-like access to the underlying records in the table by index key, as in::
@@ -1805,12 +1809,15 @@ class Table(Generic[TableContent]):
         self._search_indexes.clear()
         return self
 
-    def _contents_changed(self):
+    def _contents_changed(self, *, invalidate_search_indexes=True):
         """
         Internal method to be called whenever the contents of a table are modified.
         """
-        for idx in self._search_indexes.values():
-            idx["VALID"] = False
+        if invalidate_search_indexes:
+            for idx in self._search_indexes.values():
+                idx["VALID"] = False
+
+        self.modify_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
 
     def _query_attr_sort_fn(self, attr_val: tuple[str, Any]) -> int:
         """Used to order where keys by most selective key first"""
@@ -2532,6 +2539,8 @@ class Table(Generic[TableContent]):
                 self.import_source = str(source)
                 self(str(source))
 
+        self.import_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
+        self._contents_changed()
         return self
 
     def csv_import(
@@ -3088,6 +3097,8 @@ class Table(Generic[TableContent]):
             raise AttributeError(
                 f"cannot add/modify attribute {attrname!r} in table records"
             )
+
+        self._contents_changed(invalidate_search_indexes=False)
         return self
 
     def groupby(self, keyexpr, **outexprs):
@@ -3193,6 +3204,9 @@ class Table(Generic[TableContent]):
                 (idx_name, self._indexes[idx_name] in unique_indexes)
                 for idx_name in self._indexes
             ],
+            "created": self.create_time,
+            "modified": self.modify_time,
+            "last_import": self.import_time,
         }
 
     def head(self, n: int = 10) -> "Table":
