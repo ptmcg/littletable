@@ -5,3 +5,4 @@ traits
 traitlets
 pydantic
 pytest
+pyparsing

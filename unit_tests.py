@@ -17,24 +17,16 @@ from types import SimpleNamespace
 import unittest
 from typing import Optional, Union, NamedTuple
 
-python_version = sys.version_info[:2]
-
 import littletable as lt
 
 SKIP_CSV_IMPORT_USING_URL_TESTS = os.environ.get("SKIP_CSV_IMPORT_USING_URL_TESTS", "0") == "1"
 
-try:
-    import dataclasses
-except ImportError:
-    print("dataclasses tests disabled")
-    # pre Py3.7 (or 3.6 with backported dataclasses)
-    dataclasses = None
-else:
-    @dataclasses.dataclass
-    class DataDataclass:
-        a: int
-        b: int
-        c: int
+import dataclasses
+@dataclasses.dataclass
+class DataDataclass:
+    a: int
+    b: int
+    c: int
 
 try:
     import pydantic
@@ -127,23 +119,20 @@ class Slotted:
         return f"{type(self).__name__}:(a={self.a}, b={self.b}, c={self.c})"
 
 
-if python_version >= (3, 8):
-    class SlottedWithDict:
-        __slots__ = {'a': 'a', 'b': 'b', 'c': 'c'}
+class SlottedWithDict:
+    __slots__ = {'a': 'a', 'b': 'b', 'c': 'c'}
 
-        def __init__(self, a, b, c):
-            self.a = a
-            self.b = b
-            self.c = c
+    def __init__(self, a, b, c):
+        self.a = a
+        self.b = b
+        self.c = c
 
-        def __eq__(self, other):
-            return (isinstance(other, SlottedWithDict) and
-                    all(getattr(self, attr) == getattr(other, attr) for attr in self.__slots__))
+    def __eq__(self, other):
+        return (isinstance(other, SlottedWithDict) and
+                all(getattr(self, attr) == getattr(other, attr) for attr in self.__slots__))
 
-        def __repr__(self):
-            return f"{type(self).__name__}:(a={self.a}, b={self.b}, c={self.c})"
-else:
-    SlottedWithDict = None
+    def __repr__(self):
+        return f"{type(self).__name__}:(a={self.a}, b={self.b}, c={self.c})"
 
 
 class TestDataObjects(unittest.TestCase):

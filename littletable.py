@@ -163,7 +163,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "20 May 2023 10:11 UTC"
+__version_time__ = "24 May 2023 09:22 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -2863,6 +2863,14 @@ class Table(Generic[TableContent]):
         @param json_decoder: subclass of json.JSONDecoder to pass through to json.loads (default=None)
         @type json_decoder: json.JSONDecoder
         """
+        class PathNotFoundError(KeyError):
+            def __init__(self, key, path):
+                super().__init__(key)
+                self.key = key
+                self.path = path
+
+            def __str__(self):
+                return f"could not find {self.key!r} element of path {self.path!r} in imported JSON"
 
         class _JsonFileReader:
             def __init__(self, src):
@@ -2871,6 +2879,8 @@ class Table(Generic[TableContent]):
 
             def __iter__(self):
                 if self.streaming:
+                    # incrementally read lines from source until a valid JSON object
+                    # can be parsed
                     current = ""
                     for line in self.source:
                         if current:
@@ -2882,13 +2892,20 @@ class Table(Generic[TableContent]):
                         except Exception:
                             pass
                 else:
+                    # merge entire source into one JSON parseable object
                     inbound_json = '\n'.join(self.source)
                     obs = json.loads(inbound_json, cls=json_decoder)
+
+                    # descend into parsed JSON object by path
                     for path_item in filter(None, path.split(".")):
                         obs = obs.get(path_item)
                         if obs is None:
-                            raise KeyError(path_item)
+                            raise PathNotFoundError(path_item, path)
+
                     yield from obs
+
+        if path and streaming:
+            raise ValueError("cannot specify path and streaming=True")
 
         if row_class is None:
             row_class = default_row_class
@@ -3346,10 +3363,10 @@ class Table(Generic[TableContent]):
             field_settings.append((header, field_spec))
 
         grouping = False
-        group_attrs = ()
+        group_attrs = []
         if groupby is not None:
-            group_attrs = tuple(g for g in self._parse_fields_string(groupby)
-                                if g in attr_names)
+            group_attrs = [g for g in self._parse_fields_string(groupby)
+                           if g in attr_names]
             if group_attrs:
                 grouping = True
 
@@ -3462,10 +3479,10 @@ class Table(Generic[TableContent]):
             return "".join(ret_tr)
 
         grouping = False
-        group_attrs = ()
+        group_attrs = []
         if groupby is not None:
-            group_attrs = tuple(g for g in self._parse_fields_string(groupby)
-                                if g in attr_names)
+            group_attrs = [g for g in self._parse_fields_string(groupby)
+                           if g in attr_names]
             if group_attrs:
                 grouping = True
 
@@ -3528,10 +3545,10 @@ class Table(Generic[TableContent]):
         attr_names = fields
 
         grouping = False
-        group_attrs = ()
+        group_attrs = []
         if groupby is not None:
-            group_attrs = tuple(g for g in self._parse_fields_string(groupby)
-                                if g in attr_names)
+            group_attrs = [g for g in self._parse_fields_string(groupby)
+                           if g in attr_names]
             if group_attrs:
                 grouping = True
 
