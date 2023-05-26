@@ -163,7 +163,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "24 May 2023 23:47 UTC"
+__version_time__ = "26 May 2023 10:12 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 NL = os.linesep
@@ -1111,7 +1111,7 @@ class Table(Generic[TableContent]):
         self.import_source: Optional[str] = None
 
         self.import_time = None
-        self.create_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
+        self.create_time = datetime.datetime.now().astimezone(datetime.UTC)
         self.modify_time = self.create_time
 
         """
@@ -1817,7 +1817,7 @@ class Table(Generic[TableContent]):
             for idx in self._search_indexes.values():
                 idx["VALID"] = False
 
-        self.modify_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
+        self.modify_time = datetime.datetime.now().astimezone(datetime.UTC)
 
     def _query_attr_sort_fn(self, attr_val: tuple[str, Any]) -> int:
         """Used to order where keys by most selective key first"""
@@ -2539,7 +2539,7 @@ class Table(Generic[TableContent]):
                 self.import_source = str(source)
                 self(str(source))
 
-        self.import_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
+        self.import_time = datetime.datetime.now().astimezone(datetime.UTC)
         self._contents_changed()
         return self
 

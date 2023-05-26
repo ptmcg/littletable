@@ -4,6 +4,7 @@
 # unit tests for littletable library
 #
 import ast
+import contextlib
 from collections import namedtuple
 import copy
 import io
@@ -20,6 +21,22 @@ from typing import Optional, Union, NamedTuple
 import littletable as lt
 
 SKIP_CSV_IMPORT_USING_URL_TESTS = os.environ.get("SKIP_CSV_IMPORT_USING_URL_TESTS", "0") == "1"
+
+
+@contextlib.contextmanager
+def timestamp_start_end(label=None, file=None):
+    import datetime
+
+    ret = SimpleNamespace()
+    ret.start = datetime.datetime.now().astimezone(datetime.UTC)
+    if label:
+        print(f"Start - {label}: {ret.start}", file=file)
+    yield ret
+    ret.end = datetime.datetime.now().astimezone(datetime.UTC)
+    ret.elapsed = ret.end - ret.start
+    if label:
+        print(f"End   - {label}: {ret.end}", file=file)
+
 
 import dataclasses
 @dataclasses.dataclass
@@ -311,8 +328,10 @@ else:
 
 def load_table(table, rec_factory_fn, table_size):
     test_size = table_size
-    for aa, bb, cc in itertools.product(range(test_size), repeat=3):
-        table.insert(rec_factory_fn(aa, bb, cc))
+    table.insert_many(
+        rec_factory_fn(aa, bb, cc)
+        for aa, bb, cc in itertools.product(range(test_size), repeat=3)
+    )
 
 
 def make_test_table(rec_factory_fn, table_size):
@@ -834,12 +853,17 @@ class TableCreateTests:
 
     def test_table_info(self):
         test_size = 10
-        t1 = make_test_table(self.make_data_object, test_size)('info_test')
+        with timestamp_start_end() as timing:
+            t1 = make_test_table(self.make_data_object, test_size)('info_test')
+
         t1.create_index('b')
         t1_info = t1.info()
         # must sort fields and indexes values, for test comparisons
         t1_info['fields'].sort()
         t1_info['indexes'].sort()
+        self.assertEqual(None, t1_info.pop("last_import"))
+        self.assertTrue(timing.start <= t1_info.pop("created") <= timing.end)
+        self.assertTrue(timing.start <= t1_info.pop("modified") <= timing.end)
         self.assertEqual({'fields': ['a', 'b', 'c'],
                           'indexes': [('b', False)],
                           'len': 1000,
@@ -1893,8 +1917,23 @@ class TableImportExportTests:
             self.assertEqual(type(t1[0]), type(csvtable2[0]))
 
     def test_csv_compressed_import(self):
-        tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int))
-        print("abc.csv", tt.info())
+
+        def verify_timestamps(t1, t2, info_dict):
+            for timestamp_attr_name in "created modified last_import".split():
+                timestamp_value = info_dict.pop(timestamp_attr_name)
+                with self.subTest():
+                    self.assertTrue(
+                        t1 <= timestamp_value <= t2,
+                        f"incorrect {timestamp_attr_name} time"
+                    )
+
+        with timestamp_start_end() as timing:
+            tt = lt.Table().csv_import("test/abc.csv", transforms=dict.fromkeys("abc", int))
+
+        expected_info_base = tt.info()
+        verify_timestamps(timing.start, timing.end, expected_info_base)
+
+        print("abc.csv", expected_info_base)
 
         compressed_files = [
             "abc.csv.zip",
@@ -1903,11 +1942,17 @@ class TableImportExportTests:
         ]
         for name in compressed_files:
             import_source_name = "test/" + name
-            tt2 = lt.Table().csv_import(import_source_name, transforms=dict.fromkeys("abc", int))
-            print(name, tt2.info())
-            expected_info = {**tt.info(), "name": import_source_name}
+            with timestamp_start_end() as timing:
+                tt2 = lt.Table().csv_import(import_source_name, transforms=dict.fromkeys("abc", int))
+
+            tt2_info = tt2.info()
+            print(name, tt2_info)
+
+            verify_timestamps(timing.start, timing.end, tt2_info)
+
+            expected_info = {**expected_info_base, "name": import_source_name}
             with self.subTest(name=name):
-                self.assertEqual(expected_info, tt2.info())
+                self.assertEqual(expected_info, tt2_info)
             with self.subTest(name=name):
                 self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
             with self.subTest(name=name):
@@ -1917,11 +1962,17 @@ class TableImportExportTests:
 
         # test separately, no transforms for JSON imports
         import_source_name = "test/abc.json.gz"
-        tt2 = lt.Table().json_import("test/abc.json.gz", streaming=True)
-        print("abc.json.gz", tt2.info())
-        expected_info = {**tt.info(), "name": import_source_name}
+        with timestamp_start_end() as timing:
+            tt2 = lt.Table().json_import("test/abc.json.gz", streaming=True)
+
+        tt2_info = tt2.info()
+        print("abc.json.gz", tt2_info)
+
+        verify_timestamps(timing.start, timing.end, tt2_info)
+
+        expected_info = {**expected_info_base, "name": import_source_name}
         with self.subTest():
-            self.assertEqual(expected_info, tt2.info())
+            self.assertEqual(expected_info, tt2_info)
         with self.subTest():
             self.assertEqual(sum(tt.all.a), sum(tt2.all.a))
         with self.subTest():
