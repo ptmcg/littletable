@@ -35,6 +35,19 @@ normal Python list access with:
 - joining multiple tables by common attribute values
 - querying for matching objects by one or more attributes
 - data pivoting on 1 or more attributes
+- full-text search on indexed attributes
+- easy CSV import/export
+
+`littletable` supports storage of:
+- user-defined objects
+- user-defined objects using `__slots__`
+- `dataclasses`
+- `collections.namedtuples` and `typing.NamedTuples`
+- `types.SimpleNamespaces`
+- `dicts` and `typing.TypedDicts` (converted internally to `SimpleNamespaces` for attribute-style access)
+- `pydantic` models (including `Model`, `ImmutableModel`, and `ORMModel`)
+- `traits` / `traitlets` classes
+- `attrs` classes
 
 It is not necessary to define a table schema for tables in `littletable`; the 
 schema of the data emerges from the attributes of the stored objects, and those 
@@ -42,8 +55,6 @@ used to define indexes and queries.
 
 Indexes can be created and dropped at any time. An index can be defined to have 
 unique or non-unique key values, and whether or not to allow null values.
-
-Tables can be persisted to and from CSV files using `csv_export()` and `csv_import()`.
 
 Instead of returning DataSets or rows of structured values, `littletable` queries 
 return new Tables. This makes it easy to arrive at a complex query by a sequence 
@@ -94,13 +105,6 @@ t.insert_many(objlist)
 Performance tip: Calling `insert_many()` with a list of objects will perform better than calling
 `insert()` in a loop.
 
-`littletable` supports records that are user-defined types (including those defined
-using `__slots__`), `dataclasses`, `namedtuple`s, and `SimpleNamespace`s. Python objects
-defined using `attrs`, `pydantic`, and `traits/traitlets` packages are also supported.
-Python `dict`s can be used; they will be stored as `SimpleNamespace`s so that the `dict` fields
-will be accessible as object attributes.
-
-
 Importing data from CSV files
 -----------------------------
 You can easily import a CSV file into a `Table` using `Table.csv_import()`:
@@ -109,7 +113,14 @@ You can easily import a CSV file into a `Table` using `Table.csv_import()`:
 t = Table().csv_import("my_data.csv")
 ```
 
-In place of a local file name, you can also specify an HTTP url:
+or:
+
+```python
+import littletable as lt
+t = lt.csv_import("my_data.csv")
+```
+
+In place of a local file name, you can specify an HTTP url:
 
 ```python
 url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
@@ -117,7 +128,7 @@ names = ["sepal-length", "sepal-width", "petal-length", "petal-width", "class"]
 iris_table = Table('iris').csv_import(url, fieldnames=names)
 ```
 
-You can also directly import CSV data as a string:
+You can directly import CSV data as a string:
 ```python
 catalog_data = """\
 sku,description,unitofmeas,unitprice
@@ -133,7 +144,7 @@ catalog.csv_import(catalog_data, transforms={'unitprice': int})
 If you are working with a very large CSV file and just trying to see 
 what the structure is, add `limit=100` to only read the first 100 rows.
 
-You can also pre-screen data as it is read from the input file by passing
+You can pre-screen data as it is read from the input file by passing
 a `filters={attr: filter_fn, ...}` argument. Each filter function is called
 on the newly-read object _before_ it is added to the table. `filter_fn` 
 can be any function that takes a single argument of the type of the given
@@ -168,6 +179,9 @@ Files containing JSON-formatted records can be similarly imported using
 .gz, or .xz archive, assuming that the file name of the compressed file is the 
 same as the original file with ".zip" or ".gz" or ".xz" added.
 
+Calling `csv_import` on the same `Table` multiple times with different CSV files
+accumulates all the data into a single table.
+
 Note: if you find you cannot import .xz or .lzma files, getting the Python error
 `ModuleNotFoundError :_lzma`, you can remedy this by rebuilding Python after 
 installing the `lzma-dev` library. On Ubuntu for example, this is done using:
@@ -188,19 +202,19 @@ tbl.excel_export("new_table.xlsx")
 Data values from Excel get converted to standard Python types where possible.
 A spreadsheet containing the following data:
 
-| name | value | type |
-|---|---|---|
-| a | 100 | int |
-| b | 3.14159 | float |
-| c | None | null |
-| d | 2021-12-25 00:00:00 | date |
-| e | Floyd | str |
-| f |   | space |
-| g | 𝚃𝖞𝐩𝓮𝖤𝔯𝘳º𝗿 | str |
-| h | True | bool |
-| i | =TODAY() | formula |
-| j | 0 | None |
-| k | None | None |
+| name | value               | type    |
+|------|---------------------|---------|
+| a    | 100                 | int     |
+| b    | 3.14159             | float   |
+| c    | None                | null    |
+| d    | 2021-12-25 00:00:00 | date    |
+| e    | Floyd               | str     |
+| f    |                     | space   |
+| g    | 𝚃𝖞𝐩𝓮𝖤𝔯𝘳º𝗿   | str     |
+| h    | True                | bool    |
+| i    | =TODAY()            | formula |
+| j    | 0                   | None    |
+| k    | None                | None    |
 
 Can be imported and the data values will be automatically
 converted as shown below:
@@ -399,7 +413,7 @@ returns a bool to indicate if the record is a match:
 employees.where(lambda emp: emp.salary > 50000)
 ```
 
-`littletable` also includes _comparators_ to make range-checking easier to
+`littletable` includes _comparators_ to make range-checking easier to
 write. The following table lists the comparators, plus examples of their
 usage:
 
@@ -565,15 +579,16 @@ matches.present()
 Will display:
 
 ```
-+-----------------------------------------------------------------------------+
-| Title              | Ingredients                 | Ingredients Search Score |
-|--------------------+-----------------------------+--------------------------|
-| BLT                | bread bacon lettuce tomato  |                     1100 |
-|                    | mayonnaise                  |                          |
-| Bacon cheeseburger | ground beef bun lettuce     |                     1000 |
-|                    | ketchup mustard pickle      |                          |
-|                    | cheese bacon                |                          |
-+-----------------------------------------------------------------------------+
+                          +bacon tomato --pineapple
+
+  Title                Ingredients                 Ingredients Search Score 
+ ───────────────────────────────────────────────────────────────────────────
+  BLT                  bread bacon lettuce                             1100
+                       tomato mayonnaise
+  Bacon cheeseburger   ground beef bun lettuce                         1000
+                       ketchup mustard pickle
+                       cheese bacon
+
 ```
 
 Search indexes will become invalid if records are added or removed from the table 
@@ -601,34 +616,45 @@ a,b,c
 108,130,109""", transforms=dict(a=int, b=int, c=int))
 
 t1_stats = t1.stats()
-t1_stats.present(box=lt.box.ASCII)
+t1_stats.present()
 print(t1_stats.by.name["a"].mean)
+```
 
-#    +-----------------------------------------------------------------+
-#    | Name |  Mean | Min | Max | Variance | Std Dev | Count | Missing |
-#    |------+-------+-----+-----+----------+---------+-------+---------|
-#    |  a   | 106.0 | 100 | 110 |       28 |   5.292 |     3 |       0 |
-#    |  b   | 150.3 | 101 | 220 |   3850.0 |   62.05 |     3 |       0 |
-#    |  c   | 103.3 |  99 | 109 |    26.33 |   5.132 |     3 |       0 |
-#    +-----------------------------------------------------------------+
-#    106.0
+Prints:
 
+```
+  Name    Mean   Min   Max   Variance   Std Dev   Count   Missing 
+ ─────────────────────────────────────────────────────────────────
+   a     106.0   100   110         28     5.292       3         0
+   b     150.3   101   220     3850.0     62.05       3         0
+   c     103.3    99   109      26.33     5.132       3         0
+
+106.0
+```
+
+This same data computed by stat instead of by field name.
+
+```python
 t1_stats = t1.stats(by_field=False)
-t1_stats.present(box=lt.box.ASCII)
+t1_stats.present(box=lt.box.ASCII)  # uses ASCII table borders
 print(t1_stats.by.stat["mean"].a)
+```
 
-#    +-----------------------------------+
-#    | Stat     |     A |      B |     C |
-#    |----------+-------+--------+-------|
-#    | mean     | 106.0 |  150.3 | 103.3 |
-#    | min      |   100 |    101 |    99 |
-#    | max      |   110 |    220 |   109 |
-#    | variance |    28 | 3850.0 | 26.33 |
-#    | std_dev  | 5.292 |  62.05 | 5.132 |
-#    | count    |     3 |      3 |     3 |
-#    | missing  |     0 |      0 |     0 |
-#    +-----------------------------------+
-#    106.0
+Prints:
+
+```
+    +-----------------------------------+
+    | Stat     |     A |      B |     C |
+    |----------+-------+--------+-------|
+    | mean     | 106.0 |  150.3 | 103.3 |
+    | min      |   100 |    101 |    99 |
+    | max      |   110 |    220 |   109 |
+    | variance |    28 | 3850.0 | 26.33 |
+    | std_dev  | 5.292 |  62.05 | 5.132 |
+    | count    |     3 |      3 |     3 |
+    | missing  |     0 |      0 |     0 |
+    +-----------------------------------+
+    106.0
 ```
 
 
@@ -774,20 +800,20 @@ student_id,course
 non_reg = students.outer_join(lt.Table.RIGHT_OUTER_JOIN, 
                               registrations, 
                               student_id="student_id").where(course=None)
-non_reg.present()
+non_reg.select("student_id name").present()
 print(list(non_reg.all.name))
 ```
     
 Displays:
 
-    +----------------------------+
-    | Student_Id | Name | Course |
-    |------------+------+--------|
-    | 0002       | Bob  | None   |
-    | 0004       | Dave | None   |
-    +----------------------------+
-    ['Bob', 'Dave']
+```
+  Student Id   Name 
+ ───────────────────
+  0002         Bob
+  0004         Dave
 
+['Bob', 'Dave']
+```
 
 
 Pivoting a table
@@ -804,7 +830,7 @@ Pivoting on 2 attributes extends the concept, getting the range of key values
 for each attribute, and then tallying the number of objects containing each 
 possible pair of key values. The results can be reported as a two-dimensional 
 table, with the primary attribute keys down the leftmost column, and the 
-secondary attribute keys as headers across the columns.  Subtotals will also 
+secondary attribute keys as headers across the columns.  Subtotals will 
 be reported at the far right column and at the bottom of each column.
 
 
@@ -946,5 +972,5 @@ Some simple littletable recipes
 
   ```python
   employees.create_index("first_name")
-  employees.by.first_name["X": "Y"]
+  employees.by.first_name["X": "Y"]  # same as `"X" <= first_name < "Y"`
   ```
