@@ -5,6 +5,7 @@
 #
 import ast
 import contextlib
+import typing
 from collections import namedtuple
 import copy
 import io
@@ -16,7 +17,7 @@ import sys
 import textwrap
 from types import SimpleNamespace
 import unittest
-from typing import Optional, Union, NamedTuple
+from typing import Optional, Union
 
 import littletable as lt
 
@@ -105,7 +106,7 @@ else:
 DataTuple = namedtuple("DataTuple", "a b c")
 
 
-class DataNamedTuple(NamedTuple):
+class TypingNamedTuple(typing.NamedTuple):
     a: int
     b: int
     c: int
@@ -150,6 +151,12 @@ class SlottedWithDict:
 
     def __repr__(self):
         return f"{type(self).__name__}:(a={self.a}, b={self.b}, c={self.c})"
+
+
+class TypingTypedDict(typing.TypedDict):
+    a: int
+    b: int
+    c: int
 
 
 class TestDataObjects(unittest.TestCase):
@@ -239,7 +246,7 @@ def make_test_class(*classes):
 def make_test_classes(cls):
     make_test_class(cls, UsingDataObjects)
     make_test_class(cls, UsingNamedtuples)
-    make_test_class(cls, UsingDataNamedtuples)
+    make_test_class(cls, UsingTypingNamedTuple)
     make_test_class(cls, UsingSlottedObjects)
     if SlottedWithDict is not None:
         make_test_class(cls, UsingSlottedWithDictObjects)
@@ -254,6 +261,7 @@ def make_test_classes(cls):
         make_test_class(cls, UsingAttrClass)
     if traitlets is not None:
         make_test_class(cls, UsingTraitletsClass)
+    make_test_class(cls, UsingTypingTypedDict)
 
 
 class AbstractContentTypeFactory:
@@ -270,10 +278,6 @@ class UsingDataObjects(AbstractContentTypeFactory):
 
 class UsingNamedtuples(AbstractContentTypeFactory):
     data_object_type = DataTuple
-
-
-class UsingDataNamedtuples(AbstractContentTypeFactory):
-    data_object_type = DataNamedTuple
 
 
 class UsingSlottedObjects(AbstractContentTypeFactory):
@@ -325,6 +329,15 @@ if traitlets is not None:
 else:
     UsingTraitletsClass = AbstractContentTypeFactory
 
+class UsingTypingNamedTuple(AbstractContentTypeFactory):
+    data_object_type = TypingNamedTuple
+
+class UsingTypingTypedDict(AbstractContentTypeFactory):
+    data_object_type = TypingTypedDict
+
+    @classmethod
+    def make_data_object(cls, a, b, c):
+        return SimpleNamespace(a=a, b=b, c=c)
 
 def load_table(table, rec_factory_fn, table_size):
     test_size = table_size
@@ -341,7 +354,7 @@ def make_test_table(rec_factory_fn, table_size):
 
 
 def make_dataobject_from_ob(rec):
-    return lt.DataObject(**{k: getattr(rec, k) for k in lt._object_attrnames(rec)})
+    return SimpleNamespace(**{k: getattr(rec, k) for k in lt._object_attrnames(rec)})
 
 
 class TableTypeTests(unittest.TestCase):
@@ -2777,7 +2790,10 @@ class TableSearchTests_DataObjects(TableSearchTests, UsingDataObjects):
 class TableSearchTests_Namedtuples(TableSearchTests, UsingNamedtuples):
     pass
 
-class TableSearchTests_DataNamedtuples(TableSearchTests, UsingDataNamedtuples):
+class TableSearchTests_TypingNamedtuples(TableSearchTests, UsingTypingNamedTuple):
+    pass
+
+class TableSearchTests_TypingTypedDict(TableSearchTests, UsingTypingTypedDict):
     pass
 
 class TableSearchTests_Slotted(TableSearchTests, UsingSlottedObjects):
