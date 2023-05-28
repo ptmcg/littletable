@@ -125,6 +125,7 @@ import functools
 import io
 import itertools
 import textwrap
+import typing
 import warnings
 from enum import Enum
 from io import StringIO
@@ -163,20 +164,53 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "26 May 2023 10:12 UTC"
+__version_time__ = "28 May 2023 18:46 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
+
+
+# custom Exception classes
+class SearchIndexInconsistentError(Exception):
+    """
+    Exception raised when using search method on table that has been
+    modified since the search index was built.
+    """
+
+
+class NoSuchIndexError(KeyError):
+    """
+    Exception raised when trying to access an index that does not exist.
+    """
+    def __init__(self, attrname):
+        super().__init__(attrname)
+
+    def __str__(self):
+        index_name = super().__str__()
+        return f"no such index {index_name!r}"
+
+
+class UnableToExtractAttributeNamesError(ValueError):
+    """
+    Exception raised when attributes cannot be determined from an object.
+    """
+
+
+class ReadonlyIndexAccessError(Exception):
+    """
+    Exception raised when trying to write to a readonly index.
+    """
+
 
 NL = os.linesep
 
 default_row_class = SimpleNamespace
 
-_numeric_type: tuple = (int, float)
-right_justify_types = (int, float, datetime.timedelta)
+_numeric_type: tuple[type, ...] = (int, float)
+right_justify_types: tuple[type, ...] = (int, float, datetime.timedelta)
 
 try:
     import numpy
 except ImportError:
-    pass
+    numpy = None
 else:
     _numeric_type += (numpy.number,)
 
@@ -253,10 +287,6 @@ _significant_word_endings = (
 )
 
 
-class UnableToExtractAttributeNamesError(ValueError):
-    """Exception raised when attributes cannot be determined from an object."""
-
-
 def _object_attrnames(obj):
     if hasattr(obj, "trait_names"):
         return obj.trait_names()
@@ -293,14 +323,6 @@ def _to_dict(obj):
 
 def _to_json(obj, enc_cls):
     return json.dumps(_to_dict(obj), cls=enc_cls)
-
-
-# special Exceptions
-class SearchIndexInconsistentError(Exception):
-    """
-    Exception raised when using search method on table that has been
-    modified since the search index was built.
-    """
 
 
 class DataObject:
@@ -521,9 +543,6 @@ class _UniqueObjIndexWrapper(_ObjIndexWrapper):
             if k in self._index:
                 ret.insert_many(self._index[k])
             return ret
-
-
-class ReadonlyIndexAccessError(Exception): pass
 
 
 class _ReadonlyObjIndexWrapper(_ObjIndexWrapper):
@@ -1380,7 +1399,7 @@ class Table(Generic[TableContent]):
 
     PLURAL_ENDING_IN_IES = re.compile(r"(.*[^aeiouy])ies$")
     PLURAL_ENDING_IN_ES = re.compile(r"(.*(?:ch|ss|sh|x))es$")
-    PLURAL_ENDING_IN_ES2 = re.compile(r"(.*(?:[bcdfghklmnprstuvwxz|(qu)])e)s$")
+    PLURAL_ENDING_IN_ES2 = re.compile(r"(.*(?:[bcdfghklmnprstuvwxz]|(qu))e)s$")
     PLURAL_ENDING_IN_S = re.compile(r"(.*[^aeious])s$")
     SINGULAR_ENDING_IN_S = re.compile(r"(.*(?:ness|ics))$")
 
@@ -1555,7 +1574,7 @@ class Table(Generic[TableContent]):
                 " rebuild using create_search_index()"
             )
             raise SearchIndexInconsistentError(msg)
-        stopwords = search_index["STOPWORDS"]
+        stopwords = typing.cast(frozenset[str], search_index["STOPWORDS"])
 
         plus_matches: dict[str, set[int]] = {}
         minus_matches: dict[str, list[int]] = {}
@@ -1573,8 +1592,6 @@ class Table(Generic[TableContent]):
                 kwds = tuple(self._normalize_word_gen(keyword[2:], stopwords))
                 reqd_words[kwds] = {}
                 for kwd in kwds:
-                    # kwd = self._normalize_word(keyword[2:])
-
                     matched_entries = set(search_index.get(kwd, []))
                     reqd_words[kwds][kwd] = matched_entries
                     if not matched_entries:
@@ -1584,26 +1601,22 @@ class Table(Generic[TableContent]):
                         plus_matches[kwd] = matched_entries
 
             elif keyword.startswith("--"):
-                # kwd = self._normalize_word(keyword[2:])
                 for kwd in self._normalize_word_gen(keyword[2:], stopwords):
                     excl_matches |= set(search_index.get(kwd, []))
 
             elif keyword.startswith("+"):
-                # kwd = self._normalize_word(keyword[1:])
                 for kwd in self._normalize_word_gen(keyword[1:], stopwords):
                     minus_matches.pop(kwd, None)
                     if kwd not in plus_matches and kwd not in reqd_matches:
                         plus_matches[kwd] = set(search_index.get(kwd, []))
 
             elif keyword.startswith("-"):
-                # kwd = self._normalize_word(keyword[1:])
                 for kwd in self._normalize_word_gen(keyword[1:], stopwords):
                     plus_matches.pop(kwd, None)
                     if kwd not in minus_matches and kwd not in excl_matches:
                         minus_matches[kwd] = set(search_index.get(kwd, []))
 
             else:
-                # kwd = self._normalize_word(keyword)
                 for kwd in self._normalize_word_gen(keyword, stopwords):
                     if kwd in plus_matches or kwd in minus_matches:
                         continue
@@ -1669,11 +1682,30 @@ class Table(Generic[TableContent]):
 
         return ret
 
-    def delete_search_index(self, attrname: str):
+    def delete_search_index(self, attrname: str) -> "Table":
         """
         Deletes a previously-created search index on a particular attribute.
         """
         self._search_indexes.pop(attrname, None)
+        return self
+
+    def rebuild_search_index(self, attrname: str, force=True) -> "Table":
+        """
+        Rebuilds an existing search index if it has been invalidated, or if force=True.
+        """
+        try:
+            existing_search_index = self._search_indexes[attrname]
+        except KeyError:
+            raise NoSuchIndexError(attrname)
+
+        if not existing_search_index['VALID'] or force:
+            self.create_search_index(
+                attrname,
+                stopwords=existing_search_index["STOPWORDS"],
+                force=True,
+            )
+
+        return self
 
     def insert(self, obj: Any) -> "Table":
         """
@@ -3339,7 +3371,6 @@ class Table(Generic[TableContent]):
             raise Exception("rich module not installed")
 
         from rich.table import Table as RichTable
-        from rich.markup import escape as rich_escape
 
         if fields is None:
             fields = self.info()["fields"]
