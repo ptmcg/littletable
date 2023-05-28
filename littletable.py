@@ -157,14 +157,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 2, 1, "final", 0)
+__version_info__ = version_info(2, 2, 2, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "28 May 2023 18:46 UTC"
+__version_time__ = "28 May 2023 19:19 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -1130,7 +1130,7 @@ class Table(Generic[TableContent]):
         self.import_source: Optional[str] = None
 
         self.import_time = None
-        self.create_time = datetime.datetime.now().astimezone(datetime.UTC)
+        self.create_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
         self.modify_time = self.create_time
 
         """
@@ -1849,7 +1849,7 @@ class Table(Generic[TableContent]):
             for idx in self._search_indexes.values():
                 idx["VALID"] = False
 
-        self.modify_time = datetime.datetime.now().astimezone(datetime.UTC)
+        self.modify_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
 
     def _query_attr_sort_fn(self, attr_val: tuple[str, Any]) -> int:
         """Used to order where keys by most selective key first"""
@@ -2571,7 +2571,7 @@ class Table(Generic[TableContent]):
                 self.import_source = str(source)
                 self(str(source))
 
-        self.import_time = datetime.datetime.now().astimezone(datetime.UTC)
+        self.import_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
         self._contents_changed()
         return self
 
