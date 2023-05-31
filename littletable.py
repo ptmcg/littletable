@@ -157,14 +157,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 2, 2, "final", 0)
+__version_info__ = version_info(2, 2, 3, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "28 May 2023 19:19 UTC"
+__version_time__ = "31 May 2023 05:23 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -2012,6 +2012,9 @@ class Table(Generic[TableContent]):
 
         @param fields: list of strings, or single space-delimited string, listing attribute name to be included in the
         output
+         - names starting with '-' indicate to suppress that field
+         - '*' means include all other field names
+         - if no fields are specifically included, then all fields are used
         @type fields: list, or space-delimited string
         @param exprs: one or more named callable arguments, to compute additional fields using the given function
         @type exprs: C{name=callable}, callable takes the record as an argument, and returns the new attribute value
@@ -3096,6 +3099,39 @@ class Table(Generic[TableContent]):
         for o in self.obs:
             ws.append([v for v in _to_dict(o).values()])
         wb.save(excel_dest)
+
+    def as_dataframe(self, fields=None):
+        """
+        Export contents of the Table to a pandas DataFrame.
+        @param fields: list of strings, or single space-delimited string, listing
+        attribute name to be included in the output
+         - names starting with '-' indicate to suppress that field
+         - '*' means include all other field names
+         - if no fields are specifically included, then all fields are used
+        @type fields: list, or space-delimited string
+        """
+        try:
+            import pandas as pd
+        except ImportError:
+            print("pandas not installed", file=sys.stderr)
+            return None
+
+        if fields is None:
+            # assume all fields
+            fieldnames = self._attr_names()
+        else:
+            fieldnames = self._parse_fields_string(fields)
+
+        # operator.attrgetter is an efficient extractor of values from objects
+        extractor = operator.attrgetter(*fieldnames)
+
+        # build a DataFrame from the tuples returned by the extractor for
+        # each object in this Table
+        ret = pd.DataFrame(
+            map(extractor, self),
+            columns=fieldnames,
+        )
+        return ret
 
     def add_field(
         self, attrname: str, fn: Callable[[Any], Any], default: Any = None

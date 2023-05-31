@@ -7,9 +7,17 @@ NOTE: Deprecated features will be removed in the 3.0 release of littletable:
 - Table.re_match(patt) comparator is deprecated, replace with
   re.compile(patt).match
 
+
+Version 2.2.3
+-------------
+- Added `Table.as_dataframe()` method to make a pandas `DataFrame` from a
+  `littletable.Table`, and example `table_to_dataframe.py` (after a co-worker
+  asked how to make a `DataFrame` from a `Table`).
+
+
 Version 2.2.2
 -------------
-- Fixed bug using datetime.UTC (only available under Python 3.11 - sorry!)
+- Fixed bug using `datetime.UTC` (only available under Python 3.11 - sorry!)
 
 
 Version 2.2.1
