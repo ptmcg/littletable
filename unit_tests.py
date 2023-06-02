@@ -1840,6 +1840,30 @@ fixed_width_data = """\
 
 @make_test_classes
 class TableImportExportTests:
+    def test_as_dataframe(self):
+        try:
+            import pandas as pd
+        except ImportError:
+            print("pandas not installed, skipping test")
+            return
+
+        import json
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        df: pd.DataFrame = t1.as_dataframe("-b")
+
+        # check column names
+        self.assertEqual(["a", "c"], list(df.columns))
+
+        # check imported values
+        from_df = df.to_json(orient="values")
+        expected = [
+            [rec.a, rec.c] for rec in t1
+        ]
+        self.assertEqual(expected, json.loads(from_df))
+
     def test_csv_export(self):
         from itertools import permutations
         test_size = 3
