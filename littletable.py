@@ -164,7 +164,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "31 May 2023 05:23 UTC"
+__version_time__ = "07 Jun 2023 02:06 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -715,7 +715,12 @@ class _MultiIterator:
     - any iterable
     """
 
-    def __init__(self, seqobj: _ImportExportDataContainer, encoding: str = "utf-8"):
+    def __init__(
+            self,
+            seqobj: _ImportExportDataContainer,
+            encoding: str = "utf-8",
+            url_args: dict = None,
+    ):
         def _decoder(seq):
             for line in seq:
                 yield line.decode(encoding)
@@ -732,7 +737,11 @@ class _MultiIterator:
                 self._iterobj = iter(StringIO(seqobj))
                 self.type = ImportSourceType.string
             elif seqobj.startswith(("http://", "https://")):
-                self._iterobj = _decoder(urllib.request.urlopen(seqobj))
+                if not isinstance(url_args.get("data", b""), bytes):
+                    raise TypeError("'data' must be of type bytes")
+
+                data_request = urllib.request.Request(url=seqobj, **url_args)
+                self._iterobj = _decoder(urllib.request.urlopen(data_request))
                 self.type = ImportSourceType.url
             else:
                 if seqobj.endswith(".gz"):
@@ -2487,12 +2496,13 @@ class Table(Generic[TableContent]):
         reader=csv.DictReader,
         row_class: type = None,
         limit: int = None,
+        url_args: dict = None,
     ):
 
         if row_class is None:
             row_class = default_row_class
 
-        with closing(_MultiIterator(source, encoding)) as _srciter:
+        with closing(_MultiIterator(source, encoding, url_args)) as _srciter:
             csvdata = reader(_srciter)
 
             if transforms:
@@ -2621,7 +2631,9 @@ class Table(Generic[TableContent]):
         @param fieldnames: names for imported columns; used if there is no header line in the input file
         @type fieldnames: list[str] or str
         """
-        non_reader_args = "encoding csv_source transforms row_class limit".split()
+        non_reader_args = "encoding csv_source transforms row_class limit headers data".split()
+        url_arg_names = "headers data".split()
+        url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
         }
@@ -2634,6 +2646,7 @@ class Table(Generic[TableContent]):
             reader=lambda src: csv.DictReader(src, **reader_args),
             row_class=row_class,
             limit=limit,
+            url_args=url_args,
         )
 
     def _xsv_import(
@@ -2646,7 +2659,9 @@ class Table(Generic[TableContent]):
         limit: int = None,
         **kwargs,
     ):
-        non_reader_args = "encoding xsv_source transforms row_class limit filters".split()
+        non_reader_args = "encoding xsv_source transforms row_class limit filters headers data".split()
+        url_arg_names = "headers data".split()
+        url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
         }
@@ -2658,6 +2673,7 @@ class Table(Generic[TableContent]):
             reader=lambda src: csv.DictReader(src, **reader_args),
             row_class=row_class,
             limit=limit,
+            url_args=url_args,
         )
 
     def tsv_import(
@@ -2730,6 +2746,9 @@ class Table(Generic[TableContent]):
                 for row in rows_iter:
                     yield {key: cell.value for key, cell in zip(header, row)}
 
+        url_arg_names = "headers data".split()
+        url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
+
         return self._import(
             excel_source,
             transforms=transforms,
@@ -2737,6 +2756,7 @@ class Table(Generic[TableContent]):
             reader=lambda src: excel_as_dict(src._iterobj, **kwargs),
             row_class=row_class,
             limit=limit,
+            url_args=url_args,
         )
 
     def excel_import(
@@ -2779,12 +2799,15 @@ class Table(Generic[TableContent]):
         @type fieldnames: list[str] or str
         """
         kwargs["fieldnames"] = fieldnames.split() if isinstance(fieldnames, str) else fieldnames
+        url_arg_names = "headers data".split()
+        url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         return self._excel_import(
             excel_source,
             transforms=transforms,
             filters=filters,
             row_class=row_class,
             limit=limit,
+            url_args=url_args,
             **kwargs,
         )
 
@@ -2882,6 +2905,7 @@ class Table(Generic[TableContent]):
         streaming: bool = False,
         path: str = "",
         json_decoder: json.JSONDecoder = None,
+        **kwargs,
     ) -> "Table":
         """
         Imports the contents of a JSON data file into this table.
@@ -2953,12 +2977,17 @@ class Table(Generic[TableContent]):
 
         if row_class is None:
             row_class = default_row_class
+
+        url_arg_names = "headers data".split()
+        url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
+
         return self._import(
             source,
             encoding,
             transforms=transforms,
             reader=_JsonFileReader,
             row_class=row_class,
+            url_args=url_args,
         )
 
     def json_export(

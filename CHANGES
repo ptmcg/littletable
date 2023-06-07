@@ -10,6 +10,11 @@ NOTE: Deprecated features will be removed in the 3.0 release of littletable:
 
 Version 2.2.3
 -------------
+- Added support for optional `headers` and `data` arguments to `csv_import`,
+  `tsv_import`, `json_import`, and `excel_import` methods. `headers` can be
+  passed as a dict of HTTP headers if the import source is an HTTP url, and
+  `data` can be passed as bytes to be sent as an HTTP body.
+
 - Added `Table.as_dataframe()` method to make a pandas `DataFrame` from a
   `littletable.Table`, and example `table_to_dataframe.py` (after a co-worker
   asked how to make a `DataFrame` from a `Table`).

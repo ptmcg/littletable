@@ -2063,22 +2063,47 @@ class TableImportExportTests:
 
         class CSVTestRequestHandler(BaseHTTPRequestHandler):
             def do_GET(self):
-                self.log_message("received %s %s", self.command, self.path)
+                self.log_message(f"received {self.command} {self.path}")
                 path = self.path
+                send_bytes = b""
                 if path == "/EXIT":
                     self.send_response(HTTPStatus.OK)
                     self.end_headers()
+                    self.wfile.write(send_bytes)
                     threading.Thread(target=lambda: self.server.shutdown()).start()
 
                 elif path == "/":
                     self.send_response(HTTPStatus.OK)
                     self.end_headers()
+                    self.wfile.write(send_bytes)
 
                 elif path.startswith("/abc.csv"):
-                    send_bytes = b"a,b,c\n1,2,3\n"
+                    send_bytes += b"a,b,c\n1,2,3\n"
                     self.send_response(HTTPStatus.OK)
                     self.end_headers()
                     self.wfile.write(send_bytes)
+
+            def do_POST(self):
+                self.log_message(f"received {self.command} {self.path}")
+                path = self.path
+                added_value = self.headers["Value"]
+                self.log_message(f"received header 'Value' {added_value!r}")
+                self.log_message("about to read from rfile")
+                added_column = self.rfile.read(int(self.headers.get('Content-Length', '1')))
+                try:
+                    added_column_str = added_column.decode()
+                except Exception as e:
+                    self.log_message(f"Error decoding added column: {type(e).__name__}: {e}")
+                    added_column_str = "error"
+                self.log_message("read from rfile complete")
+                self.log_message(f"received body {added_column!r}")
+
+                send_bytes = b""
+                if path.startswith("/abc.csv"):
+                    send_bytes += f"a,b,c,{added_column_str}\n1,2,3,{added_value}\n".encode()
+                    self.send_response(HTTPStatus.OK)
+                    self.end_headers()
+                self.wfile.write(send_bytes)
 
         def run(server_class=HTTPServer, handler_class=CSVTestRequestHandler):
             server_address = ('', 8888)
@@ -2105,16 +2130,29 @@ class TableImportExportTests:
         url = web_address + "/abc.csv"
         try:
             tbl = lt.Table().csv_import(url)
+            tbl2 = lt.Table().csv_import(
+                url,
+                data=b"extra",
+                headers={"VALUE": "100"},
+                transforms={}.fromkeys("a b c extra".split(), int),
+            )
         finally:
             with urllib.request.urlopen(web_address + "/EXIT"):
                 pass
             p.join()
 
         tbl.present()
+        tbl2.present()
+
         with self.subTest():
             self.assertEqual(url, tbl.import_source)
         with self.subTest():
             self.assertEqual(lt.ImportSourceType.url, tbl.import_source_type)
+
+        with self.subTest():
+            self.assertEqual("a b c extra".split(), tbl2.info()["fields"])
+        with self.subTest():
+            self.assertEqual(100, tbl2[0].extra)
 
     def test_csv_filtered_import(self):
         test_size = 3
