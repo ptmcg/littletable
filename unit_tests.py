@@ -2960,6 +2960,8 @@ class StorageIndependentTests(unittest.TestCase):
             ('ValueError', ['error', 'valueerror']),
             ('DeprecationWarning', ['deprecationwarning', 'warning']),
             ('CustomException', ['customexception', 'exception']),
+            ('terror', ['terror']),
+            ('error', ['error']),
         ]:
             with self.subTest(in_word):
                 self.assertEqual(expected_words,

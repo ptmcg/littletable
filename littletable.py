@@ -164,7 +164,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "07 Jun 2023 02:06 UTC"
+__version_time__ = "08 Jun 2023 02:27 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -1404,7 +1404,7 @@ class Table(Generic[TableContent]):
     NON_WORD_STRIPPER_RE = re.compile(r"[^\w_]?([\w._-]*)[^\w.]*")
     NON_WORD_STRIPPER2_RE = re.compile(r"[^\w_-]?((?:\w|[-_]\w)+)(!>_-)$")
     ACRONYM_WITH_PERIODS = re.compile(r"((?:\w\.){2,})(!>\.)$")
-    SIGNIFICANT_WORD_ENDING_RE = re.compile(rf".*({'|'.join(_significant_word_endings)})$")
+    SIGNIFICANT_WORD_ENDING_RE = re.compile(rf"[a-z]{{2,}}({'|'.join(_significant_word_endings)})$")
 
     PLURAL_ENDING_IN_IES = re.compile(r"(.*[^aeiouy])ies$")
     PLURAL_ENDING_IN_ES = re.compile(r"(.*(?:ch|ss|sh|x))es$")
@@ -1465,8 +1465,10 @@ class Table(Generic[TableContent]):
             yield s
 
             # # also add special ending words for code and documentation parsing
-            if s.endswith(_significant_word_endings):
-                yield Table.SIGNIFICANT_WORD_ENDING_RE.match(s)[1]
+            if (s.endswith(_significant_word_endings) and
+                (m := Table.SIGNIFICANT_WORD_ENDING_RE.match(s))
+            ):
+                yield m[1]
 
             return
 
@@ -1627,6 +1629,9 @@ class Table(Generic[TableContent]):
 
             else:
                 for kwd in self._normalize_word_gen(keyword, stopwords):
+                    if m := Table.SIGNIFICANT_WORD_ENDING_RE.match(keyword):
+                        if kwd == m[1]:
+                            continue
                     if kwd in plus_matches or kwd in minus_matches:
                         continue
                     opt_matches[kwd] = set(search_index.get(kwd, []))
