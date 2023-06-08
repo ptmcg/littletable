@@ -6,6 +6,7 @@ How to Use littletable
   * [Inserting objects](#inserting-objects)
   * [Importing data from CSV files](#importing-data-from-csv-files)
   * [Import/export data to Excel files](#importexport-to-excel-files-xlsx)
+  * [Importing from remote sources using HTTP](#importing-from-remote-sources-using-http)
   * [Tabular output](#tabular-output)
   * [types.SimpleNamespace](#typessimplenamespace)
   * [Removing objects](#removing-objects)
@@ -120,7 +121,9 @@ import littletable as lt
 t = lt.csv_import("my_data.csv")
 ```
 
-In place of a local file name, you can specify an HTTP url:
+In place of a local file name, you can specify an HTTP url (see 
+[Importing from remote sources using HTTP](#importing-from-remote-sources-using-http) for more
+details):
 
 ```python
 url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
@@ -238,6 +241,22 @@ i '=TODAY()' <class 'str'> formula
 j 0 <class 'int'> None
 k None <class 'NoneType'> None
 ```
+
+Importing from remote sources using HTTP
+----------------------------------------
+When importing from an HTTP or HTTPS source, you can optionally specify the following
+named arguments:
+
+| Argument | Type  | Description                                                                                         |
+|----------|-------|-----------------------------------------------------------------------------------------------------|
+| headers  | dict  | Headers to be passed as part of the HTTP request                                                    |
+| data     | bytes | Data to pass as the body of the request (will use the HTTP POST method in place of the default GET) |
+| username | str   | Username to pass using Basic Authentication; will generate `Authorization` header                   |
+| password | str   | Optional password for Basic Authentication, default = ""                                            |
+
+_(Note: when passing username and password credentials, HTTPS URLs are strongly encouraged, to prevent
+exposure of credentials in unencrypted requests. `littletable` will emit a warning when importing with authentication
+using an HTTP URL.)_
 
 Tabular output
 --------------

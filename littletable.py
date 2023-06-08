@@ -118,6 +118,7 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 """
 
+import base64
 import copy
 import csv
 import datetime
@@ -164,7 +165,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "08 Jun 2023 07:21 UTC"
+__version_time__ = "08 Jun 2023 09:37 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -200,6 +201,36 @@ class ReadonlyIndexAccessError(Exception):
     """
 
 
+class AuthenticationWarning(Warning):
+    """
+    Warning emitted when using authentication credentials with http:// URL.
+    """
+    def __str__(self):
+        return (
+            "Using Basic Authentication over HTTP can expose login credentials; HTTPS is recommended"
+        )
+
+
+def _emit_warning_with_user_frame(warning_message):
+    import warnings, sys
+    try:
+        cur = sys._getframe()
+    except AttributeError:
+        user_stack_level = 2
+    else:
+        # walk stack trace until outside of this module
+        user_stack_level = 0
+        while cur:
+            user_stack_level += 1
+            if cur.f_code.co_filename != __file__:
+                break
+            cur = cur.f_back
+        else:
+            user_stack_level = 2
+
+    warnings.warn(warning_message, stacklevel=user_stack_level)
+
+
 NL = os.linesep
 
 default_row_class = SimpleNamespace
@@ -222,6 +253,7 @@ except ImportError:
 PredicateFunction = Callable[[Any], bool]
 
 __all__ = [
+    "AuthenticationWarning",
     "DataObject",
     "FixedWidthReader",
     "Table",
@@ -738,8 +770,24 @@ class _MultiIterator:
                 self._iterobj = iter(StringIO(seqobj))
                 self.type = ImportSourceType.string
             elif seqobj.startswith(("http://", "https://")):
+                url_args = url_args or {}
+
                 if not isinstance(url_args.get("data", b""), bytes):
                     raise TypeError("'data' must be of type bytes")
+
+                if "username" in url_args:
+                    if seqobj.startswith("http://"):
+                        _emit_warning_with_user_frame(AuthenticationWarning())
+
+                    creds = f"{url_args.pop('username')}:{url_args.pop('password', '')}"
+                    auth = base64.b64encode(creds.encode('utf-8')).decode('utf-8')
+
+                    # Create the auth request header, and add to url_args["headers"]
+                    auth_header = {'Authorization': f'Basic {auth}'}
+                    url_args["headers"] = {
+                        **url_args.get("headers", {}),
+                        **auth_header,
+                    }
 
                 data_request = urllib.request.Request(url=seqobj, **url_args)
                 self._closeobj = urllib.request.urlopen(data_request)
@@ -2637,13 +2685,15 @@ class Table(Generic[TableContent]):
         @param limit: number of records to import
         @type limit: int (optional)
         @param kwargs: additional constructor arguments for csv C{DictReader} objects, such as C{delimiter}
-            or C{fieldnames}; these are passed directly through to the csv C{DictReader} constructor
+            or C{fieldnames}; these are passed directly through to the csv C{DictReader} constructor. kwargs
+            may also contain any of the following if importing using a URL: C{headers}, C{data}, C{username},
+            C{password}
         @type kwargs: named arguments (optional)
         @param fieldnames: names for imported columns; used if there is no header line in the input file
         @type fieldnames: list[str] or str
         """
-        non_reader_args = "encoding csv_source transforms row_class limit headers data".split()
-        url_arg_names = "headers data".split()
+        non_reader_args = "encoding csv_source transforms row_class limit headers data username password".split()
+        url_arg_names = "headers data username password".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
@@ -2670,8 +2720,8 @@ class Table(Generic[TableContent]):
         limit: int = None,
         **kwargs,
     ):
-        non_reader_args = "encoding xsv_source transforms row_class limit filters headers data".split()
-        url_arg_names = "headers data".split()
+        non_reader_args = "encoding xsv_source transforms row_class limit filters headers data username password".split()
+        url_arg_names = "headers data username password".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
@@ -2757,7 +2807,7 @@ class Table(Generic[TableContent]):
                 for row in rows_iter:
                     yield {key: cell.value for key, cell in zip(header, row)}
 
-        url_arg_names = "headers data".split()
+        url_arg_names = "headers data username password".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
         return self._import(
@@ -2804,13 +2854,14 @@ class Table(Generic[TableContent]):
         @param limit: number of records to import
         @type limit: int (optional)
         @param kwargs: additional arguments for the excel reader. Only available argument is "sheet" to select which
-            sheet to read (defaults to active sheet)
+            sheet to read (defaults to active sheet). kwargs may also contain any of the following if importing
+            using a URL: C{headers}, C{data}, C{username}, C{password}
         @type kwargs: named arguments (optional)
         @param fieldnames: names for imported columns; used if there is no header line in the input file
         @type fieldnames: list[str] or str
         """
         kwargs["fieldnames"] = fieldnames.split() if isinstance(fieldnames, str) else fieldnames
-        url_arg_names = "headers data".split()
+        url_arg_names = "headers data username password".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         return self._excel_import(
             excel_source,
@@ -2989,7 +3040,7 @@ class Table(Generic[TableContent]):
         if row_class is None:
             row_class = default_row_class
 
-        url_arg_names = "headers data".split()
+        url_arg_names = "headers data username password".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
         return self._import(
