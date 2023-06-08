@@ -164,7 +164,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "08 Jun 2023 02:27 UTC"
+__version_time__ = "08 Jun 2023 07:21 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -731,6 +731,7 @@ class _MultiIterator:
             self.type = ImportSourceType.path
 
         self._iterobj: Iterable[str]
+        self._closeobj = None
 
         if isinstance(seqobj, str):
             if "\n" in seqobj:
@@ -741,13 +742,15 @@ class _MultiIterator:
                     raise TypeError("'data' must be of type bytes")
 
                 data_request = urllib.request.Request(url=seqobj, **url_args)
-                self._iterobj = _decoder(urllib.request.urlopen(data_request))
+                self._closeobj = urllib.request.urlopen(data_request)
+                self._iterobj = _decoder(self._closeobj)
                 self.type = ImportSourceType.url
             else:
                 if seqobj.endswith(".gz"):
                     import gzip
 
-                    self._iterobj = _decoder(gzip.GzipFile(filename=seqobj))
+                    self._closeobj = gzip.GzipFile(filename=seqobj)
+                    self._iterobj = _decoder(self._closeobj)
                     self.type = ImportSourceType.gzip
                 elif seqobj.endswith((".xz", ".lzma")):
                     import lzma
@@ -759,7 +762,8 @@ class _MultiIterator:
 
                     # assume file name inside zip is the same as the zip file without the trailing ".zip"
                     inner_name = Path(seqobj).stem
-                    self._iterobj = _decoder(zipfile.ZipFile(seqobj).open(inner_name))
+                    self._closeobj = zipfile.ZipFile(seqobj).open(inner_name)
+                    self._iterobj = _decoder(self._closeobj)
                     self.type = ImportSourceType.zip
                 elif seqobj.endswith(".xlsx") or seqobj.endswith("xlsm"):
                     self._iterobj = open(seqobj, 'rb')
@@ -782,6 +786,8 @@ class _MultiIterator:
     def close(self):
         if hasattr(self._iterobj, "close"):
             self._iterobj.close()
+        if self._closeobj is not None:
+            self._closeobj.close()
 
 
 FixedWidthParseSpec = Union[

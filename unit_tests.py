@@ -2070,7 +2070,7 @@ class TableImportExportTests:
                     self.send_response(HTTPStatus.OK)
                     self.end_headers()
                     self.wfile.write(send_bytes)
-                    threading.Thread(target=lambda: self.server.shutdown()).start()
+                    threading.Thread(target=lambda: time.sleep(1) or self.server.shutdown()).start()
 
                 elif path == "/":
                     self.send_response(HTTPStatus.OK)
@@ -2080,6 +2080,7 @@ class TableImportExportTests:
                 elif path.startswith("/abc.csv"):
                     send_bytes += b"a,b,c\n1,2,3\n"
                     self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Length", str(len(send_bytes)))
                     self.end_headers()
                     self.wfile.write(send_bytes)
 
@@ -2101,8 +2102,10 @@ class TableImportExportTests:
                 send_bytes = b""
                 if path.startswith("/abc.csv"):
                     send_bytes += f"a,b,c,{added_column_str}\n1,2,3,{added_value}\n".encode()
-                    self.send_response(HTTPStatus.OK)
-                    self.end_headers()
+
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Length", str(len(send_bytes)))
+                self.end_headers()
                 self.wfile.write(send_bytes)
 
         def run(server_class=HTTPServer, handler_class=CSVTestRequestHandler):
