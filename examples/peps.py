@@ -47,11 +47,12 @@ peps.pivot("year").as_table().present()
 # create full text search on PEP abstracts
 peps.create_search_index("abstract")
 
-# search for PEPs referring to GvR or Guido or BDFL
+# search for PEPs referring to the walrus operator
 walrus_pep = peps.search.abstract("walrus", as_table=True)("'walrus' Search Results")
 walrus_pep.select("id title year").present()
 print(walrus_pep.select("id title year").json_export())
 
+# search for PEPs referring to GvR or Guido or BDFL
 bdfl_peps = peps.search.abstract("gvr guido bdfl", as_table=True)("GvR PEPs")
 bdfl_peps.sort("id")
 bdfl_peps.select("id title year").present()
