@@ -165,7 +165,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "10 Jun 2023 18:54 UTC"
+__version_time__ = "10 Jun 2023 20:03 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -2699,8 +2699,8 @@ class Table(Generic[TableContent]):
         @param fieldnames: names for imported columns; used if there is no header line in the input file
         @type fieldnames: list[str] or str
         """
-        non_reader_args = "encoding csv_source transforms row_class limit headers data username password verify cafile capath context".split()
-        url_arg_names = "headers data username password verify cafile capath context".split()
+        non_reader_args = "encoding csv_source transforms row_class limit headers data username password cafile capath context".split()
+        url_arg_names = "headers data username password cafile capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
@@ -2727,8 +2727,8 @@ class Table(Generic[TableContent]):
         limit: int = None,
         **kwargs,
     ):
-        non_reader_args = "encoding xsv_source transforms row_class limit filters headers data username password verify cafile capath context".split()
-        url_arg_names = "headers data username password verify cafile capath context".split()
+        non_reader_args = "encoding xsv_source transforms row_class limit filters headers data username password cafile capath context".split()
+        url_arg_names = "headers data username password cafile capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
@@ -2814,7 +2814,7 @@ class Table(Generic[TableContent]):
                 for row in rows_iter:
                     yield {key: cell.value for key, cell in zip(header, row)}
 
-        url_arg_names = "headers data username password verify  capath context".split()
+        url_arg_names = "headers data username password cafile capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
         return self._import(
@@ -3047,7 +3047,7 @@ class Table(Generic[TableContent]):
         if row_class is None:
             row_class = default_row_class
 
-        url_arg_names = "headers data username password verify cafile capath context".split()
+        url_arg_names = "headers data username password cafile capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
         return self._import(

@@ -17,6 +17,9 @@ Version 2.2.3
   - `body`: bytes for request body
   - `username`: str to be added for basic authentication
   - `password`: str to be added for basic authentication (default='')
+  - `context`: SSL Context passed to urlopen (see the urlopen docs
+    https://docs.python.org/3/library/urllib.request.html?highlight=urlopen#urllib.request.urlopen);
+    `capath` and `cafile` may be used instead, but use of these arguments is deprecated
 
 - Added `Table.as_dataframe()` method to make a pandas `DataFrame` from a
   `littletable.Table`, and example `table_to_dataframe.py` (after a co-worker
