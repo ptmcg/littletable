@@ -165,7 +165,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "08 Jun 2023 09:37 UTC"
+__version_time__ = "10 Jun 2023 18:54 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -771,6 +771,7 @@ class _MultiIterator:
                 self.type = ImportSourceType.string
             elif seqobj.startswith(("http://", "https://")):
                 url_args = url_args or {}
+                urlopen_args = {}
 
                 if not isinstance(url_args.get("data", b""), bytes):
                     raise TypeError("'data' must be of type bytes")
@@ -789,8 +790,14 @@ class _MultiIterator:
                         **auth_header,
                     }
 
+                    # extract any SSL-related args
+                    urlopen_args = {
+                        k: url_args.pop(k, None)
+                        for k in "cafile capath context".split()
+                    }
+
                 data_request = urllib.request.Request(url=seqobj, **url_args)
-                self._closeobj = urllib.request.urlopen(data_request)
+                self._closeobj = urllib.request.urlopen(data_request, **urlopen_args)
                 self._iterobj = _decoder(self._closeobj)
                 self.type = ImportSourceType.url
             else:
@@ -2692,8 +2699,8 @@ class Table(Generic[TableContent]):
         @param fieldnames: names for imported columns; used if there is no header line in the input file
         @type fieldnames: list[str] or str
         """
-        non_reader_args = "encoding csv_source transforms row_class limit headers data username password".split()
-        url_arg_names = "headers data username password".split()
+        non_reader_args = "encoding csv_source transforms row_class limit headers data username password verify cafile capath context".split()
+        url_arg_names = "headers data username password verify cafile capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
@@ -2720,8 +2727,8 @@ class Table(Generic[TableContent]):
         limit: int = None,
         **kwargs,
     ):
-        non_reader_args = "encoding xsv_source transforms row_class limit filters headers data username password".split()
-        url_arg_names = "headers data username password".split()
+        non_reader_args = "encoding xsv_source transforms row_class limit filters headers data username password verify cafile capath context".split()
+        url_arg_names = "headers data username password verify cafile capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
@@ -2807,7 +2814,7 @@ class Table(Generic[TableContent]):
                 for row in rows_iter:
                     yield {key: cell.value for key, cell in zip(header, row)}
 
-        url_arg_names = "headers data username password".split()
+        url_arg_names = "headers data username password verify  capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
         return self._import(
@@ -3040,7 +3047,7 @@ class Table(Generic[TableContent]):
         if row_class is None:
             row_class = default_row_class
 
-        url_arg_names = "headers data username password".split()
+        url_arg_names = "headers data username password verify cafile capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
         return self._import(
