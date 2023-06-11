@@ -29,11 +29,11 @@ def timestamp_start_end(label=None, file=None):
     import datetime
 
     ret = SimpleNamespace()
-    ret.start = datetime.datetime.now().astimezone(datetime.UTC)
+    ret.start = datetime.datetime.now().astimezone(datetime.timezone.utc)
     if label:
         print(f"Start - {label}: {ret.start}", file=file)
     yield ret
-    ret.end = datetime.datetime.now().astimezone(datetime.UTC)
+    ret.end = datetime.datetime.now().astimezone(datetime.timezone.utc)
     ret.elapsed = ret.end - ret.start
     if label:
         print(f"End   - {label}: {ret.end}", file=file)
