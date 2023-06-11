@@ -19,11 +19,11 @@ Version 2.2.3
   - `password`: str to be added for basic authentication (default='')
   - `context`: SSL Context passed to urlopen (see the urlopen docs
     https://docs.python.org/3/library/urllib.request.html?highlight=urlopen#urllib.request.urlopen);
-    `capath` and `cafile` may be used instead, but use of these arguments is deprecated
+    `capath` and `cafile` may be used instead, but use of these arguments is deprecated and so
+    discouraged
 
 - Added `Table.as_dataframe()` method to make a pandas `DataFrame` from a
-  `littletable.Table`, and example `table_to_dataframe.py` (after a co-worker
-  asked how to make a `DataFrame` from a `Table`).
+  `littletable.Table`, and example `table_to_dataframe.py`.
 
 
 Version 2.2.2
