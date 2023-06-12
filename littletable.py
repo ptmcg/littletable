@@ -510,7 +510,7 @@ class _UniqueObjIndex(_ObjIndex):
                 pass
 
     def _clear(self):
-        self.obs.clear()
+        super()._clear()
         del self.none_values[:]
 
 
@@ -3248,6 +3248,13 @@ class Table(Generic[TableContent]):
         @param default: value to use if an exception is raised while trying
         to evaluate fn
         """
+        if attrname in self._indexes:
+            idx = self._indexes[attrname]
+            idx._clear()
+            idx_setitem = idx.__setitem__
+        else:
+            # there is no index for this attr
+            idx_setitem = None
 
         try:
             for rec_ in self:
@@ -3259,6 +3266,9 @@ class Table(Generic[TableContent]):
                     rec_.__dict__[attrname] = val
                 else:
                     setattr(rec_, attrname, val)
+                # update index for this attribute, if there is one
+                if idx_setitem is not None:
+                    idx_setitem(val, rec_)
         except AttributeError:
             raise AttributeError(
                 f"cannot add/modify attribute {attrname!r} in table records"

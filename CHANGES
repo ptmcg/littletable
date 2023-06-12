@@ -1,15 +1,18 @@
 Change History
 ==============
 
-NOTE: Deprecated features will be removed in the 3.0 release of littletable:
-- DataObject class, replace with typing.SimpleNamespace, dict, namedtuple, or
+NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
+- `DataObject` class, replace with `typing.SimpleNamespace`, `dict`, `namedtuple`, or
   other user-defined class
-- Table.re_match(patt) comparator is deprecated, replace with
-  re.compile(patt).match
+- `Table.re_match(patt)` comparator is deprecated, replace with
+  `re.compile(patt).match`
 
 
 Version 2.2.3
 -------------
+- Fixed bug when calling `add_field` on an existing field that has been indexed, that
+  the index on that field would not reflect the new values.
+
 - Added support for optional named arguments to `csv_import`,
   `tsv_import`, `json_import`, and `excel_import` methods when the import
   source is an HTTP or HTTPS URL:
@@ -17,10 +20,10 @@ Version 2.2.3
   - `body`: bytes for request body
   - `username`: str to be added for basic authentication
   - `password`: str to be added for basic authentication (default='')
-  - `context`: SSL Context passed to urlopen (see the urlopen docs
-    https://docs.python.org/3/library/urllib.request.html?highlight=urlopen#urllib.request.urlopen);
-    `capath` and `cafile` may be used instead, but use of these arguments is deprecated and so
-    discouraged
+  - `context`: SSL Context passed to urlopen (see the urlopen docs at
+    https://docs.python.org/3/library/urllib.request.html#urllib.request.urlopen);
+    `capath` and `cafile` may be used instead, but use of these arguments is
+    deprecated and so discouraged
 
 - Added `Table.as_dataframe()` method to make a pandas `DataFrame` from a
   `littletable.Table`, and example `table_to_dataframe.py`.

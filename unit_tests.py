@@ -266,6 +266,8 @@ def make_test_classes(cls):
 
 class AbstractContentTypeFactory:
     data_object_type: Optional[type] = None
+    storage_supports_add_field = True
+    storage_is_mutable = True
 
     @classmethod
     def make_data_object(cls, a, b, c):
@@ -274,19 +276,24 @@ class AbstractContentTypeFactory:
 
 class UsingDataObjects(AbstractContentTypeFactory):
     data_object_type = lt.DataObject
+    storage_is_mutable = False
 
 
 class UsingNamedtuples(AbstractContentTypeFactory):
     data_object_type = DataTuple
+    storage_supports_add_field = False
+    storage_is_mutable = False
 
 
 class UsingSlottedObjects(AbstractContentTypeFactory):
     data_object_type = Slotted
+    storage_supports_add_field = False
 
 
 if SlottedWithDict is not None:
     class UsingSlottedWithDictObjects(AbstractContentTypeFactory):
         data_object_type = SlottedWithDict
+        storage_supports_add_field = False
 else:
     UsingSlottedWithDictObjects = AbstractContentTypeFactory
 
@@ -305,12 +312,16 @@ else:
 if pydantic is not None:
     class UsingPydanticModel(AbstractContentTypeFactory):
         data_object_type = DataPydanticModel
+        storage_supports_add_field = False
 
     class UsingPydanticImmutableModel(AbstractContentTypeFactory):
         data_object_type = DataPydanticImmutableModel
+        storage_supports_add_field = False
+        storage_is_mutable = False
 
     class UsingPydanticORMModel(AbstractContentTypeFactory):
         data_object_type = DataPydanticORMModel
+        storage_supports_add_field = False
 
 else:
     UsingPydanticModel = AbstractContentTypeFactory
@@ -331,6 +342,8 @@ else:
 
 class UsingTypingNamedTuple(AbstractContentTypeFactory):
     data_object_type = TypingNamedTuple
+    storage_supports_add_field = False
+    storage_is_mutable = False
 
 class UsingTypingTypedDict(AbstractContentTypeFactory):
     data_object_type = TypingTypedDict
@@ -841,12 +854,33 @@ class TableCreateTests:
         test_size = 10
         table = make_test_table(self.make_data_object, test_size)
 
-        # only DataObjects are mutable in these tests
-        if isinstance(table[0], lt.DataObject):
+        # not all storage classes support adding new fields
+        if self.storage_supports_add_field:
             table.add_field('d', lambda rec: rec.a+rec.b+rec.c)
 
             table.create_index('d')
             self.assertEqual(len(range(0, 27+1)), len(table.by.d.keys()))
+
+    def test_add_field_over_existing_indexed_field(self):
+        test_size = 2
+        table = make_test_table(self.make_data_object, test_size)
+        table.create_index('c')
+
+        if not self.storage_is_mutable:
+            return
+
+        table.add_field('c', lambda rec: -1)
+        self.assertEqual(
+            [rec.c for rec in table],
+            list(table.all.c),
+            "all list reads index, which is not rebuilt by add_field",
+        )
+
+        self.assertEqual(
+            {-1},
+            set(table.by.c.keys()),
+            "index keys are not rebuilt by add_field",
+        )
 
     def test_add_two_tables(self):
         test_size = 10
