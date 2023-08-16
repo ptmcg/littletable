@@ -1398,7 +1398,7 @@ class Table(Generic[TableContent]):
 
         If this is a unique index, this makes the table act like a 'Dict[K,T]',
         keyed by the values of the attr field. If not a unique index,
-        then makes the table act like a 'defaultDict[Table[T]]', always returning
+        then makes the table act like a 'defaultdict[Table[T]]', always returning
         a new Table of matching records (which may be empty if no records
         match).
 
@@ -2047,7 +2047,7 @@ class Table(Generic[TableContent]):
         @type reverse: bool
         @return: self
         """
-        if isinstance(key, (str, list, tuple)):
+        if isinstance(key, (str, List, Tuple)):
             attr_orders: List[List[str]]
             if isinstance(key, str):
                 attrdefs = [s.strip() for s in key.split(",")]
@@ -2107,7 +2107,7 @@ class Table(Generic[TableContent]):
             if isinstance(expr, str):
                 return (
                     lambda r: expr.format(r)
-                    if not isinstance(r, (list, tuple))
+                    if not isinstance(r, (List, Tuple))
                     else expr.format(*r)
                 )
             else:
