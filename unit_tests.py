@@ -22,7 +22,7 @@ from typing import Optional, Union
 import littletable as lt
 
 SKIP_CSV_IMPORT_USING_URL_TESTS = os.environ.get("SKIP_CSV_IMPORT_USING_URL_TESTS", "0") == "1"
-
+# SKIP_CSV_IMPORT_USING_URL_TESTS = True
 
 @contextlib.contextmanager
 def timestamp_start_end(label=None, file=None):
@@ -244,6 +244,12 @@ def make_test_class(*classes):
 
 
 def make_test_classes(cls):
+    """
+    Test class decorator, to auto-generate test classes for all the various supported
+    Table content types.
+
+    Only valid for classes using simple record rows with fields 'a', 'b' and 'c'.
+    """
     make_test_class(cls, UsingDataObjects)
     make_test_class(cls, UsingNamedtuples)
     make_test_class(cls, UsingTypingNamedTuple)
@@ -265,6 +271,14 @@ def make_test_classes(cls):
 
 
 class AbstractContentTypeFactory:
+    """
+    Base class for all Table-content definition classes.
+
+    Each subclass needs only to define the following class attriutes
+    - data_object_type: (type) type for constructing test content records for Tables
+    - storage_supports_add_field: (bool) flag indicating whether data_object_type permits adding attributes
+    - storage_is_mutable: (bool) flag indicating whether data_object_type records are mutable
+    """
     data_object_type: Optional[type] = None
     storage_supports_add_field = True
     storage_is_mutable = True
@@ -371,6 +385,9 @@ def make_dataobject_from_ob(rec):
 
 
 class TableTypeTests(unittest.TestCase):
+    """
+    Tests on the Table type itself.
+    """
     def test_types(self):
         from collections.abc import (Callable, Container, Iterable, Collection, Mapping, Reversible, Sequence, Sized)
 
@@ -393,6 +410,9 @@ class TableTypeTests(unittest.TestCase):
 
 @make_test_classes
 class TableCreateTests:
+    """
+    Tests for creation of new Tables.
+    """
     def test_inserts(self):
         table = lt.Table()
         table.insert(self.make_data_object(1, 2, 3))
@@ -920,6 +940,9 @@ class TableCreateTests:
 
 @make_test_classes
 class TableListTests:
+    """
+    Tests for accessing Tables as lists.
+    """
     def _test_init(self):
         self.test_size = 3
         self.t1 = make_test_table(self.make_data_object, self.test_size)
@@ -1270,6 +1293,9 @@ class TableListTests:
 
 @make_test_classes
 class TableJoinTests:
+    """
+    Tests for Table join operations.
+    """
     def test_simple_join(self):
         test_size = 10
         t1 = make_test_table(self.make_data_object, test_size)
@@ -1438,6 +1464,9 @@ class TableJoinTests:
 
 @make_test_classes
 class TableTransformTests:
+    """
+    Tests to mutate a Table.
+    """
     def test_sort(self):
         test_size = 10
         t1 = make_test_table(self.make_data_object, test_size)
@@ -1573,6 +1602,9 @@ class TableTransformTests:
 
 @make_test_classes
 class TableOutputTests:
+    """
+    Tests to verify output forms for a Table.
+    """
     def test_basic_present(self):
         if rich is None:
             import warnings
@@ -1874,6 +1906,9 @@ fixed_width_data = """\
 
 @make_test_classes
 class TableImportExportTests:
+    """
+    Test classes for Table import and export methods.
+    """
     def test_as_dataframe(self):
         try:
             import pandas as pd
@@ -2702,6 +2737,9 @@ class TableImportExportTests:
 
 @make_test_classes
 class TablePivotTests:
+    """
+    Test class for Table pivot operations.
+    """
     def test_pivot(self):
         test_size = 5
         t1 = make_test_table(self.make_data_object, test_size)
@@ -2721,6 +2759,9 @@ class TablePivotTests:
 
 
 class TableSearchTests(unittest.TestCase):
+    """
+    Test class for full-text search methods.
+    """
     recipe_data = textwrap.dedent("""\
         id,title,ingredients
         1,Tuna casserole,"tuna, noodles, Cream of Mushroom Soup"
