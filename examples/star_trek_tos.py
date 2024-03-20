@@ -6,7 +6,7 @@ st = lt.Table().csv_import(
 )
 
 # sort by rating, and add "rank" field
-st.sort(["rating desc", "votes desc"])
+st.orderby(["rating desc", "votes desc"])
 for i, rec in enumerate(st, start=1):
     setattr(rec, "rank", i)
 

@@ -114,7 +114,7 @@ Here is a simple C{littletable} data storage/retrieval example::
         print(item)
 
     # list all wishlist items in descending order by price
-    for item in wishlists().sort("unitprice desc"):
+    for item in wishlists().orderby("unitprice desc"):
         print(item)
 """
 
@@ -158,14 +158,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 2, 3, "final", 0)
+__version_info__ = version_info(2, 2, 4, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "12 Jun 2023 02:47 UTC"
+__version_time__ = "11 Mar 2024 20:31 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -1006,7 +1006,7 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
 
 def _determine_suppressed_attrs(group_attrs, prev, curr,
                                 _compare=lambda apc: apc[1] == apc[2]):
-    return [a for a, _, _ in takewhile(_compare, zip(group_attrs, prev, curr))]
+    return {a for a, _, _ in takewhile(_compare, zip(group_attrs, prev, curr))}
 
 
 TableContent = TypeVar("TableContent")
@@ -1097,7 +1097,10 @@ class Table(Generic[TableContent]):
             tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(non_numeric=0)})
 
             # force all non-numeric or empty values to None
-            tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(non_numeric=None, empty=None)})
+            tbl = lt.Table().csv_import(
+                        data,
+                        transforms={'value': lt.Table.convert_numeric(non_numeric=None, empty=None)}
+                    )
 
             # force empty values to None (default is "")
             tbl = lt.Table().csv_import(data, transforms={'value': lt.Table.convert_numeric(empty=None)})
@@ -1525,9 +1528,10 @@ class Table(Generic[TableContent]):
                 yield sing
             yield s
 
-            # # also add special ending words for code and documentation parsing
-            if (s.endswith(_significant_word_endings) and
-                (m := Table.SIGNIFICANT_WORD_ENDING_RE.match(s))
+            # also add special ending words for code and documentation parsing
+            if (
+                s.endswith(_significant_word_endings)
+                and (m := Table.SIGNIFICANT_WORD_ENDING_RE.match(s))
             ):
                 yield m[1]
 
@@ -1560,7 +1564,7 @@ class Table(Generic[TableContent]):
             yield s
 
     @staticmethod
-    def _normalize_split(s: str, sw: frozenset=frozenset()) -> Iterable[str]:
+    def _normalize_split(s: str, sw: frozenset = frozenset()) -> Iterable[str]:
         return (
             ss for wd in s.split() for ss in Table._normalize_word_gen(wd, sw)
         )
@@ -1649,11 +1653,11 @@ class Table(Generic[TableContent]):
         stopwords = typing.cast(frozenset[str], search_index["STOPWORDS"])
 
         plus_matches: dict[str, set[int]] = {}
-        minus_matches: dict[str, list[int]] = {}
-        opt_matches: dict[str, list[int]] = {}
+        minus_matches: dict[str, set[int]] = {}
+        opt_matches: dict[str, set[int]] = {}
         reqd_matches: set[int] = set()
         excl_matches: set[int] = set()
-        reqd_words: dict[tuple[str], dict[str, set[int]]] = {}
+        reqd_words: dict[tuple[str, ...], dict[str, set[int]]] = {}
 
         if isinstance(query, str):
             query = shlex.split(query.strip())
@@ -2030,7 +2034,7 @@ class Table(Generic[TableContent]):
         self._contents_changed()
         return self
 
-    def sort(
+    def orderby(
         self,
         key: Union[str, Iterable[str], Callable[[Any], Any]],
         reverse: bool = False,
@@ -2079,6 +2083,9 @@ class Table(Generic[TableContent]):
 
         self._contents_changed()
         return self
+
+    # backward-compatibility name
+    sort = orderby
 
     def select(self, fields: Union[Iterable[str], str] = None, **exprs) -> "Table":
         """
@@ -2150,12 +2157,12 @@ class Table(Generic[TableContent]):
         for ename, expr in exprs.items():
             if isinstance(expr, str):
                 if re.match(r"[a-zA-Z_][a-zA-Z0-9_]*$", expr):
-                    select_exprs[ename] = lambda r, expr=expr: str(getattr(r, expr, "None"))
+                    select_exprs[ename] = lambda r, expr_=expr: str(getattr(r, expr_, "None"))
                 else:
                     if "{}" in expr or "{0}" or "{0:" in expr:
-                        select_exprs[ename] = lambda r, expr=expr: expr.format(r)
+                        select_exprs[ename] = lambda r, expr_=expr: expr_.format(r)
                     else:
-                        select_exprs[ename] = lambda r, expr=expr: expr.format(
+                        select_exprs[ename] = lambda r, expr_=expr: expr_.format(
                             getattr(r, ename, "None")
                         )
 
@@ -2699,7 +2706,10 @@ class Table(Generic[TableContent]):
         @param fieldnames: names for imported columns; used if there is no header line in the input file
         @type fieldnames: list[str] or str
         """
-        non_reader_args = "encoding csv_source transforms row_class limit headers data username password cafile capath context".split()
+        non_reader_args = (
+            "encoding csv_source transforms row_class limit headers data username password cafile"
+            " capath context".split()
+        )
         url_arg_names = "headers data username password cafile capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
@@ -2727,7 +2737,10 @@ class Table(Generic[TableContent]):
         limit: int = None,
         **kwargs,
     ):
-        non_reader_args = "encoding xsv_source transforms row_class limit filters headers data username password cafile capath context".split()
+        non_reader_args = (
+            "encoding xsv_source transforms row_class limit filters headers data username password"
+            " cafile capath context".split()
+        )
         url_arg_names = "headers data username password cafile capath context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
@@ -3159,7 +3172,7 @@ class Table(Generic[TableContent]):
         **kwargs,
     ):
         """
-        Exports the contents of the table to an excel .xslx file.
+        Exports the contents of the table to an Excel .xslx file.
         @param excel_dest: excel file - if a string is given, the file with that name will be
             opened, written, and closed; if a file object is given, then that object
             will be written as-is, and left for the caller to be closed.
@@ -3584,8 +3597,10 @@ class Table(Generic[TableContent]):
             for row in self.formatted_table(*fields):
                 curr = tuple(getattr(row, attr, "") for attr in group_attrs)
                 suppress_attrs = determine_suppressed_attrs(group_attrs, prev, curr)
-                row_items = ["" if attr_name in suppress_attrs else getattr(row, attr_name, empty)
-                             for attr_name in attr_names]
+                row_items = [
+                    "" if attr_name in suppress_attrs else getattr(row, attr_name, empty)
+                    for attr_name in attr_names
+                ]
                 rt.add_row(*row_items)
                 prev = curr
 
@@ -4199,7 +4214,6 @@ if HasTraits is not None:
 
 
 if __name__ == "__main__":
-    import textwrap
 
     json_dumps = partial(json.dumps, indent=2)
 
@@ -4255,7 +4269,7 @@ if __name__ == "__main__":
     print()
     for rec in (stations.join_on("stn") + amfm.join_on("stn"))(
         ["stn", "city", (amfm, "band", "AMFM"), (stations, "state", "st")]
-    ).sort("AMFM"):
+    ).orderby("AMFM"):
         print(repr(rec))
 
     print()

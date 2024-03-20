@@ -40,5 +40,5 @@ for asc_char, normalizing_chars in accum.items():
          }
         for norm_char in normalizing_chars
     )
-normalizations.sort("ASCII")
+normalizations.orderby("ASCII")
 normalizations.present(groupby="ASCII ord")

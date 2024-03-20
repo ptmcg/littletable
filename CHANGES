@@ -8,6 +8,12 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
   `re.compile(patt).match`
 
 
+Version 2.2.4
+-------------
+- Renamed `sort` to `orderby` to make the symmetry with relational SQL more apparent.
+  `sort` will be retained as a deprecated compatibility name.
+
+
 Version 2.2.3
 -------------
 - Fixed bug when calling `add_field` on an existing field that has been indexed, that

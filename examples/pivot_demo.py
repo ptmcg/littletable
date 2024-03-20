@@ -29,7 +29,7 @@ places.create_index("elev2")
 
 print("summarize population by state")
 piv = places.pivot("state")
-pplByState = piv.as_table(sum, "pop").sort("pop desc")
+pplByState = piv.as_table(sum, "pop").orderby("pop desc")
 for rec in pplByState:
     print(rec.state, rec.pop)
 piv.dump_counts(count_fn=lambda recs: sum(r.pop for r in recs))

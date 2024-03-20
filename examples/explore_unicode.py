@@ -203,8 +203,7 @@ i_ching = present_symbol_group("HEXAGRAM FOR", "I Ching")
 tai_xuan_jing = present_symbol_group("TETRAGRAM FOR", "Tai Xuan Jing")
 
 # display all the Roman numerals
-numerics = unicode.where(numeric_value=lt.Table.ne(None))
-numerics.sort("numeric_value")
+numerics = unicode.where(numeric_value=lt.Table.ne(None)).orderby("numeric_value")
 roman_numerals = present_symbol_group("ROMAN NUMERAL", "Roman Numerals", numerics)
 
 # display all Braille characters

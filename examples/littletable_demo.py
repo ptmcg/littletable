@@ -67,7 +67,7 @@ for item in catalog.where(unitofmeas="LB"):
 print()
 
 # if querying on an indexed item, use ".by.attribute-name[key]"
-catalog.create_index("unitofmeas")
+# catalog.create_index("unitofmeas")
 for item in catalog.by.unitofmeas["LB"]:
     print(item.sku, item.descr)
 print()
@@ -94,12 +94,12 @@ for bti in bigticketitems:
 print()
 
 # list all wishlist items by customer, then in descending order by unit price
-for item in wishlists().sort("custid, unitprice desc"):
+for item in wishlists().orderby("custid, unitprice desc"):
     print(item)
 print()
 
 # display formatted tabular output
-wishlists().sort("custid, unitprice desc")("Wishlists").select(
+wishlists().orderby("custid, unitprice desc")("Wishlists").select(
     "custid name sku descr"
 ).present(groupby="custid name")
 

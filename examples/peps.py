@@ -54,7 +54,7 @@ print(walrus_pep.select("id title year").json_export())
 
 # search for PEPs referring to GvR or Guido or BDFL
 bdfl_peps = peps.search.abstract("gvr guido bdfl", as_table=True)("GvR PEPs")
-bdfl_peps.sort("id")
+bdfl_peps.orderby("id")
 bdfl_peps.select("id title year").present()
 
 # define a custom JSON encoder for datetime.date field

@@ -19,7 +19,7 @@ def main():
         'long': float,
     }
     us_ppl = lt.Table().csv_import(
-        "examples/us_ppl.csv",
+        "./us_ppl.csv",
         transforms=transforms
     ).select("id name state elev lat long pop")
 
@@ -30,7 +30,7 @@ def main():
     us_ppl.by.elev[:0](f"{test} (sliced)")[:100].present()
 
     test = "elev >= 1000"
-    us_ppl.by.elev[1000:](f"{test} (sliced)").sort("elev desc")[:100].present()
+    us_ppl.by.elev[1000:](f"{test} (sliced)").orderby("elev desc")[:100].present()
 
     test = "0 <= elev < 100"
     us_ppl.by.elev[0:100](f"{test} (sliced)")[:100].present()
