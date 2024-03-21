@@ -913,7 +913,7 @@ Some simple littletable recipes
   NULL if the object does not have that attribute, or if its value is None or ""):
 
   ```python
-        table.where(keyattr=Table.is_null())
+  table.where(keyattr=Table.is_null())
   ```
     
 
@@ -956,29 +956,29 @@ Some simple littletable recipes
 - Sort table by attribute x
 
   ```python
-  employees.sort("salary")
+  employees.orderby("salary")
   
   # sort in descending order
-  employees.sort("salary desc")
+  employees.orderby("salary desc")
   ```
 
 - Sorted table by primary attribute x, secondary attribute y
 
   ```python
-  sales_employees = employees.where(dept="Sales").sort("salary,commission")
+  sales_employees = employees.where(dept="Sales").orderby("salary,commission")
   ```
 
   or
 
   ```python
   employees.create_index("dept")
-  sales_employees = employees.by.dept["Sales"].sort("salary,commission")
+  sales_employees = employees.by.dept["Sales"].orderby("salary,commission")
   ```
 
-- Get top 5 objects in table by value of attribute x
+- Get top 5 objects in table by value of attribute x, and add ranking field
   ```python
   # top 5 sales employees
-  employees.where(dept="Sales").sort("sales desc")[:5]
+  employees.where(dept="Sales").orderby("sales desc")[:5].rank()
   ```
 
 - Find all employees whose first name starts with "X"
