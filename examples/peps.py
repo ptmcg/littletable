@@ -27,14 +27,14 @@ print(peps.info())
 
 # access records by unique PEP id
 peps.create_index("id", unique=True)
-print(peps.by.id[20].title)
+print("PEP20:", peps.by.id[20].title)
 
 # add a numeric "year" field, and index it
 peps.add_field("year", lambda pep: pep.created.year)
 peps.create_index("year")
 
 # present PEPs created in 2016
-peps.by.year[2016]("PEPs Created in 2016").select("id python_version title").present()
+peps.by.year[2016]("PEPs Created in 2016").select("id python_version title status url").present()
 
 # how many PEPs since 2020?
 print("Number of PEPs since 2020", len(peps.by.year[2020:]))
@@ -49,13 +49,13 @@ peps.create_search_index("abstract")
 
 # search for PEPs referring to the walrus operator
 walrus_pep = peps.search.abstract("walrus", as_table=True)("'walrus' Search Results")
-walrus_pep.select("id title year").present()
-print(walrus_pep.select("id title year").json_export())
+walrus_pep.select("id title year authors").present()
+print(walrus_pep.select("id title year authors").json_export())
 
 # search for PEPs referring to GvR or Guido or BDFL
 bdfl_peps = peps.search.abstract("gvr guido bdfl", as_table=True)("GvR PEPs")
 bdfl_peps.orderby("id")
-bdfl_peps.select("id title year").present()
+bdfl_peps.select("id title year url authors").present()
 
 # define a custom JSON encoder for datetime.date field
 class JsonDateEncoder(json.JSONEncoder):
