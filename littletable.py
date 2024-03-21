@@ -28,6 +28,8 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
+from __future__ import annotations
+
 __doc__ = r"""
 
 C{littletable} - a Python module to give ORM-like access to a collection of objects
@@ -126,7 +128,6 @@ import functools
 import io
 import itertools
 import textwrap
-import typing
 import warnings
 from enum import Enum
 from io import StringIO
@@ -147,7 +148,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import urllib.request
 from typing import (
-    Callable, Any, TextIO, Union, Optional, Iterable, Iterator, Generic, TypeVar
+    Callable, Any, TextIO, Union, Optional, Iterable, Iterator, Generic, TypeVar, Type, cast,
 )
 
 try:
@@ -165,7 +166,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "11 Mar 2024 20:31 UTC"
+__version_time__ = "21 Mar 2024 07:59 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -181,10 +182,10 @@ class NoSuchIndexError(KeyError):
     """
     Exception raised when trying to access an index that does not exist.
     """
-    def __init__(self, attrname):
+    def __init__(self, attrname: str):
         super().__init__(attrname)
 
-    def __str__(self):
+    def __str__(self) -> str:
         index_name = super().__str__()
         return f"no such index {index_name!r}"
 
@@ -205,13 +206,13 @@ class AuthenticationWarning(Warning):
     """
     Warning emitted when using authentication credentials with http:// URL.
     """
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             "Using Basic Authentication over HTTP can expose login credentials; HTTPS is recommended"
         )
 
 
-def _emit_warning_with_user_frame(warning_message):
+def _emit_warning_with_user_frame(warning: Warning) -> None:
     import warnings, sys
     try:
         cur = sys._getframe()
@@ -228,7 +229,7 @@ def _emit_warning_with_user_frame(warning_message):
         else:
             user_stack_level = 2
 
-    warnings.warn(warning_message, stacklevel=user_stack_level)
+    warnings.warn(message=str(warning), category=type(warning), stacklevel=user_stack_level)
 
 
 NL = os.linesep
@@ -319,7 +320,7 @@ _significant_word_endings = (
 )
 
 
-def _object_attrnames(obj):
+def _object_attrnames(obj: Any) -> list[str]:
     if hasattr(obj, "trait_names"):
         return obj.trait_names()
     if hasattr(obj, "__dict__"):
@@ -333,7 +334,7 @@ def _object_attrnames(obj):
     raise UnableToExtractAttributeNamesError("object with unknown attributes")
 
 
-def _to_dict(obj):
+def _to_dict(obj) -> dict[str, Any]:
     if hasattr(obj, "trait_names"):
         return {
             k: v
@@ -353,8 +354,8 @@ def _to_dict(obj):
     raise UnableToExtractAttributeNamesError("object with unknown attributes")
 
 
-def _to_json(obj, enc_cls):
-    return json.dumps(_to_dict(obj), cls=enc_cls)
+def _to_json(obj, enc_cls: Type[json.JSONEncoder], **kwargs: Any) -> str:
+    return json.dumps(_to_dict(obj), cls=enc_cls, **kwargs)
 
 
 class DataObject:
@@ -365,7 +366,7 @@ class DataObject:
     are ignored.  Table joins are returned as a Table of DataObjects.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         warnings.warn(
             "littletable.DataObject class is deprecated, use types.Simplenamespace or Python dict",
             DeprecationWarning,
@@ -418,6 +419,10 @@ class _ObjIndex:
         self.obs = defaultdict(list)
         self.is_unique = False
 
+    def sort(self, key, reverse: bool = False):
+        for seq in self.obs.values():
+            seq.sort(key=key, reverse=reverse)
+
     def __setitem__(self, k, v):
         self.obs[k].append(v)
 
@@ -469,6 +474,9 @@ class _UniqueObjIndex(_ObjIndex):
         self.is_unique = True
         self.accept_none = accept_none
         self.none_values = []
+
+    def sort(self, key, reverse: bool = False):
+        pass
 
     def __setitem__(self, k, v):
         if k is not None:
@@ -734,7 +742,7 @@ class ImportSourceType(Enum):
     iterable = 7
 
 
-class _MultiIterator:
+class _MultiIterator(Iterator):
     """
     Internal wrapper class to put a consistent iterable and
     closeable interface on any of the types that might be used
@@ -751,9 +759,9 @@ class _MultiIterator:
             self,
             seqobj: _ImportExportDataContainer,
             encoding: str = "utf-8",
-            url_args: dict = None,
+            url_args: Optional[dict] = None,
     ):
-        def _decoder(seq):
+        def _decoder(seq: Iterable[bytes]) -> Iterable[str]:
             for line in seq:
                 yield line.decode(encoding)
 
@@ -832,13 +840,13 @@ class _MultiIterator:
             self._iterobj = iter(seqobj)
             self.type = ImportSourceType.iterable
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         return self
 
-    def __next__(self):
+    def __next__(self) -> Any:
         return next(self._iterobj)
 
-    def close(self):
+    def close(self) -> None:
         if hasattr(self._iterobj, "close"):
             self._iterobj.close()
         if self._closeobj is not None:
@@ -897,7 +905,7 @@ class FixedWidthReader:
         self._src_file = src_file
         self._encoding = encoding
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[dict[str, Any]]:
         with closing(_MultiIterator(self._src_file, self._encoding)) as _srciter:
             for line in _srciter:
                 if not line.strip():
@@ -905,14 +913,14 @@ class FixedWidthReader:
                 yield {label: fn(line[slc]) for label, slc, fn in self._slices}
 
 
-def _make_comparator(cmp_fn):
+def _make_comparator(cmp_fn: Callable[[Any, Any], bool]) -> Callable[[Any], Callable[[Any], Callable[[Any], bool]]]:
     """
     Internal function to help define Table.le, Table.lt, etc.
     """
 
-    def comparator_with_value(value):
-        def _Table_comparator_fn(attr):
-            def _inner(table_rec):
+    def comparator_with_value(value: Any) -> Callable[[Any], Callable[[Any], bool]]:
+        def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
+            def _inner(table_rec: Any) -> bool:
                 try:
                     return cmp_fn(getattr(table_rec, attr), value)
                 except TypeError:
@@ -926,13 +934,13 @@ def _make_comparator(cmp_fn):
     return comparator_with_value
 
 
-def _make_comparator_none(cmp_fn):
+def _make_comparator_none(cmp_fn: Callable[[Any, Any], bool]) -> Callable[[], Callable[[str], Callable[[Any], bool]]]:
     """
     Internal function to help define Table.is_none and Table.is_not_none.
     """
 
-    def comparator_with_value():
-        def _Table_comparator_fn(attr):
+    def comparator_with_value() -> Callable[[str], Callable[[Any], bool]]:
+        def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
             return lambda table_rec: cmp_fn(getattr(table_rec, attr), None)
 
         _Table_comparator_fn.fn = cmp_fn
@@ -942,7 +950,7 @@ def _make_comparator_none(cmp_fn):
     return comparator_with_value
 
 
-def _make_comparator_null(is_null):
+def _make_comparator_null(is_null: bool) -> Callable[[], Callable[[str], Callable[[Any], bool]]]:
     """
     Internal function to help define Table.is_null and Table.is_not_null.
     """
@@ -950,8 +958,8 @@ def _make_comparator_null(is_null):
     def is_null_fn(a, value):
         return (a in (None, "")) == value
 
-    def comparator_with_value():
-        def _Table_comparator_fn(attr):
+    def comparator_with_value() -> Callable[[str], Callable[[Any], bool]]:
+        def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
             return lambda table_rec: is_null_fn(getattr(table_rec, attr, None), is_null)
 
         _Table_comparator_fn.fn = is_null_fn
@@ -961,14 +969,16 @@ def _make_comparator_null(is_null):
     return comparator_with_value
 
 
-def _make_comparator2(cmp_fn):
+def _make_comparator2(
+        cmp_fn: Callable[[Any, Any, Any], bool]
+) -> Callable[[Any, Any], Callable[[str], Callable[[Any], bool]]]:
     """
     Internal function to help define Table.within and between
     """
 
-    def comparator_with_value(lower, upper):
-        def _Table_comparator_fn(attr):
-            def _inner(table_rec):
+    def comparator_with_value(lower: Any, upper: Any) -> Callable[[str], Callable[[Any], bool]]:
+        def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
+            def _inner(table_rec: Any) -> bool:
                 try:
                     return cmp_fn(lower, getattr(table_rec, attr), upper)
                 except TypeError:
@@ -983,7 +993,7 @@ def _make_comparator2(cmp_fn):
     return comparator_with_value
 
 
-def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
+def _make_comparator_regex(*reg_expr_args, **reg_expr_flags) -> Callable[[str], Callable[[Any], bool]]:
     warnings.warn(
         DeprecationWarning("Table.re_match(patt) comparator is deprecated,"
                            " replace with re.compile(patt).match"),
@@ -992,7 +1002,7 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
     regex = re.compile(*reg_expr_args, **reg_expr_flags)
     cmp_fn = regex.match
 
-    def _Table_comparator_fn(attr):
+    def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
         def _inner(table_rec):
             try:
                 return cmp_fn(str(getattr(table_rec, attr, "")))
@@ -1004,8 +1014,10 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags):
     return _Table_comparator_fn
 
 
-def _determine_suppressed_attrs(group_attrs, prev, curr,
-                                _compare=lambda apc: apc[1] == apc[2]):
+def _determine_suppressed_attrs(
+        group_attrs: list[str], prev: tuple[Any, ...], curr: tuple[Any, ...],
+        _compare=lambda apc: apc[1] == apc[2]
+) -> set[str]:
     return {a for a, _, _ in takewhile(_compare, zip(group_attrs, prev, curr))}
 
 
@@ -1063,18 +1075,20 @@ class Table(Generic[TableContent]):
     OUTER_JOIN_TYPES = (LEFT_OUTER_JOIN, RIGHT_OUTER_JOIN, FULL_OUTER_JOIN)
 
     @staticmethod
-    def _wrap_dict(dd):
+    def _wrap_dict(dd: Mapping[str, Any]) -> default_row_class:
         # do recursive wrap of dicts to namespace types
         ret = default_row_class(
             **{
-                k: v if not isinstance(v, dict) else Table._wrap_dict(v)
+                k: v if not isinstance(v, Mapping) else Table._wrap_dict(v)
                 for k, v in dd.items()
             }
         )
         return ret
 
     @staticmethod
-    def convert_numeric(s=None, empty='', non_numeric=object, force_float=False, _int_fn=int):
+    def convert_numeric(
+            s: Optional[str] = None, empty: Any = '', non_numeric: Type = object, force_float: bool = False, _int_fn: Callable[[str], int]=int
+    ) -> Union[Callable, Any]:
         """
         Convenience method for transforming columns of CSV data from str to float and/or int. By default,
         convert_numeric will convert int values to int, float values to float, and leave all other values as-is.
@@ -1132,14 +1146,14 @@ class Table(Generic[TableContent]):
                 return s if non_numeric is object else non_numeric
 
     @staticmethod
-    def parse_datetime(time_format: str, empty: Any = '', on_error: Any = None):
+    def parse_datetime(time_format: str, empty: Any = '', on_error: Optional[Any] = None) -> Callable[[str], datetime.datetime]:
         """Convenience method to convert string data to a datetime.datetime instance,
            given a parse string (following strptime format).
 
            Can be used for transforming data loaded from CSV data sets.
         """
 
-        def _converter(s=None):
+        def _converter(s: str = "") -> Any:
             if s == '':
                 return empty
             try:
@@ -1149,15 +1163,15 @@ class Table(Generic[TableContent]):
         return _converter
 
     @staticmethod
-    def parse_date(time_format: str, empty: Any = '', on_error: Any = None):
+    def parse_date(time_format: str, empty: Any = '', on_error: Optional[Any] = None) -> Callable[[str], datetime.date]:
         """Convenience method to convert string data to a datetime.date instance,
            given a parse string (following strptime format).
 
            Can be used for transforming data loaded from CSV data sets.
         """
 
-        def _converter(s=None):
-            if s == '':
+        def _converter(s: Optional[str] = None) -> Any:
+            if not s:
                 return empty
             try:
                 return datetime.datetime.strptime(s, time_format).date()
@@ -1169,7 +1183,7 @@ class Table(Generic[TableContent]):
     def parse_timedelta(time_format: str,
                         reference_time: datetime.datetime = datetime.datetime.strptime("0:00:00", "%H:%M:%S"),
                         empty: Any = '',
-                        on_error: Any = None):
+                        on_error: Optional[Any] = None) -> Callable[[str], datetime.timedelta]:
         """Convenience method to convert string data to a datetime.timedelta instance,
            given a parse string (following strptime format), and optionally a
            reference datetime.datetime.
@@ -1177,7 +1191,7 @@ class Table(Generic[TableContent]):
            Can be used for transforming data loaded from CSV data sets.
         """
 
-        def _converter(s=None):
+        def _converter(s: Optional[str] = None) -> Any:
             if s == '':
                 return empty
             try:
@@ -1232,15 +1246,15 @@ class Table(Generic[TableContent]):
         """
 
     @property
-    def all(self):
+    def all(self) -> _TableAttributeValueLister:
         return _TableAttributeValueLister(self)
 
     @property
-    def by(self):
+    def by(self) -> _IndexAccessor:
         return _IndexAccessor(self)
 
     @property
-    def search(self):
+    def search(self) -> _TableSearcher:
         """
         Use search to find records matching given query.
         Query is a list of keywords that may be found in a document. Keywords may be prefixed with
@@ -1281,7 +1295,7 @@ class Table(Generic[TableContent]):
         """Create an iterator over the objects in the Table."""
         return iter(self.obs)
 
-    def __getitem__(self, i) -> Union["Table", TableContent]:
+    def __getitem__(self, i: Any) -> Union[Table, TableContent]:
         """Provides direct indexed/sliced access to the Table's underlying list of objects."""
         if isinstance(i, slice):
             ret = self.copy_template()
@@ -1290,7 +1304,7 @@ class Table(Generic[TableContent]):
         else:
             return self.obs[i]
 
-    def __delitem__(self, i):
+    def __delitem__(self, i: Union[int, slice]) -> None:
         if isinstance(i, int):
             delidxs = [i]
         elif isinstance(i, slice):
@@ -1315,25 +1329,25 @@ class Table(Generic[TableContent]):
     def __bool__(self) -> bool:
         return bool(self.obs)
 
-    def __reversed__(self):
+    def __reversed__(self) -> Iterable[TableContent]:
         return reversed(self.obs)
 
-    def __contains__(self, item) -> bool:
-        if isinstance(item, dict):
+    def __contains__(self, item: Union[TableContent, dict]) -> bool:
+        if isinstance(item, Mapping):
             item = self._wrap_dict(item)
         return item in self.obs
 
-    def index(self, item) -> int:
+    def index(self, item: Union[TableContent, dict]) -> int:
         if isinstance(item, dict):
             item = self._wrap_dict(item)
         return self.obs.index(item)
 
-    def count(self, item) -> int:
+    def count(self, item: Union[TableContent, dict]) -> int:
         if isinstance(item, dict):
             item = self._wrap_dict(item)
         return self.obs.count(item)
 
-    def __add__(self, other) -> "Table":
+    def __add__(self, other: Union[Table, _JoinTerm, Iterable]) -> Union[_JoinTerm, Table]:
         """Support UNION of 2 tables using "+" operator."""
         if isinstance(other, _JoinTerm):
             # special case if added to a JoinTerm, do join, not union
@@ -1345,14 +1359,14 @@ class Table(Generic[TableContent]):
             # assume other is a sequence of some sort, insert all elements
             return self.clone().insert_many(other)
 
-    def __iadd__(self, other) -> "Table":
+    def __iadd__(self, other: Table) -> Table:
         """Support UNION of 2 tables using "+=" operator."""
         return self.insert_many(other)
 
-    def union(self, other: "Table") -> "Table":
+    def union(self, other: Table) -> Table:
         return self.clone().insert_many(other.obs)
 
-    def __call__(self, table_name: str = None) -> "Table":
+    def __call__(self, table_name: Optional[str] = None) -> Table[TableContent]:
         """
         A simple way to assign a name to a table, such as those
         dynamically created by joins and queries.
@@ -1368,7 +1382,7 @@ class Table(Generic[TableContent]):
             _object_attrnames(self.obs[0]) if self.obs else self._indexes.keys()
         )
 
-    def copy_template(self, name: str = None) -> "Table":
+    def copy_template(self, name: Optional[str] = None) -> Table[TableContent]:
         """
         Create empty copy of the current table, with copies of all
         index definitions.
@@ -1380,7 +1394,7 @@ class Table(Generic[TableContent]):
         ret(name)
         return ret
 
-    def clone(self, name: str = None) -> "Table":
+    def clone(self, name: Optional[str] = None) -> Table[TableContent]:
         """
         Create full copy of the current table, including table contents
         and index definitions.
@@ -1390,7 +1404,7 @@ class Table(Generic[TableContent]):
 
     def create_index(
         self, attr: str, unique: bool = False, accept_none: bool = False
-    ) -> "Table":
+    ) -> Table[TableContent]:
         """
         Create a new index on a given attribute.
 
@@ -1448,7 +1462,7 @@ class Table(Generic[TableContent]):
             ]
             raise
 
-    def delete_index(self, attr: str) -> "Table":
+    def delete_index(self, attr: str) -> Table[TableContent]:
         """
         Deletes an index from the Table.  Can be used to drop and rebuild an index,
         or to convert a non-unique index to a unique index, or vice versa.
@@ -1462,7 +1476,7 @@ class Table(Generic[TableContent]):
             ]
         return self
 
-    def get_index(self, attr: str):
+    def get_index(self, attr: str) -> _ReadonlyObjIndexWrapper:
         return _ReadonlyObjIndexWrapper(self._indexes[attr], self.copy_template())
 
     NON_WORD_STRIPPER_RE = re.compile(r"[^\w_]?([\w._-]*)[^\w.]*")
@@ -1574,7 +1588,7 @@ class Table(Generic[TableContent]):
         attrname: str,
         stopwords: Optional[Iterable[str]] = None,
         force: bool = False,
-    ) -> "Table":
+    ) -> Table[TableContent]:
         """
         Create a text search index for the given attribute.
         Regular indexes can perform range or equality checks against the
@@ -1638,7 +1652,7 @@ class Table(Generic[TableContent]):
         return self
 
     def _search(
-        self, attrname, query, limit=int(1e9), min_score=0, include_words=False, as_table=True
+        self, attrname: str, query: str, limit: int = int(1e9), min_score: int = 0, include_words: bool = False, as_table: bool = True
     ):
         if attrname not in self._search_indexes:
             raise ValueError(f"no search index defined for attribute {attrname!r}")
@@ -1650,7 +1664,7 @@ class Table(Generic[TableContent]):
                 " rebuild using create_search_index()"
             )
             raise SearchIndexInconsistentError(msg)
-        stopwords = typing.cast(frozenset[str], search_index["STOPWORDS"])
+        stopwords = cast(frozenset[str], search_index["STOPWORDS"])
 
         plus_matches: dict[str, set[int]] = {}
         minus_matches: dict[str, set[int]] = {}
@@ -1716,7 +1730,7 @@ class Table(Generic[TableContent]):
                     reqd_matches &= group_matches
 
         # walk through plus, minus, and optional matches to build matching scores
-        tally = Counter()
+        tally: Counter = Counter()
         for match_type, score in (
             (plus_matches, 1000),
             (minus_matches, -1000),
@@ -1761,14 +1775,14 @@ class Table(Generic[TableContent]):
 
         return ret
 
-    def delete_search_index(self, attrname: str) -> "Table":
+    def delete_search_index(self, attrname: str) -> Table[TableContent]:
         """
         Deletes a previously-created search index on a particular attribute.
         """
         self._search_indexes.pop(attrname, None)
         return self
 
-    def rebuild_search_index(self, attrname: str, force=True) -> "Table":
+    def rebuild_search_index(self, attrname: str, force: bool = True) -> Table[TableContent]:
         """
         Rebuilds an existing search index if it has been invalidated, or if force=True.
         """
@@ -1786,7 +1800,7 @@ class Table(Generic[TableContent]):
 
         return self
 
-    def insert(self, obj: Any) -> "Table":
+    def insert(self, obj: TableContent) -> Table[TableContent]:
         """
         Insert a new object into this Table.
         @param obj: any Python object -
@@ -1807,7 +1821,7 @@ class Table(Generic[TableContent]):
         """
         return self.insert_many([obj])
 
-    def insert_many(self, it: Iterable) -> "Table":
+    def insert_many(self, it: Iterable[TableContent]) -> Table[TableContent]:
         """Inserts a collection of objects into the table."""
         unique_indexes = self._uniqueIndexes
         NO_SUCH_ATTR = object()
@@ -1865,13 +1879,13 @@ class Table(Generic[TableContent]):
         self._contents_changed()
         return self
 
-    def remove(self, ob: Any) -> "Table":
+    def remove(self, ob: Any) -> Table[TableContent]:
         """
         Removes an object from the table. If object is not in the table, then
         no action is taken and no exception is raised."""
         return self.remove_many([ob])
 
-    def remove_many(self, it: Iterable) -> "Table":
+    def remove_many(self, it: Iterable) -> Table[TableContent]:
         """Removes a collection of objects from the table."""
 
         # if table is empty, there is nothing to remove
@@ -1909,7 +1923,7 @@ class Table(Generic[TableContent]):
 
         return self
 
-    def clear(self) -> "Table":
+    def clear(self) -> Table[TableContent]:
         """
         Remove all contents from a Table and all indexes, but leave index definitions intact.
         """
@@ -1920,7 +1934,7 @@ class Table(Generic[TableContent]):
         self._search_indexes.clear()
         return self
 
-    def _contents_changed(self, *, invalidate_search_indexes=True):
+    def _contents_changed(self, *, invalidate_search_indexes: bool = True):
         """
         Internal method to be called whenever the contents of a table are modified.
         """
@@ -1942,7 +1956,7 @@ class Table(Generic[TableContent]):
         else:
             return sys.maxsize
 
-    def where(self, wherefn: PredicateFunction = None, **kwargs) -> "Table":
+    def where(self, wherefn: Optional[PredicateFunction] = None, **kwargs: Any) -> Table[TableContent]:
         """
         Retrieves matching objects from the table, based on given
         named parameters.  If multiple named parameters are given, then
@@ -2009,7 +2023,7 @@ class Table(Generic[TableContent]):
 
         return ret
 
-    def delete(self, **kwargs) -> int:
+    def delete(self, **kwargs: Any) -> int:
         """
         Deletes matching objects from the table, based on given
         named parameters.  If multiple named parameters are given, then
@@ -2026,7 +2040,7 @@ class Table(Generic[TableContent]):
         self.remove_many(affected)
         return len(affected)
 
-    def shuffle(self) -> "Table":
+    def shuffle(self) -> Table[TableContent]:
         """
         In-place random shuffle of the records in the table.
         """
@@ -2038,7 +2052,7 @@ class Table(Generic[TableContent]):
         self,
         key: Union[str, Iterable[str], Callable[[Any], Any]],
         reverse: bool = False,
-    ) -> "Table":
+    ) -> Table[TableContent]:
         """
         Sort Table in place, using given fields as sort key.
         @param key: if this is a string, it is a comma-separated list of field names,
@@ -2065,17 +2079,20 @@ class Table(Generic[TableContent]):
 
             # special optimization if all orders are ascending or descending
             if all(order == "asc" for attr, order in attr_orders):
-                self.obs.sort(key=operator.attrgetter(*attrs), reverse=reverse)
+                for seq in (self.obs, *self._indexes.values()):
+                    seq.sort(key=operator.attrgetter(*attrs), reverse=reverse)
             elif all(order == "desc" for attr, order in attr_orders):
-                self.obs.sort(key=operator.attrgetter(*attrs), reverse=not reverse)
+                for seq in (self.obs, *self._indexes.values()):
+                    seq.sort(key=operator.attrgetter(*attrs), reverse=not reverse)
             else:
                 # mix of ascending and descending sorts, have to do succession of sorts
                 # leftmost attr is the most primary sort key, so reverse attr_orders to do
                 # succession of sorts from right to left
-                for attr, order in reversed(attr_orders):
-                    self.obs.sort(
-                        key=operator.attrgetter(attr), reverse=(order == "desc")
-                    )
+                for seq in (self.obs, *self._indexes.values()):
+                    for attr, order in reversed(attr_orders):
+                        seq.sort(
+                            key=operator.attrgetter(attr), reverse=(order == "desc")
+                        )
         else:
             # sorting given a sort key function
             keyfn = key
@@ -2087,7 +2104,18 @@ class Table(Generic[TableContent]):
     # backward-compatibility name
     sort = orderby
 
-    def select(self, fields: Union[Iterable[str], str] = None, **exprs) -> "Table":
+    def rank(self, rank_col_name: str = "rank", start=1) -> Table:
+        """
+        Add ranking column to each row in the table.
+
+        :param rank_col_name: name to give the new column; default="rank"
+        :param start: initial ranking number; default=1
+        """
+        for i, ob in enumerate(self.obs, start=start):
+            setattr(ob, rank_col_name, i)
+        return self
+
+    def select(self, fields: Optional[Union[Iterable[str], str]] = None, **exprs: Callable[[TableContent], Any]) -> Table:
         """
         Create a new table containing a subset of attributes, with optionally
         newly-added fields computed from each rec in the original table.
@@ -2140,7 +2168,7 @@ class Table(Generic[TableContent]):
             )
         return ret
 
-    def formatted_table(self, *fields, **exprs) -> "Table":
+    def formatted_table(self, *fields: str, **exprs: str) -> Table:
         """
         Create a new table with all string formatted attribute values, typically in preparation for
         formatted output.
@@ -2179,10 +2207,10 @@ class Table(Generic[TableContent]):
     def join(
         self,
         other,
-        attrlist: Union[str, Iterable[str]] = None,
+        attrlist: Optional[Union[str, Iterable[str]]] = None,
         auto_create_indexes: bool = True,
-        **kwargs,
-    ) -> "Table":
+        **kwargs: Any,
+    ) -> Table:
         """
         Join the objects of one table with the objects of another, based on the given
         matching attributes in the named arguments.  The attrlist specifies the attributes to
@@ -2335,10 +2363,10 @@ class Table(Generic[TableContent]):
     def outer_join(
         self,
         join_type,
-        other: "Table",
-        attrlist: Union[Iterable[str], str] = None,
+        other: Table,
+        attrlist: Optional[Union[Iterable[str], str]] = None,
         auto_create_indexes: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Join the objects of one table with the objects of another, based on the given
@@ -2523,7 +2551,7 @@ class Table(Generic[TableContent]):
                     setattr(retobj, alias, getattr(orow, attr_name, None))
                 joinrows.append(retobj)
 
-        ret: Table[TableContent] = Table(retname)
+        ret: Table = Table(retname)
         ret.insert_many(joinrows)
 
         # add indexes as defined in source tables
@@ -2534,7 +2562,7 @@ class Table(Generic[TableContent]):
 
         return ret
 
-    def join_on(self, attr: str, join="inner"):
+    def join_on(self, attr: str, join: str = "inner") -> _JoinTerm:
         """
         Creates a JoinTerm in preparation for joining with another table, to
         indicate what attribute should be used in the join.  Only indexed attributes
@@ -2547,7 +2575,7 @@ class Table(Generic[TableContent]):
             raise ValueError("can only join on indexed attributes")
         return _JoinTerm(self, attr, join)
 
-    def pivot(self, attrlist: Union[Iterable[str], str]) -> "_PivotTable":
+    def pivot(self, attrlist: Union[Iterable[str], str]) -> _PivotTable:
         """
         Pivots the data using the given attributes, returning a L{PivotTable}.
         @param attrlist: list of attributes to be used to construct the pivot table
@@ -2567,10 +2595,10 @@ class Table(Generic[TableContent]):
         transforms: Optional[dict] = None,
         filters: Optional[dict] = None,
         reader=csv.DictReader,
-        row_class: type = None,
-        limit: int = None,
-        url_args: dict = None,
-    ):
+        row_class: Optional[type] = None,
+        limit: Optional[int] = None,
+        url_args: Optional[dict] = None,
+    ) -> Table:
 
         if row_class is None:
             row_class = default_row_class
@@ -2665,13 +2693,13 @@ class Table(Generic[TableContent]):
         self,
         csv_source: _ImportExportDataContainer,
         encoding: str = "utf-8",
-        transforms: dict = None,
-        filters: dict = None,
-        row_class: type = None,
-        limit: int = None,
-        fieldnames: Union[Iterable[str], str] = None,
-        **kwargs,
-    ) -> "Table":
+        transforms: Optional[dict] = None,
+        filters: Optional[dict] = None,
+        row_class: Optional[type] = None,
+        limit: Optional[int] = None,
+        fieldnames: Optional[Union[Iterable[str], str]] = None,
+        **kwargs: Any,
+    ) -> Table:
         """
         Imports the contents of a CSV-formatted file into this table.
         @param csv_source: CSV file - if a string is given, the file with that name will be
@@ -2731,12 +2759,12 @@ class Table(Generic[TableContent]):
         self,
         xsv_source: _ImportExportDataContainer,
         encoding: str = "utf-8",
-        transforms: dict = None,
-        filters: dict = None,
-        row_class: type = None,
-        limit: int = None,
-        **kwargs,
-    ):
+        transforms: Optional[dict] = None,
+        filters: Optional[dict] = None,
+        row_class: Optional[type] = None,
+        limit: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Table:
         non_reader_args = (
             "encoding xsv_source transforms row_class limit filters headers data username password"
             " cafile capath context".split()
@@ -2761,13 +2789,13 @@ class Table(Generic[TableContent]):
         self,
         xsv_source: _ImportExportDataContainer,
         encoding: str = "utf-8",
-        transforms: dict = None,
-        filters: dict = None,
-        row_class: type = None,
-        limit: int = None,
-        fieldnames: Union[Iterable[str], str] = None,
-        **kwargs,
-    ) -> "Table":
+        transforms: Optional[dict] = None,
+        filters: Optional[dict] = None,
+        row_class: Optional[type] = None,
+        limit: Optional[int] = None,
+        fieldnames: Optional[Union[Iterable[str], str]] = None,
+        **kwargs: Any,
+    ) -> Table:
         """
         Imports the contents of a tab-separated data file into this table.
         @param xsv_source: tab-separated data file - if a string is given, the file with that name will be
@@ -2803,12 +2831,12 @@ class Table(Generic[TableContent]):
     def _excel_import(
         self,
         excel_source: _ImportExportDataContainer,
-        transforms: dict = None,
-        filters: dict = None,
-        row_class: type = None,
-        limit: int = None,
-        **kwargs,
-    ):
+        transforms: Optional[dict] = None,
+        filters: Optional[dict] = None,
+        row_class: Optional[type] = None,
+        limit: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Table:
         if openpyxl is None:
             raise Exception("openpyxl module not installed")
 
@@ -2843,13 +2871,13 @@ class Table(Generic[TableContent]):
     def excel_import(
         self,
         excel_source: _ImportExportDataContainer,
-        transforms: dict = None,
-        filters: dict = None,
-        row_class: type = None,
-        limit: int = None,
-        fieldnames: Union[Iterable[str], str] = None,
-        **kwargs,
-    ) -> "Table":
+        transforms: Optional[dict] = None,
+        filters: Optional[dict] = None,
+        row_class: Optional[type] = None,
+        limit: Optional[int] = None,
+        fieldnames: Optional[Union[Iterable[str], str]] = None,
+        **kwargs: Any,
+    ) -> Table:
         """
         Imports the contents of a Excel file into this table.
         @param excel_source: Excel file - if a string is given, the file with that name will be
@@ -2895,11 +2923,11 @@ class Table(Generic[TableContent]):
 
     def csv_export(
         self,
-        csv_dest: _ImportExportDataContainer = None,
-        fieldnames: Iterable[str] = None,
+        csv_dest: Optional[_ImportExportDataContainer] = None,
+        fieldnames: Optional[Iterable[str]] = None,
         encoding: str = "utf-8",
         delimiter: str = ",",
-        **kwargs,
+        **kwargs: Any,
     ) -> Optional[str]:
         """
         Exports the contents of the table to a CSV-formatted file.
@@ -2967,10 +2995,10 @@ class Table(Generic[TableContent]):
     def tsv_export(
         self,
         tsv_dest: Optional[_ImportExportDataContainer],
-        fieldnames: Iterable[str] = None,
+        fieldnames: Optional[Iterable[str]] = None,
         encoding: str = "UTF-8",
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> Optional[str]:
         r"""
         Similar to csv_export, with delimiter="\t"
         """
@@ -2982,13 +3010,13 @@ class Table(Generic[TableContent]):
         self,
         source: _ImportExportDataContainer,
         encoding: str = "UTF-8",
-        transforms: dict = None,
-        row_class: type = None,
+        transforms: Optional[dict] = None,
+        row_class: Optional[type] = None,
         streaming: bool = False,
         path: str = "",
-        json_decoder: json.JSONDecoder = None,
-        **kwargs,
-    ) -> "Table":
+        json_decoder: Optional[json.JSONDecoder] = None,
+        **kwargs: Any,
+    ) -> Table:
         """
         Imports the contents of a JSON data file into this table.
         @param source: JSON data file - if a string is given, the file with that name will be
@@ -3075,10 +3103,10 @@ class Table(Generic[TableContent]):
     def json_export(
         self,
         dest: Optional[_ImportExportDataContainer] = None,
-        fieldnames: Union[Iterable[str], str] = None,
+        fieldnames: Optional[Union[Iterable[str], str]] = None,
         encoding: str = "UTF-8",
         streaming: bool = False,
-        json_encoder=None,
+        json_encoder: Optional[Union[type[json.JSONEncoder], tuple[type[json.JSONEncoder], ...]]] = None,
     ) -> Optional[str]:
         """
         Exports the contents of the table to a JSON-formatted file.
@@ -3104,7 +3132,7 @@ class Table(Generic[TableContent]):
         close_on_exit = False
         return_dest_value = False
 
-        if json_encoder:
+        if json_encoder is not None:
             if isinstance(json_encoder, tuple):
                 # use multiple inheritance to chain encoders
                 json_encoder = type(
@@ -3112,6 +3140,7 @@ class Table(Generic[TableContent]):
                     (*json_encoder, json.JSONEncoder),
                     {}
                 )
+            json_encoder = cast(json.JSONEncoder, json_encoder)
 
         if dest is None:
             dest = io.StringIO()
@@ -3168,8 +3197,8 @@ class Table(Generic[TableContent]):
     def excel_export(
         self,
         excel_dest: _ImportExportDataContainer,
-        fieldnames: Iterable[str] = None,
-        **kwargs,
+        fieldnames: Optional[Iterable[str]] = None,
+        **kwargs: Any,
     ):
         """
         Exports the contents of the table to an Excel .xslx file.
@@ -3211,7 +3240,7 @@ class Table(Generic[TableContent]):
             ws.append([v for v in _to_dict(o).values()])
         wb.save(excel_dest)
 
-    def as_dataframe(self, fields=None):
+    def as_dataframe(self, fields: Optional[Union[Iterable[str], str]] = None):
         """
         Export contents of the Table to a pandas DataFrame.
         @param fields: list of strings, or single space-delimited string, listing
@@ -3245,8 +3274,8 @@ class Table(Generic[TableContent]):
         return ret
 
     def add_field(
-        self, attrname: str, fn: Callable[[Any], Any], default: Any = None
-    ) -> "Table":
+        self, attrname: str, fn: Callable[[Any], Any], default: Optional[Any] = None
+    ) -> Table:
         """
         Computes a new attribute for each object in table, or replaces an
         existing attribute in each record with a computed value
@@ -3327,7 +3356,7 @@ class Table(Generic[TableContent]):
             tbl.insert(group_obj)
         return tbl
 
-    def splitby(self, pred: Union[str, PredicateFunction]) -> tuple["Table", "Table"]:
+    def splitby(self, pred: Union[str, PredicateFunction]) -> tuple[Table[TableContent], Table[TableContent]]:
         """
         Takes a predicate function (takes a table record and returns True or False)
         and returns two tables: a table with all the rows that returned False and
@@ -3355,7 +3384,7 @@ class Table(Generic[TableContent]):
 
         return ret
 
-    def unique(self, key=None) -> "Table":
+    def unique(self, key: Optional[Union[Callable[[TableContent], Any], str]] = None) -> Table[TableContent]:
         """
         Create a new table of objects,containing no duplicate values.
 
@@ -3365,7 +3394,7 @@ class Table(Generic[TableContent]):
         to represent uniqueness.
         """
         if isinstance(key, str):
-            key = lambda r, attr=key: getattr(r, attr, None)
+            key = cast(Callable[[TableContent], Any], lambda r, attr=key: getattr(r, attr, None))
         ret = self.copy_template()
         seen = set()
         for ob in self:
@@ -3379,7 +3408,7 @@ class Table(Generic[TableContent]):
                 ret.insert(ob)
         return ret
 
-    def info(self) -> dict:
+    def info(self) -> dict[str, Any]:
         """
         Quick method to list informative table statistics
         :return: dict listing table information and statistics
@@ -3398,7 +3427,7 @@ class Table(Generic[TableContent]):
             "last_import": self.import_time,
         }
 
-    def head(self, n: int = 10) -> "Table":
+    def head(self, n: int = 10) -> Table[TableContent]:
         """
         Return a table of the first 'n' records in a table.
         :param n: (int, default=10) number of records to return
@@ -3406,7 +3435,7 @@ class Table(Generic[TableContent]):
         """
         return self[:n](self.table_name)
 
-    def tail(self, n: int = 10) -> "Table":
+    def tail(self, n: int = 10) -> Table[TableContent]:
         """
         Return a table of the last 'n' records in a table.
         :param n: (int, default=10) number of records to return
@@ -3414,7 +3443,7 @@ class Table(Generic[TableContent]):
         """
         return self[-n:](self.table_name)
 
-    def stats(self, field_names=None, by_field: bool = True) -> "Table":
+    def stats(self, field_names: Optional[Union[str, Iterable[str]]] = None, by_field: bool = True) -> Table:
         """
         Return a summary Table of statistics for numeric data in a Table.
         For each field in the source table, returns:
@@ -3523,7 +3552,7 @@ class Table(Generic[TableContent]):
         field_names = [nm for nm in field_names if nm not in suppress_names]
         return field_names
 
-    def _rich_table(self, fields=None, empty="", groupby=None, **kwargs):
+    def _rich_table(self, fields: Optional[Iterable[Union[str, dict]]] = None, empty: Any = "", groupby: Optional[str] = None, **kwargs: Any):
         if rich is None:
             raise Exception("rich module not installed")
 
@@ -3607,7 +3636,7 @@ class Table(Generic[TableContent]):
         return rt
 
     def present(
-        self, fields: Iterable[str] = None, file: TextIO = None, groupby=None, **kwargs
+        self, fields: Optional[Iterable[str]] = None, file: Optional[TextIO] = None, groupby: Optional[str] = None, **kwargs: Any
     ) -> None:
         """
         Print a nicely-formatted table of the records in the Table, using the `rich`
@@ -3638,8 +3667,8 @@ class Table(Generic[TableContent]):
         console.print(table)
 
     def as_html(
-        self, fields: Union[str, Iterable[str]] = "*", formats: dict = None, groupby=None,
-            table_properties: dict = None,
+        self, fields: Union[str, Iterable[str]] = "*", formats: Optional[dict[str, str]] = None, groupby: Optional[Union[str, Iterable[str]]] = None,
+            table_properties: Optional[dict] = None,
     ) -> str:
         """
         Output the table as a rudimentary HTML table.
@@ -3664,7 +3693,7 @@ class Table(Generic[TableContent]):
         field_format_map = {}
         attr_names = fields
 
-        def row_to_tr(r, suppress=()):
+        def row_to_tr(r: TableContent, suppress: Iterable[str] = ()) -> str:
             ret_tr = ["<tr>"]
             for fld in fields:
                 align = "left"
@@ -3723,7 +3752,7 @@ class Table(Generic[TableContent]):
         return ret
 
     def as_markdown(
-        self, fields: Union[str, Iterable[str]] = "*", formats: dict = None, groupby=None,
+        self, fields: Union[str, Iterable[str]] = "*", formats: Optional[dict[str, str]] = None, groupby: Optional[Union[str, Iterable[str]]] = None,
     ) -> str:
         """
         Output the table as a Markdown table.
@@ -3776,7 +3805,7 @@ class Table(Generic[TableContent]):
                 align = "---:"
             field_align_map[f] = align
 
-        def row_to_tr(r, suppress=()):
+        def row_to_tr(r: TableContent, suppress: Iterable[str] = ()) -> str:
             ret_tr = ["|"]
             for fld in fields:
                 if fld not in suppress:
@@ -3819,7 +3848,7 @@ Sequence.register(Table)
 
 
 # module-level convenience functions for Table.*_import() instance methods
-def _make_module_level_import_fn(name):
+def _make_module_level_import_fn(name: str) -> Callable:
     table_method = getattr(Table, name)
 
     @functools.wraps(table_method)
@@ -3839,7 +3868,7 @@ excel_import = _make_module_level_import_fn("excel_import")
 class _PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot()."""
 
-    def __init__(self, parent, attr_val_path, attrlist):
+    def __init__(self, parent: Union[Table, _PivotTable], attr_val_path: Iterable[tuple[str, str]], attrlist: Iterable[str]):
         """PivotTable initializer - do not create these directly, use
         L{Table.pivot}.
         """
@@ -3861,8 +3890,7 @@ class _PivotTable(Table):
             parent._subtable_dict[val] = self
 
         if len(attrlist) > 0:
-            this_attr = attrlist[0]
-            sub_attrlist = attrlist[1:]
+            this_attr, *sub_attrlist = attrlist
             ind = parent._indexes[this_attr]
             self.subtables = [
                 _PivotTable(self, attr_val_path + [(this_attr, k)], sub_attrlist)
@@ -3877,31 +3905,31 @@ class _PivotTable(Table):
         else:
             return super().__getitem__(val)
 
-    def keys(self):
+    def keys(self) -> Iterable[str]:
         return sorted(self._subtable_dict.keys())
 
-    def items(self):
+    def items(self) -> Iterable[tuple[str, Any]]:
         return sorted(self._subtable_dict.items())
 
-    def values(self):
+    def values(self) -> Iterable[Any]:
         return [self._subtable_dict[k] for k in self.keys()]
 
-    def pivot_key(self):
+    def pivot_key(self) -> Iterable[str]:
         """
         Return the set of attribute-value pairs that define the contents of this
         table within the original source table.
         """
         return self._attr_path
 
-    def pivot_key_str(self):
+    def pivot_key_str(self) -> str:
         """Return the pivot_key as a displayable string."""
         return "/".join(f"{attr}:{key}" for attr, key in self._attr_path)
 
-    def has_subtables(self):
+    def has_subtables(self) -> bool:
         """Return whether this table has further subtables."""
         return bool(self.subtables)
 
-    def dump(self, out=sys.stdout, row_fn=repr, limit=-1, indent=0):
+    def dump(self, out: TextIO = sys.stdout, row_fn: Callable[[Any], str] = repr, limit: int = -1, indent: int = 0) -> None:
         """
         Dump out the contents of this table in a nested listing.
         @param out: output stream to write to
@@ -3927,7 +3955,7 @@ class _PivotTable(Table):
                 out.write("  " * (indent + 1) + row_fn(r) + NL)
         out.flush()
 
-    def dump_counts(self, out=sys.stdout, count_fn=len, colwidth=10):
+    def dump_counts(self, out: TextIO = sys.stdout, count_fn: Callable[[Iterable[Any]], int] = len, colwidth: int = 10) -> None:
         """
         Dump out the summary counts of entries in this pivot table as a tabular listing.
         @param out: output stream to write to
@@ -3983,7 +4011,7 @@ class _PivotTable(Table):
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
 
-    def as_table(self, fn=None, col=None, col_label=None):
+    def as_table(self, fn: Optional[Callable] = None, col: Optional[str] = None, col_label: Optional[str] = None) -> Table:
         """Dump out the summary counts of this pivot table as a Table."""
         if col_label is None:
             col_label = col
@@ -3991,7 +4019,8 @@ class _PivotTable(Table):
             fn = len
             if col_label is None:
                 col_label = "count"
-        ret = Table()
+        ret: Table = Table()
+        col_label = cast(str, col_label)
 
         for attr in self._pivot_attrs:
             ret.create_index(attr)
@@ -4031,7 +4060,7 @@ class _PivotTable(Table):
 
     summary_counts = as_table
 
-    def summarize(self, count_fn=len, col_label=None):
+    def summarize(self, count_fn: Callable[[Iterable], int] = len, col_label: Optional[str] = None) -> _PivotTableSummary:
         if col_label is None:
             if len(self._pivot_attrs) == 1:
                 col_label = self._pivot_attrs[0]
@@ -4041,18 +4070,18 @@ class _PivotTable(Table):
 
 
 class _PivotTableSummary:
-    def __init__(self, pivot_table, pivot_attrs, count_fn=len, col_label=None):
+    def __init__(self, pivot_table: _PivotTable, pivot_attrs: list[str], count_fn: Callable[[Iterable], int]=len, col_label: Optional[str] = None):
         self._pt = pivot_table
         self._pivot_attrs = pivot_attrs
         self._fn = count_fn
         self._label = col_label
 
-    def as_html(self, *args, **kwargs):
+    def as_html(self, *args: Any, **kwargs: Any):
         formats = kwargs.get("formats", {})
         if len(self._pivot_attrs) == 1:
             col = self._pivot_attrs[0]
             col_label = self._label
-            data = Table().insert_many(
+            data: Table = Table().insert_many(
                 default_row_class(**{col: k, col_label: self._fn(sub)})
                 for k, sub in self._pt.items()
             )
@@ -4143,13 +4172,13 @@ class _JoinTerm:
     list of attributes as defined in L{Table.join}.
     """
 
-    def __init__(self, source_table, join_field, join_type=None):
+    def __init__(self, source_table: Table, join_field: str, join_type=None):
         self.source_table = source_table
         self.join_field = join_field
         self.join_to = None
         self.join_type = join_type
 
-    def __add__(self, other):
+    def __add__(self, other: Union[Table, _JoinTerm]) -> _JoinTerm:
         if isinstance(other, Table):
             other = other.join_on(self.join_field)
         if isinstance(other, _JoinTerm):
@@ -4174,14 +4203,14 @@ class _JoinTerm:
             f"cannot add object of type {type(other).__name__!r} to JoinTerm"
         )
 
-    def __radd__(self, other):
+    def __radd__(self, other: Table) -> _JoinTerm:
         if isinstance(other, Table):
             return other.join_on(self.join_field) + self
         raise ValueError(
             f"cannot add object of type {type(other).__name__!r} to JoinTerm"
         )
 
-    def __call__(self, attrs=None):
+    def __call__(self, attrs: Optional[Iterable[str]] = None) -> Table:
         if self.join_to:
             other = self.join_to
             if isinstance(other, Table):
@@ -4191,9 +4220,9 @@ class _JoinTerm:
             )
             return ret
         else:
-            return self.source_table.query()
+            return self.source_table.clone()
 
-    def join_on(self, col):
+    def join_on(self, col: str) -> _JoinTerm:
         return self().join_on(col)
 
 

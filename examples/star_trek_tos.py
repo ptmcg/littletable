@@ -7,8 +7,7 @@ st = lt.Table().csv_import(
 
 # sort by rating, and add "rank" field
 st.orderby(["rating desc", "votes desc"])
-for i, rec in enumerate(st, start=1):
-    setattr(rec, "rank", i)
+st.rank("rank")
 
 # display 10 best and worst episodes
 fields = "rank date title rating votes".split()

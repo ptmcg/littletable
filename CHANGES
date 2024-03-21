@@ -10,8 +10,15 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
 
 Version 2.2.4
 -------------
+- Added support for Python 3.13.
+
 - Renamed `sort` to `orderby` to make the symmetry with relational SQL more apparent.
   `sort` will be retained as a deprecated compatibility name.
+
+- Added `Table.rank()` method, to add a ranking attribute to each object in the
+  table.
+
+- Added/cleaned up many type annotations.
 
 
 Version 2.2.3
