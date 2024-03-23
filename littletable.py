@@ -159,7 +159,7 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 2, 4, "final", 0)
+__version_info__ = version_info(2, 2, 5, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
@@ -702,11 +702,11 @@ class _IndexAccessor:
 
         If there is no index defined for the given attribute, then C{AttributeError} is raised.
         """
-        if attr in self._table._indexes:
-            ret = self._table._indexes[attr]
-            if isinstance(ret, _UniqueObjIndex):
-                ret = _UniqueObjIndexWrapper(ret, self._table)
-                ret.__doc__ = textwrap.dedent(
+        attr_index = self._table._indexes.get(attr)
+        if attr_index is not None:
+            if isinstance(attr_index, _UniqueObjIndex):
+                attr_index_wrapper = _UniqueObjIndexWrapper(attr_index, self._table)
+                attr_index_wrapper.__doc__ = textwrap.dedent(
                     f"""\
                     Index accessor by {attr!r}
                     
@@ -714,9 +714,10 @@ class _IndexAccessor:
                     If no such object exists, raises KeyError.
                     """
                 )
-            if isinstance(ret, _ObjIndex):
-                ret = _ObjIndexWrapper(ret, self._table)
-                ret.__doc__ = textwrap.dedent(
+
+            else:
+                attr_index_wrapper = _ObjIndexWrapper(attr_index, self._table)
+                attr_index_wrapper.__doc__ = textwrap.dedent(
                     f"""\
                     Index accessor by {attr!r}
 
@@ -724,7 +725,9 @@ class _IndexAccessor:
                     If no matching objects exist, returns an empty Table.
                     """
                 )
-            return ret
+
+            return attr_index_wrapper
+
         raise AttributeError(f"Table {self._table.table_name!r} has no index {attr!r}")
 
 

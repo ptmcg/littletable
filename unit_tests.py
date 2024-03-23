@@ -648,6 +648,19 @@ class TableCreateTests:
         self.assertEqual([('a', True), ('c', False)], list(sorted(info['indexes'])))
         self.assertEqual(1001, info['len'])
 
+    def test_unique_index_creation(self):
+        table = lt.Table()
+        table.insert({"a": 1, "b": 2, "c": 3})
+        table.insert({"a": 4, "b": 5, "c": 6})
+        table.create_index("a", unique=True)
+        table.create_index("b")
+
+        self.assertIsInstance(table.by.a, lt._UniqueObjIndexWrapper)
+        self.assertIsInstance(table.by.a, lt._ObjIndexWrapper)
+
+        self.assertNotIsInstance(table.by.b, lt._UniqueObjIndexWrapper)
+        self.assertIsInstance(table.by.b, lt._ObjIndexWrapper)
+
     def test_chained_indexing(self):
         chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         make_rec = lambda aa, bb, cc: self.make_data_object(chars[aa % len(chars)],
