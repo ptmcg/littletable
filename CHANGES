@@ -10,8 +10,10 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
 
 Version 2.2.5
 -------------
-- Fixed minor code error in Table.by when determining if an index is unique or not.
+- Fixed minor code error in `Table.by` when determining if an index is unique or not.
   (Not a bug, just fixed some bug-prone code.)
+
+- Expanded `peps.py` example to Jupyter Notebook `PEPs data demo.ipynb`.
 
 
 Version 2.2.4
