@@ -530,6 +530,9 @@ class _ObjIndexWrapper:
     def __getattr__(self, attr):
         return getattr(self._index, attr)
 
+    def __call__(self, attr):
+        return getattr(self, attr)
+
     def _getitem_using_slice(self, k):
         where_selector = {
             (False, False, False): lambda: ValueError("must specify start and/or stop values for slice"),
@@ -627,6 +630,9 @@ class _TableAttributeValueLister:
                 )
         return _TableAttributeValueLister.UniquableIterator(vals)
 
+    def __call__(self, attr):
+        return getattr(self, attr)
+
 
 class _TableSearcher:
     def __init__(self, table):
@@ -667,6 +673,9 @@ class _TableSearcher:
             "return": 'Table | list[tuple]'
         }
         return ret
+
+    def __call__(self, attr):
+        return getattr(self, attr)
 
     def __dir__(self):
         return list(self.__table._search_indexes)
@@ -729,6 +738,9 @@ class _IndexAccessor:
             return attr_index_wrapper
 
         raise AttributeError(f"Table {self._table.table_name!r} has no index {attr!r}")
+
+    def __call__(self, attr):
+        return getattr(self, attr)
 
 
 _ImportExportDataContainer = Union[str, Path, Iterable[str], TextIO]

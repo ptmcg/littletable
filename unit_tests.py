@@ -440,7 +440,7 @@ class TableCreateTests:
         rec0, rec1 = table
         self.assertEqual({"a": 1, "b": 2, "c": 3}, vars(rec0))
         self.assertEqual(lt.default_row_class, type(rec0))
-        self.assertEqual(1, getattr(rec0, "a"))
+        self.assertEqual(1, rec0.a)
 
         # insert a nested dict
         table.clear()
@@ -913,6 +913,43 @@ class TableCreateTests:
             {-1},
             set(table.by.c.keys()),
             "index keys are not rebuilt by add_field",
+        )
+
+    def test_using_accessors_with_field_name_that_is_invalid_python_identifier(self):
+        # excerpt from https://github.com/lukes/ISO-3166-Countries-with-Regional-Codes/blob/master/all/all.csv?raw=true
+        data = textwrap.dedent("""\
+        name,alpha-2,alpha-3,country-code,iso_3166-2,region,sub-region,intermediate-region,region-code,sub-region-code,intermediate-region-code
+        Afghanistan,AF,AFG,004,ISO 3166-2:AF,Asia,Southern Asia,"",142,034,""
+        Åland Islands,AX,ALA,248,ISO 3166-2:AX,Europe,Northern Europe,"",150,154,""
+        Albania,AL,ALB,008,ISO 3166-2:AL,Europe,Southern Europe,"",150,039,""
+        Algeria,DZ,DZA,012,ISO 3166-2:DZ,Africa,Northern Africa,"",002,015,""
+        American Samoa,AS,ASM,016,ISO 3166-2:AS,Oceania,Polynesia,"",009,061,""
+        Andorra,AD,AND,020,ISO 3166-2:AD,Europe,Southern Europe,"",150,039,""
+        Angola,AO,AGO,024,ISO 3166-2:AO,Africa,Sub-Saharan Africa,Middle Africa,002,202,017
+        """)
+        tbl = lt.csv_import(data)
+
+        # test 'all' accessor
+        self.assertEqual(['Asia', 'Europe', 'Africa', 'Oceania'], list(tbl.all.region.unique))
+        self.assertEqual(
+            [
+                'Southern Asia',
+                'Northern Europe',
+                'Southern Europe',
+                'Northern Africa',
+                'Polynesia',
+                'Sub-Saharan Africa',
+            ], list(tbl.all("sub-region").unique))
+
+        # test 'by' accessor
+        tbl.create_index("sub-region")
+        self.assertEqual(['Albania', 'Andorra'], list(tbl.by("sub-region")["Southern Europe"].all.name))
+
+        # test 'search' accessor
+        tbl.create_search_index("sub-region")
+        self.assertEqual(
+            ['Åland Islands', 'Albania', 'Andorra'],
+            list(tbl.search("sub-region")("Europe").all.name)
         )
 
     def test_add_two_tables(self):
