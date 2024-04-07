@@ -1477,7 +1477,7 @@ class Table(Generic[TableContent]):
             ]
             raise
 
-    def delete_index(self, attr: str) -> Table[TableContent]:
+    def drop_index(self, attr: str) -> Table[TableContent]:
         """
         Deletes an index from the Table.  Can be used to drop and rebuild an index,
         or to convert a non-unique index to a unique index, or vice versa.
@@ -1490,6 +1490,8 @@ class Table(Generic[TableContent]):
                 ind for ind in self._indexes.values() if ind.is_unique
             ]
         return self
+
+    delete_index = drop_index
 
     def get_index(self, attr: str) -> _ReadonlyObjIndexWrapper:
         return _ReadonlyObjIndexWrapper(self._indexes[attr], self.copy_template())

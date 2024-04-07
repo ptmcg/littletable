@@ -426,7 +426,7 @@ class TableCreateTests:
         with self.assertRaises(KeyError):
             table.insert(self.make_data_object(None, 1, 0))
 
-        table.delete_index('a')
+        table.drop_index('a')
         table.insert(self.make_data_object(4, 1, 0))
 
         with self.assertRaises(KeyError):
@@ -624,7 +624,7 @@ class TableCreateTests:
             table.create_index('a', unique=True, accept_none=True)
 
         # create unique index that allows None values
-        table.delete_index('a')
+        table.drop_index('a')
         table.create_index('a', unique=True, accept_none=True)
         table.insert(self.make_data_object(None, None, 'A'))
 
@@ -633,7 +633,7 @@ class TableCreateTests:
                          sorted(table.all.a, key=str_none_compare))
 
         # now drop index and recreate not permitting None, should raise exception
-        table.delete_index('a')
+        table.drop_index('a')
         with self.assertRaises(KeyError):
             table.create_index('a', unique=True, accept_none=False)
 
@@ -1367,7 +1367,7 @@ class TableJoinTests:
         with self.subTest():
             self.assertEqual(test_size * test_size, len(joined))
 
-        t1.delete_index('a')
+        t1.drop_index('a')
         with self.subTest():
             with self.assertRaises(ValueError):
                 joined = (t1 + t2.join_on('a'))()

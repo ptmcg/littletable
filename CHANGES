@@ -28,6 +28,9 @@ Version 2.2.5
 
 - Expanded `peps.py` example to Jupyter Notebook `PEPs data demo.ipynb`.
 
+- Renamed `delete_index` to `drop_index` for more symmetry with SQL. `delete_index` is retained
+  for compatibility.
+
 
 Version 2.2.4
 -------------
