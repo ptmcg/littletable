@@ -1046,6 +1046,8 @@ class Table(Generic[TableContent]):
      - created, with an optional name, using standard Python L{C{Table() constructor}<__init__>}
      - indexed, with multiple indexes, with unique or non-unique values, see L{create_index}
      - queried, specifying values to exact match in the desired records, see L{where}
+     - searched, specifying words to search for in values, where words may be found in text
+       attributes, see L{create_search_index}
      - filtered (using L{where}), using a simple predicate function to match desired records;
        useful for selecting using inequalities or compound conditions
      - accessed directly for keyed values, using C{table.indexattribute[key]} - see L{__getattr__}
@@ -1055,7 +1057,8 @@ class Table(Generic[TableContent]):
        by attribute values
      - grouped, using L{groupby} to create a summary table of computed values, grouped by a key
        attribute
-     - L{imported<csv_import>}/L{exported<csv_export>} to CSV-format files
+     - L{imported<csv_import>}/L{exported<csv_export>} to CSV-format files; also supports working
+       with TSV files, JSON files, and Excel spreadsheet files
     Queries and joins return their results as new Table objects, so that queries and joins can
     be easily performed as a succession of operations.
     """
@@ -1087,7 +1090,7 @@ class Table(Generic[TableContent]):
     LEFT_OUTER_JOIN = object()
     RIGHT_OUTER_JOIN = object()
     FULL_OUTER_JOIN = object()
-    OUTER_JOIN_TYPES = (LEFT_OUTER_JOIN, RIGHT_OUTER_JOIN, FULL_OUTER_JOIN)
+    _OUTER_JOIN_TYPES = (LEFT_OUTER_JOIN, RIGHT_OUTER_JOIN, FULL_OUTER_JOIN)
 
     @staticmethod
     def _wrap_dict(dd: Mapping[str, Any]) -> default_row_class:
@@ -1237,7 +1240,34 @@ class Table(Generic[TableContent]):
 
         """
         C{'by'} is added as a pseudo-attribute on tables, to provide
-        dict-like access to the underlying records in the table by index key, as in::
+        dict-like 
+
+
+
+        """
+
+    @property
+    def all(self) -> _TableAttributeValueLister:
+        """
+        Use C{'all'} to access all the values of a particular table column as a sequence.
+        This is useful if passing the values on to another function that works with sequences
+        of values::
+
+            sum(customers.by.zipcode["12345"].all.order_total)
+
+        The follow-on attribute C{'unique'} can be added to return a list of values with
+        duplicates suppressed::
+
+            customer_zip_codes = customers.all.zipcode.unique
+
+        C{'all'} and C{'unique'} return a generator of the attribute values.
+        """
+        return _TableAttributeValueLister(self)
+
+    @property
+    def by(self) -> _IndexAccessor:
+        """
+        Use C{'by'} to access the Table's records by index key, as in::
 
             employees.by.socsecnum["000-00-0000"]
             customers.by.zipcode["12345"]
@@ -1251,27 +1281,13 @@ class Table(Generic[TableContent]):
            Table is returned and no exception is raised.
 
         If there is no index defined for the given attribute, then C{AttributeError} is raised.
-
-        C{'all'} is added as a pseudo-attribute to tables, to provide access to the
-        values of a particular table column as a sequence. This is useful if passing the
-        values on to another function that works with sequences of values.
-
-            sum(customers.by.zipcode["12345"].all.order_total)
-
         """
-
-    @property
-    def all(self) -> _TableAttributeValueLister:
-        return _TableAttributeValueLister(self)
-
-    @property
-    def by(self) -> _IndexAccessor:
         return _IndexAccessor(self)
 
     @property
     def search(self) -> _TableSearcher:
         """
-        Use search to find records matching given query.
+        Use C{'search'} to find records matching given query.
         Query is a list of keywords that may be found in a document. Keywords may be prefixed with
         "+" or "-" to indicate desired inclusion or exclusion. '++' and '--' will indicate a
         mandatory inclusion or exclusion. All other keywords will be optional,
@@ -1418,7 +1434,7 @@ class Table(Generic[TableContent]):
         return ret
 
     def create_index(
-        self, attr: str, unique: bool = False, accept_none: bool = False
+        self, attr: str, unique: bool = False, accept_none: bool = False, force: bool = False
     ) -> Table[TableContent]:
         """
         Create a new index on a given attribute.
@@ -1447,7 +1463,13 @@ class Table(Generic[TableContent]):
             unique key value for this attribute (always True for non-unique
             indexes, default=False for unique indexes)
         @type accept_none: boolean
+        @param force: flag indicating whether the index should be created
+            even it if already exists (default = False)
+        @type force: boolean
         """
+        if force:
+            self.drop_index(attr)
+
         if attr in self._indexes:
             raise ValueError(f"index {attr!r} already defined for table")
 
@@ -1471,10 +1493,7 @@ class Table(Generic[TableContent]):
             return self
 
         except KeyError:
-            del self._indexes[attr]
-            self._uniqueIndexes = [
-                ind for ind in self._indexes.values() if ind.is_unique
-            ]
+            self.drop_index(attr)
             raise
 
     def drop_index(self, attr: str) -> Table[TableContent]:
@@ -1496,23 +1515,23 @@ class Table(Generic[TableContent]):
     def get_index(self, attr: str) -> _ReadonlyObjIndexWrapper:
         return _ReadonlyObjIndexWrapper(self._indexes[attr], self.copy_template())
 
-    NON_WORD_STRIPPER_RE = re.compile(r"[^\w_]?([\w._-]*)[^\w.]*")
-    NON_WORD_STRIPPER2_RE = re.compile(r"[^\w_-]?((?:\w|[-_]\w)+)(!>_-)$")
-    ACRONYM_WITH_PERIODS = re.compile(r"((?:\w\.){2,})(!>\.)$")
-    SIGNIFICANT_WORD_ENDING_RE = re.compile(rf"[a-z]{{2,}}({'|'.join(_significant_word_endings)})$")
+    _NON_WORD_STRIPPER_RE = re.compile(r"[^\w_]?([\w._-]*)[^\w.]*")
+    _NON_WORD_STRIPPER2_RE = re.compile(r"[^\w_-]?((?:\w|[-_]\w)+)(!>_-)$")
+    _ACRONYM_WITH_PERIODS = re.compile(r"((?:\w\.){2,})(!>\.)$")
+    _SIGNIFICANT_WORD_ENDING_RE = re.compile(rf"[a-z]{{2,}}({'|'.join(_significant_word_endings)})$")
 
-    PLURAL_ENDING_IN_IES = re.compile(r"(.*[^aeiouy])ies$")
-    PLURAL_ENDING_IN_ES = re.compile(r"(.*(?:ch|ss|sh|x))es$")
-    PLURAL_ENDING_IN_ES2 = re.compile(r"(.*(?:[bcdfghklmnprstuvwxz]|(qu))e)s$")
-    PLURAL_ENDING_IN_S = re.compile(r"(.*[^aeious])s$")
-    SINGULAR_ENDING_IN_S = re.compile(r"(.*(?:ness|ics))$")
+    _PLURAL_ENDING_IN_IES = re.compile(r"(.*[^aeiouy])ies$")
+    _PLURAL_ENDING_IN_ES = re.compile(r"(.*(?:ch|ss|sh|x))es$")
+    _PLURAL_ENDING_IN_ES2 = re.compile(r"(.*(?:[bcdfghklmnprstuvwxz]|(qu))e)s$")
+    _PLURAL_ENDING_IN_S = re.compile(r"(.*[^aeious])s$")
+    _SINGULAR_ENDING_IN_S = re.compile(r"(.*(?:ness|ics))$")
 
-    PLURAL_MATCH_SUBS = (
-        (PLURAL_ENDING_IN_IES, r"\1y"),
-        (PLURAL_ENDING_IN_ES, r"\1"),
-        (PLURAL_ENDING_IN_ES2, r"\1"),
-        (SINGULAR_ENDING_IN_S, r"\1"),
-        (PLURAL_ENDING_IN_S, r"\1"),
+    _PLURAL_MATCH_SUBS = (
+        (_PLURAL_ENDING_IN_IES, r"\1y"),
+        (_PLURAL_ENDING_IN_ES, r"\1"),
+        (_PLURAL_ENDING_IN_ES2, r"\1"),
+        (_SINGULAR_ENDING_IN_S, r"\1"),
+        (_PLURAL_ENDING_IN_S, r"\1"),
     )
 
     @staticmethod
@@ -1537,7 +1556,7 @@ class Table(Generic[TableContent]):
             return
 
         # strip non-word chars from front and back
-        stripper = Table.NON_WORD_STRIPPER_RE
+        stripper = Table._NON_WORD_STRIPPER_RE
         s = stripper.match(s).group(1)
 
         if s in sw:
@@ -1551,7 +1570,7 @@ class Table(Generic[TableContent]):
 
             # check common plurals - if not found, check common plural patterns
             if not (sing := _plurals_map.get(s)):
-                sing = next((sub_match[0] for re_sub, re_repl in Table.PLURAL_MATCH_SUBS
+                sing = next((sub_match[0] for re_sub, re_repl in Table._PLURAL_MATCH_SUBS
                             if (sub_match := re_sub.subn(re_repl, s))[1]),
                             s)
 
@@ -1562,7 +1581,7 @@ class Table(Generic[TableContent]):
             # also add special ending words for code and documentation parsing
             if (
                 s.endswith(_significant_word_endings)
-                and (m := Table.SIGNIFICANT_WORD_ENDING_RE.match(s))
+                and (m := Table._SIGNIFICANT_WORD_ENDING_RE.match(s))
             ):
                 yield m[1]
 
@@ -1570,10 +1589,10 @@ class Table(Generic[TableContent]):
 
         match_res = [
             # an acronym of 2 or more "X." sequences, such as G.E. or I.B.M.
-            Table.ACRONYM_WITH_PERIODS,
+            Table._ACRONYM_WITH_PERIODS,
             # words that may be hyphenated or snake-case
             # (strip off any leading single non-word character)
-            Table.NON_WORD_STRIPPER2_RE,
+            Table._NON_WORD_STRIPPER2_RE,
         ]
         for match_re in match_res:
             if match := match_re.match(s):
@@ -1725,7 +1744,7 @@ class Table(Generic[TableContent]):
 
             else:
                 for kwd in self._normalize_word_gen(keyword, stopwords):
-                    if m := Table.SIGNIFICANT_WORD_ENDING_RE.match(keyword):
+                    if m := Table._SIGNIFICANT_WORD_ENDING_RE.match(keyword):
                         if kwd == m[1]:
                             continue
                     if kwd in plus_matches or kwd in minus_matches:
@@ -2413,11 +2432,11 @@ class Table(Generic[TableContent]):
             of the form C{table1attr="table2attr"}, or a dict mapping attribute names.
         @returns: a new Table containing the joined data as new SimpleNamespaces
         """
-        if join_type not in Table.OUTER_JOIN_TYPES:
+        if join_type not in Table._OUTER_JOIN_TYPES:
             join_names = [
                 nm
                 for nm, join_var in vars(Table).items()
-                if join_var in Table.OUTER_JOIN_TYPES
+                if join_var in Table._OUTER_JOIN_TYPES
             ]
             raise ValueError(
                 f"join argument must be one of [{', '.join(f'Table.{nm}' for nm in join_names)}]"
@@ -2963,6 +2982,8 @@ class Table(Generic[TableContent]):
         @type delimiter: string
         @param kwargs: additional keyword args to pass through to csv.DictWriter
         @type kwargs: named arguments (optional)
+
+        If no destination file is given, the CSV-formatted data is returned as a string.
         """
         non_writer_args = "encoding csv_dest fieldnames".split()
         writer_args = {
