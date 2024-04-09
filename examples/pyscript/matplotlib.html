@@ -24,29 +24,57 @@ Visit at: https://slides.com/blakerayfield/data-visualization-with-pyscript
 
 </head>
 <body>
-    <!-- Short JS script to extract "year" query arg, if given   -->
-    <script>
-        // Get the query string portion of the URL
-        var queryString = window.location.search;
-
-        // Parse the query string to extract individual query parameters
-        var urlParams = new URLSearchParams(queryString);
-
-        // extract "year" query arg, if given (else null)
-        var urlYear = urlParams.get("year")
-    </script>
-
     <!--
     Pyscript code to extract S&P500 data using littletable, and display
     as an HTML table and a matplotlib line graph.
+
+    If "year" query parameters are included in the URL that runs this
+    script, use them to filter the displayed results.
     -->
     <script type="py">
+        from operator import attrgetter
         from pyscript import display, HTML
         import pyscript
 
         from pyodide.http import open_url
         import matplotlib.pyplot as plt
         import littletable as lt
+
+        def expand_str_range(sr: str) -> list[int]:
+            # expand "1900-1905" to [1900, 1901, 1902, 1903, 1904, 1905]
+            if "-" not in sr:
+                try:
+                    return [int(sr)]
+                except ValueError:
+                    pass
+            else:
+                try:
+                    lower, upper = (int(sr_part) for sr_part in sr.split("-"))
+                except ValueError:
+                    pass
+                else:
+                    if lower <= upper:
+                        return list(range(lower, upper + 1))
+
+            # invalid or out-of-order values, return empty list
+            return []
+
+        def get_query_years() -> list[int]:
+            # get all query args for years to include in chart
+            import urllib.parse as parse
+
+            # extract query parameters into query_dict, if any
+            query_string = str(pyscript.window.location)
+            url_query = parse.urlparse(query_string).query
+            query_dict: dict[str, list[str]] = parse.parse_qs(url_query)
+
+            # convert "year" parameter values to ints (ignore those
+            # that are not valid ints)
+            year_arg_values = query_dict.get('year', [])
+            years = []
+            for year_str in year_arg_values:
+                years.extend(expand_str_range(year_str))
+            return years
 
         # use littletable to import data from remote CSV URL;
         # transforms convert data for those attributes, all others are loaded as strs
@@ -60,13 +88,13 @@ Visit at: https://slides.com/blakerayfield/data-visualization-with-pyscript
         )
 
         # add a computed field to summarize or fetch by year
-        stock_data.add_field("Year", lambda rec: rec.Date.year)
+        get_year = attrgetter("Date.year")
+        stock_data.add_field("Year", get_year)
 
-        # extract Javascript variable if a query arg `?year=####` was part of the URL;
-        # if given, filter the retrieved data for just this particular year
-        year = pyscript.window.urlYear
-        if year is not None:
-            stock_data = stock_data.where(Year=int(year))
+        # filter on any years listed as URL query args
+        filter_years = set(get_query_years())
+        if filter_years:
+            stock_data = stock_data.where(Year=lt.Table.is_in(filter_years))
 
         # dump out the data as an HTML table
         display(
@@ -77,6 +105,7 @@ Visit at: https://slides.com/blakerayfield/data-visualization-with-pyscript
         )
 
         # plot the data
+        plt.rcParams["figure.figsize"] = (15,12)
         fig, ax = plt.subplots()
         data_series = ax.plot(list(stock_data.all.Date), list(stock_data.all.SP500))
         plt.title("SP500 stock price")
