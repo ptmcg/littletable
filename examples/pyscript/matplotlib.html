@@ -1,0 +1,92 @@
+<!--
+Demo of using littletable to extract CSV data from a remote URL, embedded in a Pyscript
+static HTML file. Optionally accepts a "year" query argument to filter the displayed
+data and graph.
+
+Inspired by "Data Visualization with PyScript" tutorial by Blake Rayfield.
+Visit at: https://slides.com/blakerayfield/data-visualization-with-pyscript
+-->
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+
+    <title>Pyscript + littletable Demo</title>
+
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.3.2/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.3.2/core.js"></script>
+    <py-config>
+        packages = [
+            "matplotlib",
+            "littletable",
+        ]
+    </py-config>
+
+</head>
+<body>
+    <!-- Short JS script to extract "year" query arg, if given   -->
+    <script>
+        // Get the query string portion of the URL
+        var queryString = window.location.search;
+
+        // Parse the query string to extract individual query parameters
+        var urlParams = new URLSearchParams(queryString);
+
+        // extract "year" query arg, if given (else null)
+        var urlYear = urlParams.get("year")
+    </script>
+
+    <!--
+    Pyscript code to extract S&P500 data using littletable, and display
+    as an HTML table and a matplotlib line graph.
+    -->
+    <script type="py">
+        from pyscript import display, HTML
+        import pyscript
+
+        from pyodide.http import open_url
+        import matplotlib.pyplot as plt
+        import littletable as lt
+
+        # use littletable to import data from remote CSV URL;
+        # transforms convert data for those attributes, all others are loaded as strs
+        url = "https://raw.githubusercontent.com/datasets/s-and-p-500/master/data/data.csv"
+        stock_data = lt.csv_import(
+            open_url(url),
+            transforms={
+                "Date": lt.Table.parse_date("%Y-%m-%d"),
+                "SP500": float,
+            }
+        )
+
+        # add a computed field to summarize or fetch by year
+        stock_data.add_field("Year", lambda rec: rec.Date.year)
+
+        # extract Javascript variable if a query arg `?year=####` was part of the URL;
+        # if given, filter the retrieved data for just this particular year
+        year = pyscript.window.urlYear
+        if year is not None:
+            stock_data = stock_data.where(Year=int(year))
+
+        # dump out the data as an HTML table
+        display(
+            HTML(
+                stock_data.select("Year SP500").as_html(groupby="Year")
+            ),
+            target="table_here"
+        )
+
+        # plot the data
+        fig, ax = plt.subplots()
+        data_series = ax.plot(list(stock_data.all.Date), list(stock_data.all.SP500))
+        plt.title("SP500 stock price")
+        display(fig, target="plot_here", append=False)
+    </script>
+
+    <pre>
+    <div id="table_here"></div><br/>
+    </pre>
+    <div id="plot_here"></div>
+
+</body>
+</html>
