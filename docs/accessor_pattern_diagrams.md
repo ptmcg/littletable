@@ -37,6 +37,7 @@ sequenceDiagram
     note over client,w: create index on "sku"
 
     client ->> tbl: create_index("sku", unique=True)
+    note over tbl: build "sku" index dict<br>mapping obj.sku -> obj<br>for all obj in tbl
     tbl ->> tbl: index = <br>{getattr(obj, "sku"): obj<br>for obj in self.obj_list}
     tbl ->> tbl: self.indexes["sku"] = index
 
@@ -56,6 +57,7 @@ sequenceDiagram
 
     note right of client: get "001" element in index
     client ->> w: __getitem__("001")
-    w -->> client: wrapper.index["001"]
+    w ->> w: self.index["001"]
+    w -->> client: ["001"] object or KeyError
 
 ```
