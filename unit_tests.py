@@ -692,6 +692,25 @@ class TableCreateTests:
 
         self.assertEqual(test_size, len(chained_table))
 
+    def test_index_get(self):
+        table = lt.Table()
+        table.insert(self.make_data_object(**{"a": 1, "b": 2, "c": 3}))
+        table.insert(self.make_data_object(**{"a": 4, "b": 5, "c": 6}))
+        table.create_index("a", unique=True)
+        table.create_index("b")
+
+        rec_type = type(table[0])
+
+        single_item = table.by.a.get(1)
+        self.assertIsInstance(single_item, rec_type)
+        non_existent_single_item = table.by.a.get(100)
+        self.assertEqual(None, non_existent_single_item)
+
+        multi_item = table.by.b.get(2)
+        self.assertIsInstance(multi_item, lt.Table)
+        non_existent_multi_item = table.by.b.get(200)
+        self.assertEqual(None, non_existent_multi_item)
+
     def test_parse_datetime_transform(self):
         import datetime
 

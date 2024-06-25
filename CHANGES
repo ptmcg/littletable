@@ -10,6 +10,10 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
 
 Version 2.3.0
 -------------
+- Implemented `get()` for objects returned by `table.by.<indexname>`, to emulate
+  `dict.get()` behavior (for unique indexes) and `defaultdict.get()` behavior (for
+  non-unique indexes).
+
 - `Table.splitby` now infers any AttributeError raised while evaluating the given predicate method
   as a False value.
 

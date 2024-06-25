@@ -166,7 +166,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "25 Jun 2024 13:13 UTC"
+__version_time__ = "25 Jun 2024 21:35 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -634,6 +634,12 @@ class _ObjIndexWrapper:
 
     def __contains__(self, k):
         return k in self._index
+
+    def get(self, key, default=None):
+        if key in self:
+            return self[key]
+        else:
+            return default
 
 
 Mapping.register(_ObjIndexWrapper)
