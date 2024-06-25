@@ -234,7 +234,9 @@ def _emit_warning_with_user_frame(warning: Warning) -> None:
 
 class attrgetter:
     """
-    Return a callable object that fetches the given attributes(s) from its operand.
+    Return a callable object that fetches the given attributes(s) from its operand,
+    and returns their values as a tuple.
+
     Accepts a _defaults dict for any attribute that is not present in the given
     object. If an attribute is not present and no default value is defined for that
     attribute, fills in None for that attribute.
@@ -255,7 +257,7 @@ class attrgetter:
             default_value = defaults.get(item)
 
             def func(obj):
-                return getattr(obj, item, default_value)
+                return (getattr(obj, item, default_value),)
 
         else:
             # multiple attribute names given (first is item, the rest are in items,
@@ -272,8 +274,8 @@ class attrgetter:
                     return base_getter(obj)
                 except AttributeError:
                     return tuple(
-                        getattr(obj, item_, item_default)
-                        for item_, item_default in item_default_values
+                        getattr(obj, *item_default)
+                        for item_default in item_default_values
                     )
 
         self._call = func
@@ -2251,13 +2253,14 @@ class Table(Generic[TableContent]):
         exprs = {k: _make_string_callable(v) for k, v in exprs.items()}
 
         raw_tuples = []
+        attrvalues_getter = attrgetter(*fields) if fields else lambda ob: ()
         for ob in self.obs:
-            attrvalues = tuple(getattr(ob, field_name, None) for field_name in fields)
+            attrvalues = attrvalues_getter(ob)
             if exprs:
                 attrvalues += tuple(expr(ob) for expr in exprs.values())
             raw_tuples.append(attrvalues)
 
-        all_names = tuple(fields) + tuple(exprs.keys())
+        all_names = (*fields, *exprs)
         ret: Table[TableContent] = Table(self.table_name)
         ret._indexes.update(
             {k: v.copy_template() for k, v in self._indexes.items() if k in all_names}

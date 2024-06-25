@@ -3178,8 +3178,13 @@ class StorageIndependentTests(unittest.TestCase):
             y,yy,
             """), transforms={'c': int}
         )
-        tbl.insert({'a':'a', 'b':'aa'})
+        tbl.insert({'a': 'a', 'b': 'aa'})
 
+        # check single-attribute getting
+        get_a = lt.attrgetter('a')
+        self.assertEqual([("x",), ("y",), ("a",)], list(get_a(ob) for ob in tbl))
+
+        # check multiple-attribute getting
         get_a_c = lt.attrgetter('a', 'c')
         tbl.add_field("d", get_a_c)
         self.assertEqual([('x', 1), ('y', None), ('a', None)], list(tbl.all.d))
@@ -3190,7 +3195,6 @@ class StorageIndependentTests(unittest.TestCase):
 
         tbl.add_field("f", lambda rec: "/".join(map(str, get_a_c(rec))))
         self.assertEqual(["x/1", "y/None", "a/-1"], list(tbl.all.f))
-
 
 
 if __name__ == '__main__':
