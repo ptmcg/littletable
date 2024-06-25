@@ -207,11 +207,11 @@ class TestTableTypes(unittest.TestCase):
         # check that Table and Index are recognized as Sequence and Mapping types
         with self.subTest("check that Table is recognized as Sequence type"):
             t = lt.Table()
-            self.assertTrue(isinstance(t, lt.Sequence))
+            self.assertIsInstance(t, lt.Sequence)
 
         with self.subTest("check that Index is recognized as Mapping type"):
             t.create_index("x")
-            self.assertTrue(isinstance(t.get_index('x'), lt.Mapping))
+            self.assertIsInstance(t.get_index('x'), lt.Mapping)
 
         # make sure get_index returns a read-only access to the underlying index
         with self.subTest("check that get_index returns a read-only access to the underlying index"):
@@ -416,11 +416,11 @@ class TableTypeTests(unittest.TestCase):
 
         with self.subTest():
             print("isinstance(_ObjIndex, Mapping)")
-            self.assertTrue(isinstance(tbl._indexes["idx"], Mapping))
+            self.assertIsInstance(tbl._indexes["idx"], Mapping)
 
         with self.subTest():
             print("isinstance(_ObjIndexWrapper, Mapping)")
-            self.assertTrue(isinstance(tbl.by.idx, Mapping))
+            self.assertIsInstance(tbl.by.idx, Mapping)
 
 
 @make_test_classes
@@ -612,7 +612,7 @@ class TableCreateTests:
         self.assertTrue('A' in table.by.a)
         self.assertTrue('AA' not in table.by.a)
         self.assertEqual(test_size * test_size, len(table.by.a['B']))
-        self.assertTrue(isinstance(table.by.a['B'], lt.Table))
+        self.assertIsInstance(table.by.a['B'], lt.Table)
         with self.assertRaises(AttributeError):
             table.by.z
 
@@ -629,7 +629,7 @@ class TableCreateTests:
 
         self.assertTrue('AAA' in table.by.a)
         self.assertTrue('AA' not in table.by.a)
-        self.assertTrue(isinstance(table.by.a['BAA'], rec_type))
+        self.assertIsInstance(table.by.a['BAA'], rec_type)
         with self.assertRaises(KeyError):
             table.insert(self.make_data_object(None, None, None))
 
