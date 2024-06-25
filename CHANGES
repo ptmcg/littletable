@@ -8,6 +8,17 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
   `re.compile(patt).match`
 
 
+Version 2.3.0
+-------------
+- `Table.splitby` now infers any AttributeError raised while evaluating the given predicate method
+  as a False value.
+
+- New `attrgetter` function accepts a `defaults` dict argument to fill in missing attributes. Is now
+  used in `Table` sorting, splitting, and exporting, which would previously raise exceptions if one
+  or more attributes were missing in any row - now replaces missing attributes with None, or a given
+  default value. `littletable.attrgetter` is supported as part of the public API.
+
+
 Version 2.2.5
 -------------
 - Enhanced `Table.by`, `Table.all`, and `Table.search` methods to accept a field name that is not

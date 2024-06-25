@@ -159,14 +159,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 2, 6, "final", 0)
+__version_info__ = version_info(2, 3, 0, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "9 Apr 2024 21:27 UTC"
+__version_time__ = "25 Jun 2024 13:13 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -230,6 +230,71 @@ def _emit_warning_with_user_frame(warning: Warning) -> None:
             user_stack_level = 2
 
     warnings.warn(message=str(warning), category=type(warning), stacklevel=user_stack_level)
+
+
+class attrgetter:
+    """
+    Return a callable object that fetches the given attributes(s) from its operand.
+    Accepts a _defaults dict for any attribute that is not present in the given
+    object. If an attribute is not present and no default value is defined for that
+    attribute, fills in None for that attribute.
+
+    Not quite a drop-in replacement for operator.attrgetter - that method will accept
+    dotted attribute names and will traverse the object path to extract attributes
+    from contained objects.
+    """
+    __slots__ = ('_items', '_defaults', '_call')
+
+    def __init__(self, item: str, /, *items, defaults: dict[str, Any] = {}):
+
+        self._defaults = {**defaults}
+
+        if not items:
+            # only a single attribute name given
+            self._items = (item,)
+            default_value = defaults.get(item)
+
+            def func(obj):
+                return getattr(obj, item, default_value)
+
+        else:
+            # multiple attribute names given (first is item, the rest are in items,
+            # so we must merge into a single tuple).
+            items = (item,) + items
+            self._items = items
+            base_getter = operator.attrgetter(*items)
+            item_default_values = {
+                k: defaults.get(k) for k in items
+            }
+
+            def func(obj):
+                try:
+                    return base_getter(obj)
+                except AttributeError:
+                    return tuple(
+                        getattr(obj, item_, item_default)
+                        for item_, item_default in item_default_values.items()
+                    )
+
+        self._call = func
+
+    def __call__(self, obj, /):
+        return self._call(obj)
+
+    def __repr__(self):
+        if self._defaults:
+            return '%s.%s(%s, %s)' % (self.__class__.__module__,
+                                      self.__class__.__name__,
+                                      ', '.join(map(repr, self._items)),
+                                      self._defaults)
+        else:
+            return '%s.%s(%s)' % (self.__class__.__module__,
+                                  self.__class__.__name__,
+                                  ', '.join(map(repr, self._items)))
+
+
+    def __reduce__(self):
+        return self.__class__, self._items, self._defaults
 
 
 NL = os.linesep
@@ -2116,10 +2181,10 @@ class Table(Generic[TableContent]):
             # special optimization if all orders are ascending or descending
             if all(order == "asc" for attr, order in attr_orders):
                 for seq in (self.obs, *self._indexes.values()):
-                    seq.sort(key=operator.attrgetter(*attrs), reverse=reverse)
+                    seq.sort(key=attrgetter(*attrs), reverse=reverse)
             elif all(order == "desc" for attr, order in attr_orders):
                 for seq in (self.obs, *self._indexes.values()):
-                    seq.sort(key=operator.attrgetter(*attrs), reverse=not reverse)
+                    seq.sort(key=attrgetter(*attrs), reverse=not reverse)
             else:
                 # mix of ascending and descending sorts, have to do succession of sorts
                 # leftmost attr is the most primary sort key, so reverse attr_orders to do
@@ -2127,7 +2192,7 @@ class Table(Generic[TableContent]):
                 for seq in (self.obs, *self._indexes.values()):
                     for attr, order in reversed(attr_orders):
                         seq.sort(
-                            key=operator.attrgetter(attr), reverse=(order == "desc")
+                            key=attrgetter(attr), reverse=(order == "desc")
                         )
         else:
             # sorting given a sort key function
@@ -3018,7 +3083,7 @@ class Table(Generic[TableContent]):
             try:
                 csvout.writerows(_to_dict(o) for o in self.obs)
             except UnableToExtractAttributeNamesError:
-                attr_fetch = operator.attrgetter(*fieldnames)
+                attr_fetch = attrgetter(*fieldnames)
                 for o in self.obs:
                     csvout.writerow(dict(zip(fieldnames, attr_fetch(o))))
         finally:
@@ -3300,8 +3365,8 @@ class Table(Generic[TableContent]):
         else:
             fieldnames = self._parse_fields_string(fields)
 
-        # operator.attrgetter is an efficient extractor of values from objects
-        extractor = operator.attrgetter(*fieldnames)
+        # attrgetter is an efficient extractor of values from objects
+        extractor = attrgetter(*fieldnames)
 
         # build a DataFrame from the tuples returned by the extractor for
         # each object in this Table
@@ -3406,19 +3471,26 @@ class Table(Generic[TableContent]):
               evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
               nulls, not_nulls = tbl.splitby("optional_data_field")
         """
-        # if key is a str, convert it to a predicate function using attrgetter
+        # if key is a str, convert it to a predicate function using getattr
         if isinstance(pred, str):
             key_str = pred
-            pred = operator.attrgetter(key_str)
+            pred = lambda obj: getattr(obj, key_str, None)
+
+        # wrap pred in try-except, to infer any failure of pred -> False,
+        # and use not not to bool-ify the value returned from pred()
+        def wrapped_pred(obj):
+            try:
+                return not not pred(obj)
+            except AttributeError:
+                return False
 
         # construct two tables to receive False and True evaluated records
         ret = self.copy_template(), self.copy_template()
 
         # iterate over self and evaluate predicate for each record - use groupby to take
         # advantage of efficiencies when using insert_many() over multiple insert() calls
-        for bool_value, recs in groupby(self, key=pred):
-            # force value returned by pred to be bool
-            ret[not not bool_value].insert_many(recs)
+        for bool_value, recs in groupby(self, key=wrapped_pred):
+            ret[bool_value].insert_many(recs)
 
         return ret
 

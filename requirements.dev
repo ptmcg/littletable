@@ -2,6 +2,7 @@ attrs
 rich
 openpyxl
 traits
+traits-stubs
 traitlets
 pydantic
 pytest

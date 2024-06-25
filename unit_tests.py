@@ -13,6 +13,7 @@ import itertools
 import json
 from operator import attrgetter
 import os
+import re
 import sys
 import textwrap
 from types import SimpleNamespace
@@ -58,16 +59,14 @@ else:
         c: Optional[Union[int, str]]
 
     class DataPydanticImmutableModel(pydantic.BaseModel):
-        class Config:
-            allow_mutation = False
+        model_config = {"frozen": True}
 
         a: Optional[Union[int, str]]
         b: Optional[Union[int, str]]
         c: Optional[Union[int, str]]
 
     class DataPydanticORMModel(pydantic.BaseModel):
-        class Config:
-            orm_mode = True
+        model_config = {"from_attributes": True}
 
         a: Optional[Union[int, str]]
         b: Optional[Union[int, str]]
@@ -281,11 +280,16 @@ class AbstractContentTypeFactory:
     """
     data_object_type: Optional[type] = None
     storage_supports_add_field = True
+    storage_supports_omitted_field = True
     storage_is_mutable = True
 
     @classmethod
-    def make_data_object(cls, a, b, c):
-        return cls.data_object_type(a=a, b=b, c=c)
+    def make_data_object(cls, *args, **kwargs):
+        if args:
+            a, b, c = args
+            return cls.data_object_type(a=a, b=b, c=c)
+        else:
+            return cls.data_object_type(**kwargs)
 
 
 class UsingDataObjects(AbstractContentTypeFactory):
@@ -296,18 +300,21 @@ class UsingDataObjects(AbstractContentTypeFactory):
 class UsingNamedtuples(AbstractContentTypeFactory):
     data_object_type = DataTuple
     storage_supports_add_field = False
+    storage_supports_omitted_field = False
     storage_is_mutable = False
 
 
 class UsingSlottedObjects(AbstractContentTypeFactory):
     data_object_type = Slotted
     storage_supports_add_field = False
+    storage_supports_omitted_field = False
 
 
 if SlottedWithDict is not None:
     class UsingSlottedWithDictObjects(AbstractContentTypeFactory):
         data_object_type = SlottedWithDict
         storage_supports_add_field = False
+        storage_supports_omitted_field = False
 else:
     UsingSlottedWithDictObjects = AbstractContentTypeFactory
 
@@ -319,6 +326,7 @@ class UsingSimpleNamespace(AbstractContentTypeFactory):
 if dataclasses is not None:
     class UsingDataclasses(AbstractContentTypeFactory):
         data_object_type = DataDataclass
+        storage_supports_omitted_field = False
 else:
     UsingDataclasses = AbstractContentTypeFactory
 
@@ -327,15 +335,18 @@ if pydantic is not None:
     class UsingPydanticModel(AbstractContentTypeFactory):
         data_object_type = DataPydanticModel
         storage_supports_add_field = False
+        storage_supports_omitted_field = False
 
     class UsingPydanticImmutableModel(AbstractContentTypeFactory):
         data_object_type = DataPydanticImmutableModel
         storage_supports_add_field = False
+        storage_supports_omitted_field = False
         storage_is_mutable = False
 
     class UsingPydanticORMModel(AbstractContentTypeFactory):
         data_object_type = DataPydanticORMModel
         storage_supports_add_field = False
+        storage_supports_omitted_field = False
 
 else:
     UsingPydanticModel = AbstractContentTypeFactory
@@ -345,22 +356,26 @@ else:
 if attr is not None:
     class UsingAttrClass(AbstractContentTypeFactory):
         data_object_type = AttrClass
+        storage_supports_omitted_field = False
 else:
     UsingAttrClass = AbstractContentTypeFactory
 
 if traitlets is not None:
     class UsingTraitletsClass(AbstractContentTypeFactory):
         data_object_type = TraitletsClass
+        storage_supports_omitted_field = False
 else:
     UsingTraitletsClass = AbstractContentTypeFactory
 
 class UsingTypingNamedTuple(AbstractContentTypeFactory):
     data_object_type = TypingNamedTuple
     storage_supports_add_field = False
+    storage_supports_omitted_field = False
     storage_is_mutable = False
 
 class UsingTypingTypedDict(AbstractContentTypeFactory):
     data_object_type = TypingTypedDict
+    storage_supports_omitted_field = False
 
     @classmethod
     def make_data_object(cls, a, b, c):
@@ -503,18 +518,16 @@ class TableCreateTests:
         table.insert(self.make_data_object(a=1, b=2, c=None))
         self.assertEqual(1, len(table.where(c=lt.Table.is_none())))
         self.assertEqual(test_size*test_size*test_size, len(table.where(c=lt.Table.is_not_none())))
+        self.assertEqual(1, len(table.where(c=lt.Table.is_null())))
+        self.assertEqual(test_size * test_size * test_size, len(table.where(c=lt.Table.is_not_null())))
 
         # add a record containing a missing value to test is_null and is_not_null comparators
         table.insert(self.make_data_object(a=1, b=2, c=""))
         self.assertEqual(2, len(table.where(c=lt.Table.is_null())))
         self.assertEqual(test_size * test_size * test_size, len(table.where(c=lt.Table.is_not_null())))
 
-        try:
+        if self.storage_supports_omitted_field:
             table.insert(self.make_data_object(a=1, b=2))
-        except TypeError:
-            # not all data object types being tested support missing attributes
-            pass
-        else:
             self.assertEqual(3, len(table.where(c=lt.Table.is_null())))
             self.assertEqual(test_size * test_size * test_size, len(table.where(c=lt.Table.is_not_null())))
 
@@ -559,17 +572,18 @@ class TableCreateTests:
         supers = unicode_numbers.where(name=lt.Table.startswith("SUPERSCRIPT"))
         self.assertEqual(10, len(supers))
 
-        # import re
-        # sevens = unicode_numbers.where(lambda rec: re.compile(r".*SEVEN$").match(rec.name))
+        with self.assertWarns(DeprecationWarning):
+            sevens = unicode_numbers.where(name=lt.Table.re_match(r".*SEVEN$"))
 
-        sevens = unicode_numbers.where(name=lt.Table.re_match(r".*SEVEN$"))
+        sevens = unicode_numbers.where(name=re.compile(r".*SEVEN$").match)
         self.assertEqual(3, len(sevens))
 
         # make names all title case
         unicode_numbers.add_field("name", lambda rec: rec.name.title())
         # use regex with re flag
-        import re
-        circled = unicode_numbers.where(name=lt.Table.re_match(r"circled", flags=re.I))
+        with self.assertWarns(DeprecationWarning):
+            circled = unicode_numbers.where(name=lt.Table.re_match(r"circled", flags=re.I))
+        circled = unicode_numbers.where(name=re.compile(r"circled", flags=re.I).match)
         self.assertEqual(10, len(circled))
 
     def test_where_attr_function(self):
@@ -1097,6 +1111,13 @@ class TableListTests:
         all_as = self.t1.all.a
         self.assertTrue(all_as is iter(all_as), "all iterator fails to identify as iter(self)")
 
+        # test with a record that does not have attribute "a"
+        self.t1.insert({"b": 1000})
+        self.assertEqual(
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, None],
+            list(self.t1.all.a),
+        )
+
     def test_format(self):
         self._test_init()
         self.assertEqual(['00 0 0', '00 0 1', '00 0 2'],
@@ -1250,7 +1271,7 @@ class TableListTests:
         # verify that stats can "step over" non-numeric data
         try:
             self.t1[0].a = "not a number"
-        except (AttributeError, TypeError):
+        except (AttributeError, TypeError, pydantic.ValidationError):
             # some test types aren't mutable, must replace rec with a modified one
             mod_rec = self.t1.pop(0)
             rec_type = type(mod_rec)
@@ -1336,10 +1357,26 @@ class TableListTests:
         # test using predicate that does not always return 0 or 1
         is_not_multiple_of_3 = lambda rec: rec.a % 3
         mults_of_3, non_mults_of_3 = self.t1.splitby(is_not_multiple_of_3)
-        print(list(non_mults_of_3.all.a))
-        print(list(mults_of_3.all.a))
-        # TODO - add asserts here
+        with self.subTest():
+            self.assertEqual(list(non_mults_of_3.all.a), sorted([1, 2] * self.test_size * 3))
+        with self.subTest():
+            self.assertEqual(list(mults_of_3.all.a), [0] * self.test_size * 3)
 
+        if self.storage_supports_omitted_field:
+            # test with a record that does not have attribute "a"
+            # (drop index to remove None value suppression)
+            self.t1.drop_index("a")
+            self.t1.insert(self.make_data_object(b=1000))
+
+            mults_of_3, non_mults_of_3 = self.t1.splitby(is_not_multiple_of_3)
+            with self.subTest():
+                self.assertEqual(list(non_mults_of_3.all.a), sorted([1, 2] * self.test_size * 3))
+            with self.subTest():
+                self.assertEqual(mults_of_3[-1].b, 1000)
+            self.assertEqual(
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, None],
+                list(mults_of_3.all.a),
+            )
 
 @make_test_classes
 class TableJoinTests:
@@ -2408,9 +2445,14 @@ class TableImportExportTests:
             self.assertEqual("A1 B1 C1".split(), list(x.all.name))
 
         print(r"name re_match(r'[AB]\d')")
+        with self.assertWarns(DeprecationWarning):
+            x = lt.Table().csv_import(input_data,
+                                      transforms=dict.fromkeys("abc", int),
+                                      filters={"name": lt.Table.re_match(r"[AB]\d")})
+
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
-                                  filters={"name": lt.Table.re_match(r"[AB]\d")})
+                                  filters={"name": re.compile(r"[AB]\d").match})
         with self.subTest():
             self.assertEqual(2, len(x))
         with self.subTest():
@@ -3127,6 +3169,28 @@ class StorageIndependentTests(unittest.TestCase):
         ]:
             with self.subTest(line):
                 self.assertEqual(expected, sorted(lt.Table._normalize_split(line)))
+
+    @announce_test
+    def test_attrgetter(self):
+        tbl = lt.csv_import(textwrap.dedent("""\
+            a,b,c
+            x,xx,1
+            y,yy,
+            """), transforms={'c': int}
+        )
+        tbl.insert({'a':'a', 'b':'aa'})
+
+        get_a_c = lt.attrgetter('a', 'c')
+        tbl.add_field("d", get_a_c)
+        self.assertEqual([('x', 1), ('y', None), ('a', None)], list(tbl.all.d))
+
+        get_a_c = lt.attrgetter('a', 'c', defaults={'c': -1})
+        tbl.add_field("e", get_a_c)
+        self.assertEqual([('x', 1), ('y', None), ('a', -1)], list(tbl.all.e))
+
+        tbl.add_field("f", lambda rec: "/".join(map(str, get_a_c(rec))))
+        self.assertEqual(["x/1", "y/None", "a/-1"], list(tbl.all.f))
+
 
 
 if __name__ == '__main__':
