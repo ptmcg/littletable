@@ -263,9 +263,9 @@ class attrgetter:
             items = (item,) + items
             self._items = items
             base_getter = operator.attrgetter(*items)
-            item_default_values = {
-                k: defaults.get(k) for k in items
-            }
+            item_default_values = tuple(
+                (k, defaults.get(k)) for k in items
+            )
 
             def func(obj):
                 try:
@@ -273,7 +273,7 @@ class attrgetter:
                 except AttributeError:
                     return tuple(
                         getattr(obj, item_, item_default)
-                        for item_, item_default in item_default_values.items()
+                        for item_, item_default in item_default_values
                     )
 
         self._call = func
