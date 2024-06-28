@@ -166,7 +166,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "28 Jun 2024 02:27 UTC"
+__version_time__ = "28 Jun 2024 17:40 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -213,7 +213,9 @@ class AuthenticationWarning(Warning):
 
 
 def _emit_warning_with_user_frame(warning: Warning) -> None:
-    import warnings, sys
+    import sys
+    import warnings
+
     try:
         cur = sys._getframe()
     except AttributeError:
@@ -232,7 +234,7 @@ def _emit_warning_with_user_frame(warning: Warning) -> None:
     warnings.warn(message=str(warning), category=type(warning), stacklevel=user_stack_level)
 
 
-class attrgetter:
+class attrgetter:  # noqa
     """
     Return a callable object that fetches the given attributes(s) from its operand,
     and returns their values as a tuple.
@@ -1012,7 +1014,7 @@ def _make_comparator(cmp_fn: Callable[[Any, Any], bool]) -> Callable[[Any], Call
     """
 
     def comparator_with_value(value: Any) -> Callable[[Any], Callable[[Any], bool]]:
-        def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
+        def _table_comparator_fn(attr: str) -> Callable[[Any], bool]:
             def _inner(table_rec: Any) -> bool:
                 try:
                     return cmp_fn(getattr(table_rec, attr), value)
@@ -1020,9 +1022,11 @@ def _make_comparator(cmp_fn: Callable[[Any, Any], bool]) -> Callable[[Any], Call
                     return False
             return _inner
 
-        _Table_comparator_fn.fn = cmp_fn
-        _Table_comparator_fn.value = value
-        return _Table_comparator_fn
+        _table_comparator_fn.fn = cmp_fn
+        _table_comparator_fn.value = value
+        _table_comparator_fn.is_comparator = True
+        _table_comparator_fn.__name__ = f"{cmp_fn.__name__}({value!r})"
+        return _table_comparator_fn
 
     return comparator_with_value
 
@@ -1033,12 +1037,13 @@ def _make_comparator_none(cmp_fn: Callable[[Any, Any], bool]) -> Callable[[], Ca
     """
 
     def comparator_with_value() -> Callable[[str], Callable[[Any], bool]]:
-        def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
+        def _table_comparator_fn(attr: str) -> Callable[[Any], bool]:
             return lambda table_rec: cmp_fn(getattr(table_rec, attr), None)
 
-        _Table_comparator_fn.fn = cmp_fn
-        _Table_comparator_fn.value = None
-        return _Table_comparator_fn
+        _table_comparator_fn.fn = cmp_fn
+        _table_comparator_fn.value = None
+        _table_comparator_fn.is_comparator = True
+        return _table_comparator_fn
 
     return comparator_with_value
 
@@ -1052,12 +1057,14 @@ def _make_comparator_null(is_null: bool) -> Callable[[], Callable[[str], Callabl
         return (a in (None, "")) == value
 
     def comparator_with_value() -> Callable[[str], Callable[[Any], bool]]:
-        def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
+        def _table_comparator_fn(attr: str) -> Callable[[Any], bool]:
             return lambda table_rec: is_null_fn(getattr(table_rec, attr, None), is_null)
 
-        _Table_comparator_fn.fn = is_null_fn
-        _Table_comparator_fn.value = is_null
-        return _Table_comparator_fn
+        _table_comparator_fn.fn = is_null_fn
+        _table_comparator_fn.value = is_null
+        _table_comparator_fn.is_comparator = True
+        _table_comparator_fn.__name__ = f"Table.is_null({is_null})"
+        return _table_comparator_fn
 
     return comparator_with_value
 
@@ -1070,18 +1077,19 @@ def _make_comparator2(
     """
 
     def comparator_with_value(lower: Any, upper: Any) -> Callable[[str], Callable[[Any], bool]]:
-        def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
+        def _table_comparator_fn(attr: str) -> Callable[[Any], bool]:
             def _inner(table_rec: Any) -> bool:
                 try:
-                    return cmp_fn(lower, getattr(table_rec, attr), upper)
+                    return cmp_fn(lower, upper, getattr(table_rec, attr))
                 except TypeError:
                     return False
             return _inner
 
-        _Table_comparator_fn.fn = cmp_fn
-        _Table_comparator_fn.lower = lower
-        _Table_comparator_fn.upper = upper
-        return _Table_comparator_fn
+        _table_comparator_fn.fn = cmp_fn
+        _table_comparator_fn.lower = lower
+        _table_comparator_fn.upper = upper
+        _table_comparator_fn.is_comparator = True
+        return _table_comparator_fn
 
     return comparator_with_value
 
@@ -1095,7 +1103,7 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags) -> Callable[[str], 
     regex = re.compile(*reg_expr_args, **reg_expr_flags)
     cmp_fn = regex.match
 
-    def _Table_comparator_fn(attr: str) -> Callable[[Any], bool]:
+    def _table_comparator_fn(attr: str) -> Callable[[Any], bool]:
         def _inner(table_rec):
             try:
                 return cmp_fn(str(getattr(table_rec, attr, "")))
@@ -1103,8 +1111,9 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags) -> Callable[[str], 
                 return False
         return _inner
 
-    _Table_comparator_fn.fn = cmp_fn
-    return _Table_comparator_fn
+    _table_comparator_fn.fn = cmp_fn
+    _table_comparator_fn.is_comparator = True
+    return _table_comparator_fn
 
 
 def _determine_suppressed_attrs(
@@ -1156,12 +1165,12 @@ class Table(Generic[TableContent]):
     startswith = staticmethod(_make_comparator(lambda x, s: x is not None and str(x).startswith(s)))
     endswith = staticmethod(_make_comparator(lambda x, s: x is not None and str(x).endswith(s)))
     re_match = staticmethod(_make_comparator_regex)
-    between = staticmethod(_make_comparator2(lambda lower, x, upper: x is not None and lower < x < upper))
+    between = staticmethod(_make_comparator2(lambda lower, upper, x: x is not None and lower < x < upper))
     within = staticmethod(
-        _make_comparator2(lambda lower, x, upper: x is not None and lower <= x <= upper)
+        _make_comparator2(lambda lower, upper, x: x is not None and lower <= x <= upper)
     )
     in_range = staticmethod(
-        _make_comparator2(lambda lower, x, upper: x is not None and lower <= x < upper)
+        _make_comparator2(lambda lower, upper, x: x is not None and lower <= x < upper)
     )
 
     INNER_JOIN = object()
@@ -1246,7 +1255,11 @@ class Table(Generic[TableContent]):
                 return s if non_numeric is object else non_numeric
 
     @staticmethod
-    def parse_datetime(time_format: str, empty: Any = '', on_error: Optional[Any] = None) -> Callable[[str], datetime.datetime]:
+    def parse_datetime(
+            time_format: str,
+            empty: Any = '',
+            on_error: Optional[Any] = None
+    ) -> Callable[[str], datetime.datetime]:
         """Convenience method to convert string data to a datetime.datetime instance,
            given a parse string (following strptime format).
 
@@ -1747,8 +1760,8 @@ class Table(Generic[TableContent]):
 
         self._search_indexes[attrname] = defaultdict(list)
         new_index: dict[str, Any] = self._search_indexes[attrname]
-        for i, rec in enumerate(self.obs):
-            if not (attrvalue := getattr(rec, attrname, "")):
+        for i, obs_rec in enumerate(self.obs):
+            if not (attrvalue := getattr(obs_rec, attrname, "")):
                 continue
             words = self._normalize_split(attrvalue.lower(), stopwords_set)
             for wd in set(words):
@@ -1762,7 +1775,13 @@ class Table(Generic[TableContent]):
         return self
 
     def _search(
-        self, attrname: str, query: str, limit: int = int(1e9), min_score: int = 0, include_words: bool = False, as_table: bool = True
+            self,
+            attrname: str,
+            query: str,
+            limit: int = int(1e9),
+            min_score: int = 0,
+            include_words: bool = False,
+            as_table: bool = True
     ):
         if attrname not in self._search_indexes:
             raise ValueError(f"no search index defined for attribute {attrname!r}")
@@ -1834,7 +1853,7 @@ class Table(Generic[TableContent]):
                     group_matches |= submatch
                 if not group_matches:
                     # no possible match, force an impossible match set
-                    reqd_matches = {-1,}
+                    reqd_matches = {-1}
                     break
                 else:
                     reqd_matches &= group_matches
@@ -1871,14 +1890,14 @@ class Table(Generic[TableContent]):
             tuple_ret = ret
             ret = self.copy_template()
             ret.table_name = " ".join(query)
-            ret.insert_many(copy.copy(rec[0]) for rec in tuple_ret)
+            ret.insert_many(copy.copy(ret_rec[0]) for ret_rec in tuple_ret)
             score_attr = f"{attrname}_search_score"
             words_attr = f"{attrname}_search_words"
             try:
-                for rec, tup in zip(ret, tuple_ret):
-                    setattr(rec, score_attr, tup[1])
+                for ret_rec, tup in zip(ret, tuple_ret):
+                    setattr(ret_rec, score_attr, tup[1])
                     if len(tup) > 2:
-                        setattr(rec, words_attr, tup[2])
+                        setattr(ret_rec, words_attr, tup[2])
             except AttributeError:
                 # not all record content types will accept new attributes
                 pass
@@ -2099,7 +2118,7 @@ class Table(Generic[TableContent]):
             NO_SUCH_ATTR = object()
             for k, v in kwargs_list:
                 if callable(v):
-                    if v.__name__ == "_Table_comparator_fn":
+                    if getattr(v, "is_comparator", False):
                         wherefn_k = v(k)
                     else:
                         def wherefn_k(obj):
@@ -2225,7 +2244,11 @@ class Table(Generic[TableContent]):
             setattr(ob, rank_col_name, i)
         return self
 
-    def select(self, fields: Optional[Union[Iterable[str], str]] = None, **exprs: Callable[[TableContent], Any]) -> Table:
+    def select(
+            self,
+            fields: Optional[Union[Iterable[str], str]] = None,
+            **exprs: Callable[[TableContent], Any]
+    ) -> Table:
         """
         Create a new table containing a subset of attributes, with optionally
         newly-added fields computed from each rec in the original table.
@@ -2260,7 +2283,7 @@ class Table(Generic[TableContent]):
         exprs = {k: _make_string_callable(v) for k, v in exprs.items()}
 
         raw_tuples = []
-        attrvalues_getter = attrgetter(*fields) if fields else lambda ob: ()
+        attrvalues_getter = attrgetter(*fields) if fields else lambda _: ()
         for ob in self.obs:
             attrvalues = attrvalues_getter(ob)
             if exprs:
@@ -2694,10 +2717,17 @@ class Table(Generic[TableContent]):
         """
         if isinstance(attrlist, str):
             attrlist = attrlist.split()
+        else:
+            attrlist = list(attrlist)
+
         if all(a in self._indexes for a in attrlist):
             return _PivotTable(self, [], attrlist)
         else:
-            raise ValueError("pivot can only be called using indexed attributes")
+            missing = set(attrlist) - self._indexes.keys()
+            raise ValueError(
+                f"pivot can only be called using indexed attributes;"
+                f" {', '.join(repr(m) for m in missing)} not indexed"
+            )
 
     def _import(
         self,
@@ -2729,20 +2759,20 @@ class Table(Generic[TableContent]):
                     else:
                         transformers.append((k, lambda __: v, default))
 
-                def transformer(rec, transformers=transformers):
-                    for k, v, default in transformers:
+                def transformer(csv_rec, xformers=transformers):
+                    for xform_k, xform_v, xform_default in xformers:
                         try:
-                            rec[k] = v(rec[k])
+                            csv_rec[xform_k] = xform_v(csv_rec[xform_k])
                         except Exception:
-                            rec[k] = default
-                    return rec
+                            csv_rec[xform_k] = xform_default
+                    return csv_rec
 
                 csvdata = (transformer(d) for d in csvdata)
 
             if filters:
                 for k, v in filters.items():
                     if callable(v):
-                        if v.__name__ == "_Table_comparator_fn":
+                        if getattr(v, "is_comparator", False):
                             # comparators work against attrs, but csvdata is still just a series of
                             # dicts, so must convert each to a temporary row_class instance to perform the
                             # comparator predicate method
@@ -2756,8 +2786,9 @@ class Table(Generic[TableContent]):
                                     lambda rec_dict: fn(rec_dict.get(k), value), csvdata
                                 )
                             elif upper is not no_object:
+                                filt_fn = partial(fn, lower, upper)
                                 csvdata = filter(
-                                    lambda rec_dict: fn(lower, rec_dict.get(k), upper),
+                                    lambda rec_dict: (k_val := rec_dict.get(k)) is not None and filt_fn(k_val),
                                     csvdata,
                                 )
                             else:
@@ -2766,9 +2797,9 @@ class Table(Generic[TableContent]):
                                 )
 
                         else:
-                            csvdata = filter(lambda rec: v(rec.get(k)), csvdata)
+                            csvdata = filter(lambda csv_rec: v(csv_rec.get(k)), csvdata)
                     else:
-                        csvdata = filter(lambda rec: rec.get(k) == v, csvdata)
+                        csvdata = filter(lambda csv_rec: csv_rec.get(k) == v, csvdata)
 
             if limit is not None:
 
@@ -3012,7 +3043,7 @@ class Table(Generic[TableContent]):
         @type row_class: type
         @param limit: number of records to import
         @type limit: int (optional)
-        @param kwargs: additional arguments for the excel reader. Only available argument is "sheet" to select which
+        @param kwargs: additional arguments for the Excel reader. Only available argument is "sheet" to select which
             sheet to read (defaults to active sheet). kwargs may also contain any of the following if importing
             using a URL: C{headers}, C{data}, C{username}, C{password}
         @type kwargs: named arguments (optional)
@@ -3155,10 +3186,10 @@ class Table(Generic[TableContent]):
         @type json_decoder: json.JSONDecoder
         """
         class PathNotFoundError(KeyError):
-            def __init__(self, key, path):
+            def __init__(self, key, nf_path):
                 super().__init__(key)
                 self.key = key
-                self.path = path
+                self.path = nf_path
 
             def __str__(self):
                 return f"could not find {self.key!r} element of path {self.path!r} in imported JSON"
@@ -3315,7 +3346,7 @@ class Table(Generic[TableContent]):
     ):
         """
         Exports the contents of the table to an Excel .xslx file.
-        @param excel_dest: excel file - if a string is given, the file with that name will be
+        @param excel_dest: Excel file - if a string is given, the file with that name will be
             opened, written, and closed; if a file object is given, then that object
             will be written as-is, and left for the caller to be closed.
         @type excel_dest: string or file
@@ -3794,7 +3825,11 @@ class Table(Generic[TableContent]):
         return rt
 
     def present(
-        self, fields: Optional[Iterable[str]] = None, file: Optional[TextIO] = None, groupby: Optional[str] = None, **kwargs: Any
+            self,
+            fields: Optional[Iterable[str]] = None,
+            file: Optional[TextIO] = None,
+            groupby: Optional[str] = None,
+            **kwargs: Any
     ) -> None:
         """
         Print a nicely-formatted table of the records in the Table, using the `rich`
@@ -3825,7 +3860,10 @@ class Table(Generic[TableContent]):
         console.print(table)
 
     def as_html(
-        self, fields: Union[str, Iterable[str]] = "*", formats: Optional[dict[str, str]] = None, groupby: Optional[Union[str, Iterable[str]]] = None,
+            self,
+            fields: Union[str, Iterable[str]] = "*",
+            formats: Optional[dict[str, str]] = None,
+            groupby: Optional[Union[str, Iterable[str]]] = None,
             table_properties: Optional[dict] = None,
     ) -> str:
         """
@@ -3910,7 +3948,10 @@ class Table(Generic[TableContent]):
         return ret
 
     def as_markdown(
-        self, fields: Union[str, Iterable[str]] = "*", formats: Optional[dict[str, str]] = None, groupby: Optional[Union[str, Iterable[str]]] = None,
+            self,
+            fields: Union[str, Iterable[str]] = "*",
+            formats: Optional[dict[str, str]] = None,
+            groupby: Optional[Union[str, Iterable[str]]] = None,
     ) -> str:
         """
         Output the table as a Markdown table.
@@ -3967,11 +4008,11 @@ class Table(Generic[TableContent]):
             ret_tr = ["|"]
             for fld in fields:
                 if fld not in suppress:
-                    v = getattr(r, fld, "")
+                    fld_v = getattr(r, fld, "")
                     if fld not in field_format_map:
-                        field_format_map[fld] = formats.get(fld, formats.get(type(v), "{}"))
+                        field_format_map[fld] = formats.get(fld, formats.get(type(fld_v), "{}"))
                     v_format = field_format_map[fld]
-                    str_v = v_format.format(v) if isinstance(v_format, str) else v_format(v)
+                    str_v = v_format.format(fld_v) if isinstance(v_format, str) else v_format(fld_v)
                 else:
                     str_v = ""
                 ret_tr.append(f" {str_v} |")
@@ -4026,7 +4067,12 @@ excel_import = _make_module_level_import_fn("excel_import")
 class _PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot()."""
 
-    def __init__(self, parent: Union[Table, _PivotTable], attr_val_path: list[tuple[str, str]], attrlist: Iterable[str]):
+    def __init__(
+            self,
+            parent: Union[Table, _PivotTable],
+            attr_val_path: list[tuple[str, str]],
+            attrlist: Iterable[str],
+    ):
         """PivotTable initializer - do not create these directly, use
         L{Table.pivot}.
         """
@@ -4048,8 +4094,8 @@ class _PivotTable(Table):
             self.insert_many(parent.where(**{attr: val}))
             parent._subtable_dict[val] = self
 
-        if len(attrlist) > 0:
-            this_attr, *sub_attrlist = attrlist
+        if len(self._pivot_attrs) > 0:
+            this_attr, *sub_attrlist = self._pivot_attrs
             ind = parent._indexes[this_attr]
             self.subtables = [
                 _PivotTable(self, attr_val_path + [(this_attr, k)], sub_attrlist)
@@ -4086,7 +4132,13 @@ class _PivotTable(Table):
         """Return whether this table has further subtables."""
         return bool(self.subtables)
 
-    def dump(self, out: TextIO = sys.stdout, row_fn: Callable[[Any], str] = repr, limit: int = -1, indent: int = 0) -> None:
+    def dump(
+            self,
+            out: TextIO = sys.stdout,
+            row_fn: Callable[[Any], str] = repr,
+            limit: int = -1,
+            indent: int = 0,
+    ) -> None:
         """
         Dump out the contents of this table in a nested listing.
         @param out: output stream to write to
@@ -4112,7 +4164,12 @@ class _PivotTable(Table):
                 out.write("  " * (indent + 1) + row_fn(r) + NL)
         out.flush()
 
-    def dump_counts(self, out: TextIO = sys.stdout, count_fn: Callable[[Iterable[Any]], int] = len, colwidth: int = 10) -> None:
+    def dump_counts(
+            self,
+            out: TextIO = sys.stdout,
+            count_fn: Callable[[Iterable[Any]], int] = len,
+            colwidth: int = 10
+    ) -> None:
         """
         Dump out the summary counts of entries in this pivot table as a tabular listing.
         @param out: output stream to write to
@@ -4168,7 +4225,12 @@ class _PivotTable(Table):
         else:
             raise ValueError("can only dump summary counts for 1 or 2-attribute pivots")
 
-    def as_table(self, fn: Optional[Callable] = None, col: Optional[str] = None, col_label: Optional[str] = None) -> Table:
+    def as_table(
+            self,
+            fn: Optional[Callable] = None,
+            col: Optional[str] = None,
+            col_label: Optional[str] = None
+    ) -> Table:
         """Dump out the summary counts of this pivot table as a Table."""
         if col_label is None:
             col_label = col
@@ -4217,7 +4279,11 @@ class _PivotTable(Table):
 
     summary_counts = as_table
 
-    def summarize(self, count_fn: Callable[[Iterable], int] = len, col_label: Optional[str] = None) -> _PivotTableSummary:
+    def summarize(
+            self,
+            count_fn: Callable[[Iterable], int] = len,
+            col_label: Optional[str] = None
+    ) -> _PivotTableSummary:
         if col_label is None:
             if len(self._pivot_attrs) == 1:
                 col_label = self._pivot_attrs[0]
@@ -4227,7 +4293,13 @@ class _PivotTable(Table):
 
 
 class _PivotTableSummary:
-    def __init__(self, pivot_table: _PivotTable, pivot_attrs: list[str], count_fn: Callable[[Iterable], int]=len, col_label: Optional[str] = None):
+    def __init__(
+            self,
+            pivot_table: _PivotTable,
+            pivot_attrs: list[str],
+            count_fn: Callable[[Iterable], int] = len,
+            col_label: Optional[str] = None
+    ):
         self._pt = pivot_table
         self._pivot_attrs = pivot_attrs
         self._fn = count_fn
@@ -4405,28 +4477,43 @@ if __name__ == "__main__":
 
     rawdata = textwrap.dedent(
         """\
-    Phoenix:AZ:85001:KPHX
-    Phoenix:AZ:85001:KPHY
-    Phoenix:AZ:85001:KPHA
-    Dallas:TX:75201:KDFW"""
+        city,state,frequency,band,stn
+        SANTA BARBARA,CA,1290,AM,KZSB
+        CAVE CREEK,AZ,1100,AM,KFNX
+        HONOLULU,HI,1270,AM,KNDI
+        YOUNGSTOWN,OH,1390,AM,WNIO
+        FREDERIKSTED,VI,1620,AM,WDHP
+        GALVESTON,TX,1540,AM,KGBC
+        SEASIDE,OR,840,AM,KSWB
+        LILLINGTON,NC,1370,AM,WLLN
+        POULTNEY,VT,1340,AM,WVNR
+        GILLETTE,WY,1270,AM,KIML
+        LITHIA SPRINGS,GA,890,AM,WJTP
+        DICKINSON,ND,1230,AM,KDIX
+        ABERDEEN,SD,1560,AM,KKAA
+        ABERDEEN,SD,930,AM,KSDN
+        ABERDEEN,WA,1320,AM,KXRO
+        ABERDEEN,MS,1240,AM,WWZQ
+        ABERDEEN,SD,1420,AM,KGIM
+        ABERDEEN,WA,1450,AM,KBKW
+        ABERDEEN,WA,1490,AM,KWOK
+        """
     )
 
     # load miniDB
-    stations = Table().csv_import(
-        rawdata, delimiter=":", fieldnames=["city", "state", "zip", "stn"]
-    )
+    stations = Table().csv_import(rawdata, transforms={"frequency": int})
+
     # stations.create_index("city")
     stations.create_index("stn", unique=True)
 
     # perform some queries and deletes
     for queryargs in [
-        dict(city="Phoenix"),
-        dict(city="Phoenix", stn="KPHX"),
-        dict(stn="KPHA", city="Phoenix"),
-        dict(state="TX"),
-        dict(city="New York"),
+        {"city": "ABERDEEN"},
+        {"city": "ABERDEEN", "stn": "KGIM"},
+        {"state": "WA"},
+        {"frequency": Table.gt(1000)},
     ]:
-        print(queryargs)
+        print(f"Query radio stations: {queryargs}")
         result = stations.where(**queryargs)
         print(len(result))
         for rec in result:
@@ -4440,12 +4527,12 @@ if __name__ == "__main__":
 
     amfm: Table = Table()
     amfm.create_index("stn", unique=True)
-    amfm.insert(dict(stn="KPHY", band="AM"))
+    amfm.insert(dict(stn="KKAA", band="AM"))
     amfm.insert(dict(stn="KPHX", band="FM"))
     amfm.insert(dict(stn="KPHA", band="FM"))
     amfm.insert(dict(stn="KDFW", band="FM"))
-    print(amfm.by.stn["KPHY"])
-    print(amfm.by.stn["KPHY"].band)
+    print(amfm.by.stn["KKAA"])
+    print(amfm.by.stn["KKAA"].band)
 
     try:
         amfm.insert(dict(stn="KPHA", band="AM"))
@@ -4478,7 +4565,7 @@ if __name__ == "__main__":
     pivot.dump_counts()
 
     print()
-    amfm.create_index("band")
+    stations.create_index("band")
     pivot = (stations.join_on("stn") + amfm)().pivot("state band")
     pivot.dump_counts()
 
