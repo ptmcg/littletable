@@ -398,7 +398,9 @@ def _object_attrnames(obj: Any) -> list[str]:
         return obj._fields
     if hasattr(obj, "__slots__"):
         return list(obj.__slots__)
-    raise UnableToExtractAttributeNamesError("object with unknown attributes")
+    raise UnableToExtractAttributeNamesError(
+        f"object of type {type(obj).__name__!r} has unknown attributes"
+    )
 
 
 def _to_dict(obj: Any) -> dict[str, Any]:
@@ -418,7 +420,9 @@ def _to_dict(obj: Any) -> dict[str, Any]:
             k: v
             for k, v in zip(obj.__slots__, (getattr(obj, a) for a in obj.__slots__))
         }
-    raise UnableToExtractAttributeNamesError("object with unknown attributes")
+    raise UnableToExtractAttributeNamesError(
+        f"object of type {type(obj).__name__!r} has unknown attributes"
+    )
 
 
 def _to_json(obj, enc_cls: Type[json.JSONEncoder], **kwargs: Any) -> str:
