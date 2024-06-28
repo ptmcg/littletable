@@ -1705,6 +1705,51 @@ class TableTransformTests:
         with self.subTest():
             self.assertEqual(test_size, len(t3))
 
+    def test_groupby(self):
+        test_size = 4
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        # group by single attribute
+        a_groups = list(t1.groupby("a"))
+        self.assertEqual(test_size, len(a_groups))
+        self.assertTrue(all(len(agrp[1]) == test_size * test_size for agrp in a_groups))
+        self.assertEqual(list(t1.all.a.unique), [agrp[0] for agrp in a_groups])
+
+        # group by single attribute, with sorting
+        b_groups = list(t1.groupby("b", sort=True))
+        self.assertEqual(test_size, len(b_groups))
+        self.assertTrue(all(len(agrp[1]) == test_size * test_size for agrp in b_groups))
+        self.assertEqual(list(t1.all.a.unique), [agrp[0] for agrp in b_groups])
+
+        # group by single attribute again (after having been sorted by other attribute)
+        a_groups = list(t1.groupby("a"))
+        self.assertEqual(test_size * test_size, len(a_groups))
+        self.assertTrue(all(len(agrp[1]) == test_size for agrp in a_groups))
+        self.assertEqual(list(t1.all.a.unique), list(range(test_size)))
+
+        # group by 2 attributes, with sorting
+        ab_groups = list(t1.groupby("a b".split(), sort=True))
+        self.assertEqual(test_size * test_size, len(ab_groups))
+        self.assertTrue(all(len(abgrp[1]) == test_size for abgrp in ab_groups))
+        self.assertEqual(
+            [
+                (ob.a, ob.b)
+                for ob in t1.unique(lt.attrgetter("a", "b"))
+            ],
+            list(itertools.product(range(test_size), repeat=2))
+        )
+
+        # group by a callable function
+        t1.sort("a,b")
+        sum_ab_groups = list(t1.groupby(lambda o: o.a + o.b))
+        self.assertEqual(test_size * test_size, len(sum_ab_groups))
+        self.assertTrue(
+            all(
+                sum(abgrp[1].all.c) == sum(range(test_size))
+                for abgrp in sum_ab_groups
+            )
+        )
+
 
 @make_test_classes
 class TableOutputTests:

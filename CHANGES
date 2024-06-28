@@ -12,7 +12,7 @@ Version 2.3.0
 -------------
 - Implemented `get()` for objects returned by `table.by.<indexname>`, to emulate
   `dict.get()` behavior (for unique indexes) and `defaultdict.get()` behavior (for
-  non-unique indexes).
+  non-unique indexes). <-- POTENTIAL BREAKING CHANGE
 
 - `Table.splitby` now infers any AttributeError raised while evaluating the given predicate method
   as a False value.
@@ -21,6 +21,12 @@ Version 2.3.0
   used in `Table` sorting, splitting, and exporting, which would previously raise exceptions if one
   or more attributes were missing in any row - now replaces missing attributes with None, or a given
   default value. `littletable.attrgetter` is supported as part of the public API.
+
+- Reworked `groupby` to be more similar to `itertools.groupby`, yielding a `(key, Table)` tuple for
+  each grouped list of rows. Includes an optional `sort` argument to sort the table before grouping,
+  using the same key attributes or function used for grouping. The previous prototype `groupby`
+  method has been renamed to `groupby_with_summaries`, as it supports the addition of dynamically
+  computed summary fields.
 
 
 Version 2.2.5

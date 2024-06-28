@@ -121,6 +121,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 """
 
 import base64
+import contextlib
 import copy
 import csv
 import datetime
@@ -141,14 +142,13 @@ import statistics
 import sys
 from collections import defaultdict, namedtuple, Counter
 from collections.abc import Mapping, Sequence
-from contextlib import closing
 from functools import partial
-from itertools import repeat, takewhile, chain, product, tee, groupby
 from pathlib import Path
 from types import SimpleNamespace
 import urllib.request
 from typing import (
-    Callable, Any, TextIO, Union, Optional, Iterable, Iterator, Generic, TypeVar, Type, cast,
+    Callable, Any, TextIO, Union, Optional, Iterable, Iterator,
+    Generic, TypeVar, Type, cast, Tuple, List,
 )
 
 try:
@@ -166,7 +166,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "25 Jun 2024 21:35 UTC"
+__version_time__ = "28 Jun 2024 02:27 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -237,11 +237,11 @@ class attrgetter:
     Return a callable object that fetches the given attributes(s) from its operand,
     and returns their values as a tuple.
 
-    Accepts a _defaults dict for any attribute that is not present in the given
-    object. If an attribute is not present and no default value is defined for that
-    attribute, fills in None for that attribute.
+    Accepts an optional C{defaults} dict for any attribute that is not present in the
+    given object. If an attribute is not present and no default value is defined for
+    that attribute, fills in None for that attribute.
 
-    Not quite a drop-in replacement for operator.attrgetter - that method will accept
+    Not quite a drop-in replacement for C{operator.attrgetter} - that method will accept
     dotted attribute names and will traverse the object path to extract attributes
     from contained objects.
     """
@@ -283,17 +283,17 @@ class attrgetter:
     def __call__(self, obj, /):
         return self._call(obj)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._defaults:
-            return '%s.%s(%s, %s)' % (self.__class__.__module__,
-                                      self.__class__.__name__,
-                                      ', '.join(map(repr, self._items)),
-                                      self._defaults)
+            return (
+                f"{self.__class__.__module__}.{self.__class__.__name__}"
+                f"({', '.join(map(repr, self._items))}, {self._defaults})"
+            )
         else:
-            return '%s.%s(%s)' % (self.__class__.__module__,
-                                  self.__class__.__name__,
-                                  ', '.join(map(repr, self._items)))
-
+            return (
+                f"{self.__class__.__module__}.{self.__class__.__name__}"
+                f"({', '.join(map(repr, self._items))})"
+            )
 
     def __reduce__(self):
         return self.__class__, self._items, self._defaults
@@ -401,7 +401,7 @@ def _object_attrnames(obj: Any) -> list[str]:
     raise UnableToExtractAttributeNamesError("object with unknown attributes")
 
 
-def _to_dict(obj) -> dict[str, Any]:
+def _to_dict(obj: Any) -> dict[str, Any]:
     if hasattr(obj, "trait_names"):
         return {
             k: v
@@ -481,41 +481,41 @@ class DataObject:
 
 
 class _ObjIndex:
-    def __init__(self, attr):
+    def __init__(self, attr: str):
         self.attr = attr
         self.obs = defaultdict(list)
         self.is_unique = False
 
-    def sort(self, key, reverse: bool = False):
+    def sort(self, key: Any, reverse: bool = False) -> None:
         for seq in self.obs.values():
             seq.sort(key=key, reverse=reverse)
 
-    def __setitem__(self, k, v):
+    def __setitem__(self, k, v) -> None:
         self.obs[k].append(v)
 
-    def __getitem__(self, k):
+    def __getitem__(self, k) -> Any:
         return self.obs.get(k, [])
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.obs)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         return iter(self.obs.keys())
 
-    def keys(self):
+    def keys(self) -> list[Any]:
         return sorted(filter(partial(operator.ne, None), self.obs.keys()))
 
-    def items(self):
+    def items(self) -> Iterable[tuple[Any, Any]]:
         return self.obs.items()
 
-    def remove(self, obj):
+    def remove(self, obj) -> None:
         try:
             k = getattr(obj, self.attr)
             self.obs[k].remove(obj)
         except (ValueError, AttributeError, KeyError):
             pass
 
-    def __contains__(self, key):
+    def __contains__(self, key: Any) -> bool:
         return key in self.obs
 
     def copy_template(self):
@@ -527,7 +527,7 @@ class _ObjIndex:
         else:
             return default
 
-    def _clear(self):
+    def _clear(self) -> None:
         self.obs.clear()
 
 
@@ -698,8 +698,9 @@ class _TableAttributeValueLister:
             if table_index.is_unique:
                 vals = table_index.keys()
             else:
-                vals = chain.from_iterable(
-                    repeat(k, len(table_index[k])) for k in table_index.keys()
+                vals = itertools.chain.from_iterable(
+                    itertools.repeat(k, len(table_index[k]))
+                    for k in table_index.keys()
                 )
         return _TableAttributeValueLister.UniquableIterator(vals)
 
@@ -977,7 +978,7 @@ class FixedWidthReader:
         def parse_spec(
             spec: list[FixedWidthParseSpec],
         ) -> list[tuple[str, slice, Callable[[str], Any]]]:
-            ret = []
+            ret: list[tuple[str, slice, Callable[[str], Any]]] = []
             for cur, next_ in zip(spec, spec[1:] + [("", sys.maxsize, None, None)]):
                 label, col, endcol, fn = (cur + (None, None,))[:4]
                 if label is None:
@@ -994,7 +995,7 @@ class FixedWidthReader:
         self._encoding = encoding
 
     def __iter__(self) -> Iterable[dict[str, Any]]:
-        with closing(_MultiIterator(self._src_file, self._encoding)) as _srciter:
+        with contextlib.closing(_MultiIterator(self._src_file, self._encoding)) as _srciter:
             for line in _srciter:
                 if not line.strip():
                     continue
@@ -1104,9 +1105,9 @@ def _make_comparator_regex(*reg_expr_args, **reg_expr_flags) -> Callable[[str], 
 
 def _determine_suppressed_attrs(
         group_attrs: list[str], prev: tuple[Any, ...], curr: tuple[Any, ...],
-        _compare=lambda apc: apc[1] == apc[2]
+        _compare=lambda attr_prev_curr: attr_prev_curr[1] == attr_prev_curr[2]
 ) -> set[str]:
-    return {a for a, _, _ in takewhile(_compare, zip(group_attrs, prev, curr))}
+    return {a for a, _, _ in itertools.takewhile(_compare, zip(group_attrs, prev, curr))}
 
 
 TableContent = TypeVar("TableContent")
@@ -1178,7 +1179,11 @@ class Table(Generic[TableContent]):
 
     @staticmethod
     def convert_numeric(
-            s: Optional[str] = None, empty: Any = '', non_numeric: Type = object, force_float: bool = False, _int_fn: Callable[[str], int]=int
+            s: Optional[str] = None,
+            empty: Any = '',
+            non_numeric: Type = object,
+            force_float: bool = False,
+            _int_fn: Callable[[str], int] = int,
     ) -> Union[Callable, Any]:
         """
         Convenience method for transforming columns of CSV data from str to float and/or int. By default,
@@ -1299,7 +1304,7 @@ class Table(Generic[TableContent]):
         @type table_name: string (optional)
         """
         self(table_name)
-        self.obs: list = []
+        self.obs: list[Any] = []
         self._indexes: dict[str, _ObjIndex] = {}
         self._uniqueIndexes: list[_UniqueObjIndex] = []
         self._search_indexes: dict[str, dict[str, list]] = {}
@@ -1310,14 +1315,6 @@ class Table(Generic[TableContent]):
         self.import_time = None
         self.create_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
         self.modify_time = self.create_time
-
-        """
-        C{'by'} is added as a pseudo-attribute on tables, to provide
-        dict-like 
-
-
-
-        """
 
     @property
     def all(self) -> _TableAttributeValueLister:
@@ -1548,7 +1545,7 @@ class Table(Generic[TableContent]):
 
         if unique:
             self._indexes[attr] = _UniqueObjIndex(attr, accept_none)
-            self._uniqueIndexes = [
+            self._uniqueIndexes[:] = [
                 ind for ind in self._indexes.values() if ind.is_unique
             ]
         else:
@@ -1936,7 +1933,7 @@ class Table(Generic[TableContent]):
         NO_SUCH_ATTR = object()
 
         new_objs = it
-        new_objs, first_obj = tee(new_objs)
+        new_objs, first_obj = itertools.tee(new_objs)
         try:
             first = next(first_obj)
             if isinstance(first, dict):
@@ -2008,7 +2005,7 @@ class Table(Generic[TableContent]):
         if not to_be_deleted:
             return self
 
-        del_indices = []
+        del_indices: list[int] = []
         for i, ob in enumerate(self.obs):
             if isinstance(ob, dict):
                 ob = self._wrap_dict(ob)
@@ -2427,11 +2424,11 @@ class Table(Generic[TableContent]):
                 )
 
         # find matching rows
-        matchingrows = []
+        matchingrows: list[tuple[Table, Table]] = []
         key_map_values = list(
             zip(this_cols, other_cols, (self._indexes[key].keys() for key in this_cols))
         )
-        for join_values in product(*(kmv[-1] for kmv in key_map_values)):
+        for join_values in itertools.product(*(kmv[-1] for kmv in key_map_values)):
             base_this_where_dict = dict(zip(this_cols, join_values))
             base_other_where_dict = dict(zip(other_cols, join_values))
 
@@ -2449,9 +2446,9 @@ class Table(Generic[TableContent]):
             if alias not in this_attr_specs_aliases
         ]
 
-        joinrows = []
+        joinrows: list[Any] = []
         for thisrows, otherrows in matchingrows:
-            for trow, orow in product(thisrows, otherrows):
+            for trow, orow in itertools.product(thisrows, otherrows):
                 retobj = default_row_class()
                 for _, attr_name, alias in this_attr_specs:
                     setattr(retobj, alias, getattr(trow, attr_name, None))
@@ -2591,7 +2588,7 @@ class Table(Generic[TableContent]):
                 )
 
         # find matching rows
-        matchingrows = []
+        matchingrows: list[tuple[Table, Table]] = []
         if join_type == Table.RIGHT_OUTER_JOIN:
             key_map_values = list(
                 zip(
@@ -2621,7 +2618,7 @@ class Table(Generic[TableContent]):
                 )
             )
 
-        for join_values in product(*(kmv[-1] for kmv in key_map_values)):
+        for join_values in itertools.product(*(kmv[-1] for kmv in key_map_values)):
             base_this_where_dict = dict(zip(this_cols, join_values))
             base_other_where_dict = dict(zip(other_cols, join_values))
 
@@ -2651,9 +2648,9 @@ class Table(Generic[TableContent]):
             if alias not in this_attr_specs_aliases
         ]
 
-        joinrows = []
+        joinrows: list[Any] = []
         for thisrows, otherrows in matchingrows:
-            for trow, orow in product(thisrows, otherrows):
+            for trow, orow in itertools.product(thisrows, otherrows):
                 retobj = default_row_class()
                 for _, attr_name, alias in this_attr_specs:
                     setattr(retobj, alias, getattr(trow, attr_name, None))
@@ -2713,11 +2710,11 @@ class Table(Generic[TableContent]):
         if row_class is None:
             row_class = default_row_class
 
-        with closing(_MultiIterator(source, encoding, url_args)) as _srciter:
+        with contextlib.closing(_MultiIterator(source, encoding, url_args)) as _srciter:
             csvdata = reader(_srciter)
 
             if transforms:
-                transformers = []
+                transformers: list[tuple[str, Callable[[Any], Any], Any]] = []
                 for k, v in transforms.items():
                     if isinstance(v, tuple):
                         v, default = v
@@ -2904,7 +2901,7 @@ class Table(Generic[TableContent]):
         row_class: Optional[type] = None,
         limit: Optional[int] = None,
         fieldnames: Optional[Union[Iterable[str], str]] = None,
-        **kwargs: Any,
+        **kwargs,
     ) -> Table:
         """
         Imports the contents of a tab-separated data file into this table.
@@ -2951,7 +2948,7 @@ class Table(Generic[TableContent]):
             raise Exception("openpyxl module not installed")
 
         def excel_as_dict(filename, **reader_args) -> Iterable[dict[str, str]]:
-            with closing(openpyxl.load_workbook(filename, read_only=True)) as wb:
+            with contextlib.closing(openpyxl.load_workbook(filename, read_only=True)) as wb:
                 # read requested sheet if provided on kwargs, otherwise read active sheet
                 requested_sheet = reader_args.get("sheet")
                 ws = wb[requested_sheet] if requested_sheet else wb.active
@@ -3431,12 +3428,11 @@ class Table(Generic[TableContent]):
         self._contents_changed(invalidate_search_indexes=False)
         return self
 
-    def groupby(self, keyexpr, **outexprs):
+    def groupby_with_summaries(self, keyexpr, **outexprs):
         """
         simple prototype of group by, with support for expressions in the group-by clause
         and outputs
-        @param keyexpr: grouping field and optional expression for computing the key value;
-             if a string is passed
+        @param keyexpr: grouping field and optional expression for computing the key value
         @type keyexpr: string or tuple
         @param outexprs: named arguments describing one or more summary values to
         compute per key
@@ -3445,7 +3441,7 @@ class Table(Generic[TableContent]):
         """
         if isinstance(keyexpr, str):
             keyattrs = keyexpr.split()
-            keyfn = lambda o: tuple(getattr(o, k) for k in keyattrs)
+            keyfn = attrgetter(*keyattrs)
 
         elif isinstance(keyexpr, tuple):
             keyattrs = (keyexpr[0],)
@@ -3467,6 +3463,39 @@ class Table(Generic[TableContent]):
                 setattr(group_obj, subkey, expr(recs))
             tbl.insert(group_obj)
         return tbl
+
+    def groupby(
+            self,
+            keyexpr: Union[str, List[str], Callable[[TableContent], Any]],
+            sort: bool = False
+    ) -> Iterable[Tuple[Any, Table[TableContent]]]:
+        """
+        Analogous to itertools.groupby, using the Table as the iterable to be
+        grouped.
+        @param keyexpr: grouping field(s) or function for computing the key value
+        @type keyexpr: string, list of strings, or callable
+        @param sort: flag indicating whether the Table should be sorted before
+        grouping
+        @type sort: bool, default=False
+        """
+        if isinstance(keyexpr, list):
+            keyfn = attrgetter(keyexpr[0], *keyexpr[1:])
+
+        elif isinstance(keyexpr, Callable):
+            keyfn = keyexpr
+
+        elif isinstance(keyexpr, str):
+            keyfn = lambda o: getattr(o, keyexpr, None)
+
+        else:
+            raise TypeError("keyexpr must be string, list of strings, or callable")
+
+        if sort:
+            self.sort(keyfn)
+
+        for key, group_objs in itertools.groupby(self.obs, keyfn):
+            group_tbl = self.copy_template().insert_many(group_objs)
+            yield key, group_tbl
 
     def splitby(self, pred: Union[str, PredicateFunction]) -> tuple[Table[TableContent], Table[TableContent]]:
         """
@@ -3498,7 +3527,7 @@ class Table(Generic[TableContent]):
 
         # iterate over self and evaluate predicate for each record - use groupby to take
         # advantage of efficiencies when using insert_many() over multiple insert() calls
-        for bool_value, recs in groupby(self, key=wrapped_pred):
+        for bool_value, recs in itertools.groupby(self, key=wrapped_pred):
             ret[bool_value].insert_many(recs)
 
         return ret
@@ -3664,14 +3693,20 @@ class Table(Generic[TableContent]):
                 star_fields = list(self._indexes.keys())
             fn_iter = iter(field_names)
             field_names = (
-                list(takewhile(lambda x: x != "*", fn_iter))
+                list(itertools.takewhile(lambda x: x != "*", fn_iter))
                 + star_fields
                 + list(fn_iter)
             )
         field_names = [nm for nm in field_names if nm not in suppress_names]
         return field_names
 
-    def _rich_table(self, fields: Optional[Iterable[Union[str, dict]]] = None, empty: Any = "", groupby: Optional[str] = None, **kwargs: Any):
+    def _rich_table(
+            self,
+            fields: Optional[Iterable[Union[str, dict]]] = None,
+            empty: Any = "",
+            groupby: Optional[str] = None,
+            **kwargs
+    ):
         if rich is None:
             raise Exception("rich module not installed")
 
@@ -3680,8 +3715,8 @@ class Table(Generic[TableContent]):
         if fields is None:
             fields = self.info()["fields"]
 
-        attr_names = []
-        field_settings = []
+        attr_names: list[str] = []
+        field_settings: list[tuple[str, dict]] = []
 
         for field_spec in fields:
             if isinstance(field_spec, str):
@@ -3713,7 +3748,7 @@ class Table(Generic[TableContent]):
             field_settings.append((header, field_spec))
 
         grouping = False
-        group_attrs = []
+        group_attrs: list[str] = []
         if groupby is not None:
             group_attrs = [g for g in self._parse_fields_string(groupby)
                            if g in attr_names]
@@ -3831,7 +3866,7 @@ class Table(Generic[TableContent]):
             return "".join(ret_tr)
 
         grouping = False
-        group_attrs = []
+        group_attrs: list[str] = []
         if groupby is not None:
             group_attrs = [g for g in self._parse_fields_string(groupby)
                            if g in attr_names]
@@ -3853,7 +3888,7 @@ class Table(Generic[TableContent]):
                 "</tbody>\n</table>"
             )
         else:
-            rows = []
+            rows: list[str] = []
             prev = ("",) * len(group_attrs)
             determine_suppressed_attrs = _determine_suppressed_attrs
             for row in self:
@@ -3897,7 +3932,7 @@ class Table(Generic[TableContent]):
         attr_names = fields
 
         grouping = False
-        group_attrs = []
+        group_attrs: list[str] = []
         if groupby is not None:
             group_attrs = [g for g in self._parse_fields_string(groupby)
                            if g in attr_names]
@@ -3946,7 +3981,7 @@ class Table(Generic[TableContent]):
                 f"{''.join(row_to_tr(row) for row in self)}"
             )
         else:
-            rows = []
+            rows: list[str] = []
             prev = ("",) * len(group_attrs)
             determine_suppressed_attrs = _determine_suppressed_attrs
             for row in self:
@@ -3987,14 +4022,15 @@ excel_import = _make_module_level_import_fn("excel_import")
 class _PivotTable(Table):
     """Enhanced Table containing pivot results from calling table.pivot()."""
 
-    def __init__(self, parent: Union[Table, _PivotTable], attr_val_path: Iterable[tuple[str, str]], attrlist: Iterable[str]):
+    def __init__(self, parent: Union[Table, _PivotTable], attr_val_path: list[tuple[str, str]], attrlist: Iterable[str]):
         """PivotTable initializer - do not create these directly, use
         L{Table.pivot}.
         """
         super().__init__()
-        self._attr_path = attr_val_path[:]
-        self._pivot_attrs = attrlist[:]
-        self._subtable_dict = {}
+        self._attr_path: list[tuple[str, str]] = attr_val_path[:]
+        self._pivot_attrs: list[str] = list(attrlist)
+        self._subtable_dict: dict[str, _PivotTable] = {}
+        self.subtables: list[_PivotTable] = []
 
         # for k,v in parent._indexes.items():
         #     self._indexes[k] = v.copy_template()
@@ -4015,8 +4051,6 @@ class _PivotTable(Table):
                 _PivotTable(self, attr_val_path + [(this_attr, k)], sub_attrlist)
                 for k in sorted(ind.keys())
             ]
-        else:
-            self.subtables = []
 
     def __getitem__(self, val):
         if self._subtable_dict:
@@ -4033,7 +4067,7 @@ class _PivotTable(Table):
     def values(self) -> Iterable[Any]:
         return [self._subtable_dict[k] for k in self.keys()]
 
-    def pivot_key(self) -> Iterable[str]:
+    def pivot_key(self) -> list[str]:
         """
         Return the set of attribute-value pairs that define the contents of this
         table within the original source table.
