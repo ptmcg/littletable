@@ -2281,6 +2281,10 @@ class TableImportExportTests:
         if SKIP_CSV_IMPORT_USING_URL_TESTS:
             self.skipTest("CSV import tests skipped")
 
+        # compose port number as 8880 + python minor version, to
+        # enable concurrent unit testing on different Python versions
+        port_number = 8880 + sys.version_info.minor
+
         class CSVTestRequestHandler(BaseHTTPRequestHandler):
             def do_GET(self):
                 self.log_message(f"received {self.command} {self.path}")
@@ -2329,7 +2333,7 @@ class TableImportExportTests:
                 self.wfile.write(send_bytes)
 
         def run(server_class=HTTPServer, handler_class=CSVTestRequestHandler):
-            server_address = ('', 8888)
+            server_address = ('', port_number)
             httpd = server_class(server_address, handler_class)
             httpd.serve_forever()
 
@@ -2339,7 +2343,7 @@ class TableImportExportTests:
 
             for tries_remaining in reversed(range(20)):
                 try:
-                    with urllib.request.urlopen("http://localhost:8888/"):
+                    with urllib.request.urlopen(f"http://localhost:{port_number}/"):
                         break
                 except urllib.error.URLError:
                     if tries_remaining:
@@ -2347,7 +2351,7 @@ class TableImportExportTests:
 
             return p
 
-        web_address = "http://localhost:8888"
+        web_address = f"http://localhost:{port_number}"
         p = run_background_test_server()
 
         url = web_address + "/abc.csv"

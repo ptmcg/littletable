@@ -7,3 +7,4 @@ traitlets
 pydantic
 pytest
 pyparsing
+tox
