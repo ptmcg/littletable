@@ -22,6 +22,8 @@ from typing import Optional, Union
 
 import littletable as lt
 
+PYTHON_VERSION = sys.version_info[:2]
+
 SKIP_CSV_IMPORT_USING_URL_TESTS = os.environ.get("SKIP_CSV_IMPORT_USING_URL_TESTS", "0") == "1"
 # SKIP_CSV_IMPORT_USING_URL_TESTS = True
 
@@ -46,6 +48,14 @@ class DataDataclass:
     a: int
     b: int
     c: int
+
+
+if PYTHON_VERSION >= (3, 10):
+    @dataclasses.dataclass(slots=True)
+    class SlottedDataclass:
+        a: int
+        b: int
+        c: int
 
 try:
     import pydantic
@@ -258,6 +268,8 @@ def make_test_classes(cls):
     make_test_class(cls, UsingSimpleNamespace)
     if dataclasses is not None:
         make_test_class(cls, UsingDataclasses)
+        if PYTHON_VERSION >= (3, 10):
+            make_test_class(cls, UsingSlottedDataclasses)
     if pydantic is not None:
         make_test_class(cls, UsingPydanticModel)
         make_test_class(cls, UsingPydanticImmutableModel)
@@ -327,8 +339,17 @@ if dataclasses is not None:
     class UsingDataclasses(AbstractContentTypeFactory):
         data_object_type = DataDataclass
         storage_supports_omitted_field = False
+
+    if PYTHON_VERSION >= (3, 10):
+        class UsingSlottedDataclasses(AbstractContentTypeFactory):
+            data_object_type = SlottedDataclass
+            storage_supports_omitted_field = False
+            storage_supports_add_field = False
+    else:
+        UsingSlottedDataclasses = AbstractContentTypeFactory
 else:
     UsingDataclasses = AbstractContentTypeFactory
+    UsingSlottedDataclasses = AbstractContentTypeFactory
 
 
 if pydantic is not None:
@@ -3105,6 +3126,10 @@ class TableSearchTests_SimpleNamespace(TableSearchTests, UsingSimpleNamespace):
 if dataclasses is not None:
     class TableSearchTests_Dataclasses(TableSearchTests, UsingDataclasses):
         pass
+
+    if PYTHON_VERSION >= (3, 10):
+        class TableSearchTests_SlottedDataclasses(TableSearchTests, UsingSlottedDataclasses):
+            pass
 
 if pydantic is not None:
     class TableSearchTests_PydanticModels(TableSearchTests, UsingPydanticModel):

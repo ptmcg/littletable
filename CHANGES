@@ -28,6 +28,12 @@ Version 2.3.0
   method has been renamed to `groupby_with_summaries`, as it supports the addition of dynamically
   computed summary fields.
 
+- Improved unit tests:
+  - added testing `Tables` containing `dataclasses` with `slots=True`
+  - added support for test running using `tox`
+  - modified tests to support running `tox run-parallel` (generate unique test
+    server ports for different Python versions)
+
 
 Version 2.2.5
 -------------
