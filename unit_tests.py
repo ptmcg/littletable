@@ -1402,21 +1402,122 @@ class TableListTests:
         with self.subTest():
             self.assertEqual(list(mults_of_3.all.a), [0] * self.test_size * 3)
 
+    def test_splitby_with_errors(self):
+        self._test_init()
+        self.t1.drop_index("a")
+        self.t1.insert(self.make_data_object(-1, -1, -1))
+
+        is_not_multiple_of_3 = lambda rec: rec.a % 3
+
+        mults_of_3, non_mults_of_3 = self.t1.splitby(is_not_multiple_of_3)
+        with self.subTest():
+            self.assertEqual(set(non_mults_of_3.all.a), {-1, 1, 2})
+        self.assertEqual(
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            list(mults_of_3.all.a),
+        )
+
         if self.storage_supports_omitted_field:
             # test with a record that does not have attribute "a"
             # (drop index to remove None value suppression)
             self.t1.drop_index("a")
             self.t1.insert(self.make_data_object(b=1000))
+            self.assertEqual(self.t1[-1].b, 1000)
 
             mults_of_3, non_mults_of_3 = self.t1.splitby(is_not_multiple_of_3)
             with self.subTest():
-                self.assertEqual(list(non_mults_of_3.all.a), sorted([1, 2] * self.test_size * 3))
+                self.assertEqual(set(non_mults_of_3.all.a), {-1, 1, 2})
             with self.subTest():
-                self.assertEqual(mults_of_3[-1].b, 1000)
+                self.assertEqual(mults_of_3[-1].b, 2)
             self.assertEqual(
-                [0, 0, 0, 0, 0, 0, 0, 0, 0, None],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
                 list(mults_of_3.all.a),
             )
+
+    def test_splitby_with_errors2(self):
+        self._test_init()
+        self.t1.insert(self.make_data_object(a="xyz", b=1000, c=1000))
+
+        is_abs_le_1 = lambda rec: abs(1 / rec.a) >= 1
+
+        # Test for error cases
+        # - discard errors
+        # - return errors in 3rd value
+        # - treat errors as True
+        # - treat errors as False
+        # - treat errors based on exception type
+
+        # - discard errors
+        gt1, le1 = self.t1.splitby(is_abs_le_1)
+        with self.subTest():
+            self.assertEqual(set(gt1.all.a), {2})
+        with self.subTest():
+            self.assertEqual(set(le1.all.a), {1})
+
+        # - return errors in 3rd value
+        gt1, le1, errors = self.t1.splitby(is_abs_le_1, errors="return")
+        with self.subTest():
+            self.assertEqual(set(gt1.all.a), {2})
+        with self.subTest():
+            self.assertEqual(set(le1.all.a), {1})
+        with self.subTest():
+            self.assertEqual(set(errors.all.a), {0, "xyz"})
+
+        # - treat errors as True
+        gt1, le1 = self.t1.splitby(is_abs_le_1, errors=True)
+        with self.subTest():
+            self.assertEqual(set(gt1.all.a), {2})
+        with self.subTest():
+            self.assertEqual(set(le1.all.a), {0, 1, "xyz"})
+
+        # - treat errors as False
+        gt1, le1 = self.t1.splitby(is_abs_le_1, errors=False)
+        with self.subTest():
+            self.assertEqual(set(gt1.all.a), {0, 2, "xyz"})
+        with self.subTest():
+            self.assertEqual(set(le1.all.a), {1})
+
+        # - treat errors based on exception type, unspecified Exception = discard
+        gt1, le1, errors = self.t1.splitby(
+            is_abs_le_1,
+            errors={TypeError: "return"}
+        )
+        with self.subTest():
+            self.assertEqual(set(gt1.all.a), {2})
+        with self.subTest():
+            self.assertEqual(set(le1.all.a), {1})
+        with self.subTest():
+            self.assertEqual(set(errors.all.a), {"xyz"})
+
+        # - treat errors based on exception type
+        gt1, le1, errors = self.t1.splitby(
+            is_abs_le_1,
+            errors={TypeError: "return", ZeroDivisionError: True}
+        )
+        with self.subTest():
+            self.assertEqual(set(gt1.all.a), {2})
+        with self.subTest():
+            self.assertEqual(set(le1.all.a), {0, 1})
+        with self.subTest():
+            self.assertEqual(set(errors.all.a), {"xyz"})
+
+        # - treat errors based on exception type, discard unspecified
+        gt1, le1 = self.t1.splitby(
+            is_abs_le_1,
+            errors={ZeroDivisionError: True}
+        )
+        with self.subTest():
+            self.assertEqual(set(gt1.all.a), {2})
+        with self.subTest():
+            self.assertEqual(set(le1.all.a), {0, 1})
+
+        # - treat errors based on exception type, discard unspecified
+        with self.subTest():
+            with self.assertRaises(TypeError):
+                gt1, le1 = self.t1.splitby(
+                    is_abs_le_1,
+                    errors={ZeroDivisionError: True, Exception: "raise"}
+                )
 
 @make_test_classes
 class TableJoinTests:

@@ -3532,7 +3532,12 @@ class Table(Generic[TableContent]):
             group_tbl = self.copy_template().insert_many(group_objs)
             yield key, group_tbl
 
-    def splitby(self, pred: Union[str, PredicateFunction]) -> tuple[Table[TableContent], Table[TableContent]]:
+    def splitby(
+            self,
+            pred: Union[str, PredicateFunction],
+            *,
+            errors: Union[bool, str, dict[type[Exception], Union[bool, str]]] = "discard",
+    ) -> tuple[Table[TableContent], ...]:
         """
         Takes a predicate function (takes a table record and returns True or False)
         and returns two tables: a table with all the rows that returned False and
@@ -3543,27 +3548,95 @@ class Table(Generic[TableContent]):
               is_odd = lambda x: bool(x % 2)
               evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
               nulls, not_nulls = tbl.splitby("optional_data_field")
+
+        An optional `errors` argument can be passed to define what action to take
+        if an exception occurs while evaluating the predicate function. Valid values
+        for `errors` are:
+            True : return exceptions as True
+            False: return exceptions as False
+            'discard': do not return table rows that raise exceptions
+            'return': return a third table containing rows that raise exceptions
+            'raise': raise the exception
+
+        `errors` can also be given as a dict mapping Exception types to one of
+        these 4 values.
+
+        The default value for `errors` (if omitted, or if an exception is raised
+        that is not listed in `errors`), is to discard the row.
         """
         # if key is a str, convert it to a predicate function using getattr
         if isinstance(pred, str):
             key_str = pred
             pred = lambda obj: getattr(obj, key_str, None)
 
+        discard_errors = object()
+        reraise_errors = object()
+        RETURN_ERRORS_TABLE = 2
+        if errors is None:
+            error_responses = {}
+        elif isinstance(errors, bool):
+            error_responses = {Exception: errors}
+        elif errors == "return":
+            error_responses = {Exception: RETURN_ERRORS_TABLE}
+        elif errors == "discard":
+            error_responses = {Exception: discard_errors}
+        elif errors == "raise":
+            error_responses = {Exception: reraise_errors}
+        elif isinstance(errors, dict):
+            if not all(issubclass(error_exception, Exception) for error_exception in errors):
+                raise ValueError(
+                    f"one or more error exception types is invalid {errors!r};"
+                    " must be Exception or a subclass of Exception"
+                )
+
+            if not all(
+                    error_response in {True, False, "return", "discard", "raise"}
+                    for error_response in errors.values()
+            ):
+                raise ValueError(
+                    f"one or more error values is invalid {errors!r};"
+                    " must be True, False, 'return', or 'discard'"
+                )
+            error_responses = {
+                k: {
+                    "discard": discard_errors,
+                    "return": RETURN_ERRORS_TABLE,
+                    "raise": reraise_errors,
+                }.get(v, v) for k, v in errors.items()
+            }
+        else:
+            raise ValueError(
+                f"invalid type/value for errors: {errors!r};"
+                " must be True, False, 'return', or 'discards',"
+                " or a dict mapping Exception types to one of those values")
+
         # wrap pred in try-except, to infer any failure of pred -> False,
         # and use not not to bool-ify the value returned from pred()
         def wrapped_pred(obj):
             try:
                 return not not pred(obj)
-            except AttributeError:
-                return False
+            except Exception as exc:
+                for exctype, retval in error_responses.items():
+                    if isinstance(exc, exctype):
+                        return retval
+                    if retval is reraise_errors:
+                        raise
+                return discard_errors
 
-        # construct two tables to receive False and True evaluated records
+        # construct return tables to receive False and True evaluated records
         ret = self.copy_template(), self.copy_template()
+        if any(
+                error_response is RETURN_ERRORS_TABLE
+                for error_response in error_responses.values()
+        ):
+            ret += (self.copy_template(),)
 
         # iterate over self and evaluate predicate for each record - use groupby to take
         # advantage of efficiencies when using insert_many() over multiple insert() calls
-        for bool_value, recs in itertools.groupby(self, key=wrapped_pred):
-            ret[bool_value].insert_many(recs)
+        for pred_value, recs in itertools.groupby(self, key=wrapped_pred):
+            if pred_value is discard_errors:
+                continue
+            ret[pred_value].insert_many(recs)
 
         return ret
 

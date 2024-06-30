@@ -14,8 +14,20 @@ Version 2.3.0
   `dict.get()` behavior (for unique indexes) and `defaultdict.get()` behavior (for
   non-unique indexes). <-- POTENTIAL BREAKING CHANGE
 
-- `Table.splitby` now infers any AttributeError raised while evaluating the given predicate method
-  as a False value.
+- A new optional `errors` argument added to `Table.splitby` to define what action
+  to take if an exception occurs while evaluating the predicate function. Valid values
+  for `errors` are:
+      True : return exceptions as True
+      False: return exceptions as False
+      'discard': do not return table rows that raise exceptions
+      'return': return a third table containing rows that raise exceptions
+      'raise': raise the exception
+
+  `errors` can also be given as a dict mapping Exception types to one of
+  these 4 values.
+
+  The default value for `errors` (if omitted, or if an exception is raised
+  that is not listed in an `errors` dict), is to discard the row.
 
 - New `attrgetter` function accepts a `defaults` dict argument to fill in missing attributes. Is now
   used in `Table` sorting, splitting, and exporting, which would previously raise exceptions if one
