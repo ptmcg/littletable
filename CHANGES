@@ -8,6 +8,10 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
   `re.compile(patt).match`
 
 
+Version 2.3.1 (in development)
+------------------------------
+
+
 Version 2.3.0
 -------------
 - Implemented `get()` for objects returned by `table.by.<indexname>`, to emulate
