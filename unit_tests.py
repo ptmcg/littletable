@@ -1519,6 +1519,44 @@ class TableListTests:
                     errors={ZeroDivisionError: True, Exception: "raise"}
                 )
 
+    def test_splitby_with_kwargs(self):
+        self._test_init()
+
+        # test kwargs as bool(attr value)
+        with self.subTest():
+            zero_a, nonzero_a = self.t1.splitby("a")
+            self.assertEqual(set(zero_a.all.a), {0})
+            self.assertEqual(set(nonzero_a.all.a), set(range(self.test_size)) - {0})
+
+        # test kwargs with single attr = match value
+        with self.subTest():
+            nontwo_a, two_a = self.t1.splitby(a=2)
+            self.assertEqual(set(two_a.all.a), {2})
+            self.assertEqual(set(nontwo_a.all.a), set(range(self.test_size)) - {2})
+
+        # test kwargs with multiple attr = match value
+        with self.subTest():
+            nontwo_a_one_b, two_a_one_b = self.t1.splitby(a=2, b=1)
+            get_a_b = attrgetter("a", "b")
+            self.assertEqual(
+                set(get_a_b(splitrec) for splitrec in two_a_one_b), {(2, 1)}
+            )
+            self.assertEqual(
+                set(get_a_b(splitrec) for splitrec in nontwo_a_one_b),
+                set(itertools.product(range(self.test_size), repeat=2)) - {(2, 1)},
+            )
+
+        # test arg validation
+        with self.subTest():
+            # missing both pred and kwargs
+            with self.assertRaises(ValueError):
+                self.t1.splitby()
+
+            # supplying both pred and kwargs
+            with self.assertRaises(ValueError):
+                self.t1.splitby(lambda rec: rec.a, b=100)
+
+
 @make_test_classes
 class TableJoinTests:
     """

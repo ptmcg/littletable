@@ -549,11 +549,22 @@ function.
 is_odd = lambda x: bool(x % 2)
 evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
 
-# split on an integer field: 0 will be treated as False, >0 as True
+# split on an integer field: 0 will be treated as False, non-zero as True
 has_no_cars, has_cars = tbl.splitby("number_of_cars_owned")
 
 # split on a field that may be None or ""
 nulls, not_nulls = tbl.splitby("optional_data_field")
+```
+
+A shorthand for specifying a predicate function can be used if the predicate
+is solely a test for a specific value for one or more attributes:
+
+```python
+qa_data, production_assembly_data = tbl.splitby(
+    lambda rec: rec.env == "prod" and rec.dept == "assembly"
+)
+# can be written as
+qa_data, production_data = tbl.splitby(env="prod", dept="assembly")
 ```
 
 

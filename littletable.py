@@ -3534,9 +3534,10 @@ class Table(Generic[TableContent]):
 
     def splitby(
             self,
-            pred: Union[str, PredicateFunction],
+            pred: Union[str, PredicateFunction] = None,
             *,
             errors: Union[bool, str, dict[type[Exception], Union[bool, str]]] = "discard",
+            **kwargs,
     ) -> tuple[Table[TableContent], ...]:
         """
         Takes a predicate function (takes a table record and returns True or False)
@@ -3548,6 +3549,15 @@ class Table(Generic[TableContent]):
               is_odd = lambda x: bool(x % 2)
               evens, odds = tbl.splitby(lambda rec: is_odd(rec.value))
               nulls, not_nulls = tbl.splitby("optional_data_field")
+
+        A shorthand for specifying a predicate function can be used if the predicate
+        is solely a test for a specific value for one or more attributes:
+
+              qa_data, production_assembly_data = data.splitby(
+                lambda rec: rec.env == "prod" and rec.dept == "assembly"
+              )
+              # can be written as
+              qa_data, production_data = data.splitby(env="prod", dept="assembly")
 
         An optional `errors` argument can be passed to define what action to take
         if an exception occurs while evaluating the predicate function. Valid values
@@ -3564,6 +3574,31 @@ class Table(Generic[TableContent]):
         The default value for `errors` (if omitted, or if an exception is raised
         that is not listed in `errors`), is to discard the row.
         """
+
+        # validate pred and kwargs args; if kwargs specified, synthesize pred
+        # function from them
+        if pred is None:
+            if not kwargs:
+                raise ValueError(
+                    "must provide either a predicate function or one or more named"
+                    " arguments using table field names and splitting values"
+                )
+            if len(kwargs) > 1:
+                getvalues = attrgetter(*kwargs.keys())
+                matchvalues = tuple(kwargs.values())
+                pred = (
+                    lambda split_rec, gv=getvalues, mv=matchvalues: gv(split_rec) == mv
+                )
+            else:
+                key, value = next(iter(kwargs.items()))
+                pred = lambda split_rec: getattr(split_rec, key, None) == value
+        else:
+            if kwargs:
+                raise ValueError(
+                    "must provide either a predicate function or one or more named"
+                    " arguments, not both"
+                )
+
         # if key is a str, convert it to a predicate function using getattr
         if isinstance(pred, str):
             key_str = pred
