@@ -20,13 +20,26 @@ Version 2.3.1 (in development)
   the predicate splitting function in terms of the specific value of one or more
   row attributes:
 
-        qa_data, production_assembly_data = data.splitby(
-          lambda rec: rec.env == "prod" and rec.dept == "assembly"
-        )
+      qa_data, production_assembly_data = data.splitby(
+        lambda rec: rec.env == "prod" and rec.dept == "assembly"
+      )
 
   can be written as:
 
-        qa_data, production_data = data.splitby(env="prod", dept="assembly")
+      qa_data, production_data = data.splitby(env="prod", dept="assembly")
+
+- Added `using` argument to `Table.create_search_index` to simplify creation of a
+  search index attribute by using multiple existing attributes. See this example
+  from the `explore_unicode.py` example:
+
+      unicode.create_search_index(
+          "name_words",
+          using=["name", "unicode_1_name", "iso10646_comment"],
+      )
+
+  The example creates a new field `name_words` by combining the attributes `name`,
+  `unicode_1_name`, and `iso10646_comment`, and then builds a search index using
+  this new field.
 
 
 Version 2.3.0

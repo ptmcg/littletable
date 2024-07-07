@@ -128,9 +128,10 @@ fieldnames = [
     "lowercase_hex",
     "titlecase_hex",
 ]
-unicode_url = "https://www.unicode.org/Public/3.2-Update/UnicodeData-3.2.0.txt"
-unicode_file = "unicode_320.txt.zip"
+unicode_url = "https://www.unicode.org/Public/15.1.0/ucd/UnicodeData.txt"
+unicode_file = "unicode_15.1.0.txt.zip"
 unicode = lt.Table().csv_import(
+    # unicode_url,
     unicode_file,
     delimiter=";",
     transforms={
@@ -140,14 +141,18 @@ unicode = lt.Table().csv_import(
     },
     fieldnames=fieldnames,
 )
+
+# remove surrogates
+unicode.delete(category="Cs")
+
 unicode.add_field("code_value", lambda r: int(r.code_value_hex, 16))
-unicode.add_field("uppercase", lambda r: int(r.uppercase_hex, 16))
-unicode.add_field("lowercase", lambda r: int(r.lowercase_hex, 16))
-unicode.add_field("titlecase", lambda r: int(r.titlecase_hex, 16))
+unicode.add_field("uppercase_int", lambda r: int(r.uppercase_hex, 16))
+unicode.add_field("lowercase_int", lambda r: int(r.lowercase_hex, 16))
+unicode.add_field("titlecase_int", lambda r: int(r.titlecase_hex, 16))
 unicode.add_field("character", lambda r: chr(r.code_value))
-unicode.add_field("upper_char", lambda r: chr(r.uppercase))
-unicode.add_field("lower_char", lambda r: chr(r.lowercase))
-unicode.add_field("title_char", lambda r: chr(r.titlecase))
+unicode.add_field("uppercase", lambda r: chr(r.uppercase_int))
+unicode.add_field("lowercase", lambda r: chr(r.lowercase_int))
+unicode.add_field("titlecase", lambda r: chr(r.titlecase_int))
 unicode.add_field("is_identifier", lambda r: r.character.isidentifier())
 
 unicode.create_index("code_value_hex", unique=True)
@@ -156,7 +161,19 @@ unicode.create_index("code_value", unique=True)
 #
 # Explore some interesting groups of symbols in the Unicode set
 #
-
+def present_table(
+    title: str, source_table: lt.Table = unicode
+) -> lt.Table:
+    """
+    Function to search for Unicode characters that match a starting string, and
+    presents a table showing name, character, and decimal code value
+    """
+    tbl = source_table.select("name character code_value code_value_hex")
+    tbl.present(
+        caption="Total {} symbols".format(len(tbl)),
+        caption_justify="left",
+    )
+    return tbl
 
 def present_symbol_group(
     start_str: str, title: str, source_table: lt.Table = unicode
@@ -166,34 +183,17 @@ def present_symbol_group(
     presents a table showing name, character, and decimal code value
     """
     tbl = source_table.where(name=lt.Table.startswith(start_str))(title)
-    tbl = tbl.select("name character code_value code_value_hex")
-    tbl.present(
-        caption="Total {} symbols".format(len(tbl)),
-        caption_justify="left",
-    )
-    return tbl
+    return present_table(title, tbl)
 
-
-def present_symbol_group_contains_word(
-    word_str: str, title: str, source_table: lt.Table = unicode
+def present_symbol_search_result(
+    query: str, title: str, source_table: lt.Table = unicode
 ) -> lt.Table:
     """
-    Function to search for Unicode characters that match a starting string, and
+    Function to search for Unicode characters that match a search query, and
     presents a table showing name, character, and decimal code value
     """
-    # DEPRECATED FORM
-    # tbl = source_table.where(name=lt.Table.re_match(rf".*\b{word_str}\b"))(title)
-
-    # NEW FORM
-    contains_word = re.compile(rf"\b{word_str}\b").search
-    tbl = source_table.where(name=contains_word)(title)
-
-    tbl = tbl.select("name character code_value code_value_hex")
-    tbl.present(
-        caption="Total {} symbols".format(len(tbl)),
-        caption_justify="left",
-    )
-    return tbl
+    search_result = source_table.search.name_words(query,as_table=True)(title)
+    return present_table(title, search_result)
 
 
 # display the characters of the I Ching
@@ -220,11 +220,17 @@ clock_faces = present_symbol_group("CLOCK FACE", "Clock Faces")
 # die faces
 die_faces = present_symbol_group("DIE FACE", "Die Faces")
 
+# create search index for random search for words in code point names or comments
+unicode.create_search_index("name_words", using="name unicode_1_name iso10646_comment")
+
+dots = present_symbol_search_result("DOT", "Dots")
+
+arrows = present_symbol_search_result("ARROW", "Arrows")
+
+faces = present_symbol_search_result("FACE", "Faces")
+
 # chess pieces
-chess_pieces = present_symbol_group_contains_word(r"^(WHITE|BLACK) CHESS \w+$", "Chess Pieces")
-
-faces = present_symbol_group_contains_word(r"FACE", "Faces")
-
-dots = present_symbol_group_contains_word(r"DOT", "Dots")
-
-arrows = present_symbol_group_contains_word(r"ARROW", "Arrows")
+chess_pieces = present_symbol_search_result(
+    r"white black ++chess --rotated --neutral --turned",
+    "Chess Pieces",
+)

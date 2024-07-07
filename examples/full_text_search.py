@@ -70,6 +70,11 @@ print(query)
 for rec in matches:
     print(" -", rec.title,rec.ingredients_search_score, rec.ingredients_search_words)
 
+# build a more complex search index, using words from multiple fields
+recipes.create_search_index("recipe_terms", using="ingredients title")
+matches = recipes.search.recipe_terms("casserole Hawaiian", as_table=True)
+matches.present(fields="title ingredients".split())
+
 # exception gets raised if search() is called after the table has been modified without
 # rebuilding the search index
 print("\nmodify source table to show exception raised when search index is no longer valid")

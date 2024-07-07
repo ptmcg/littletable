@@ -1709,6 +1709,8 @@ class Table(Generic[TableContent]):
     def create_search_index(
         self,
         attrname: str,
+        *,
+        using: Optional[str | Iterable[str]] = None,
         stopwords: Optional[Iterable[str]] = None,
         force: bool = False,
     ) -> Table[TableContent]:
@@ -1745,6 +1747,16 @@ class Table(Generic[TableContent]):
             journal.search.entry("blue --feeling")
                 [(namespace(date='1/1/2001', entry='The sky is so blue today.'), 100)]
         """
+        # if `using` argument supplied, add new field constructed from the names in `using`
+        if using is not None:
+            using_fields: list[str] = self._parse_fields_string(using)
+            search_fields_getter = attrgetter(
+                *using_fields,
+                defaults=dict.fromkeys(using_fields, "")
+            )
+            search_field_builder = lambda r, _getter=search_fields_getter: " ".join(map(str, _getter(r))).strip()
+            self.add_field(attrname, search_field_builder)
+
         if attrname in self._search_indexes:
             if force or not self._search_indexes[attrname]["VALID"]:
                 # stale search index, rebuild

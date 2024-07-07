@@ -45,17 +45,18 @@ peps.pivot("year").dump_counts()
 peps.pivot("year").as_table().present()
 
 # create full text search on PEP abstracts
-peps.create_search_index("abstract")
+peps.create_search_index("abstract_terms", using="abstract title authors status year")
 
 # search for PEPs referring to the walrus operator
-walrus_pep = peps.search.abstract("walrus", as_table=True)("'walrus' Search Results")
+walrus_pep = peps.search.abstract_terms("walrus", as_table=True)("'walrus' Search Results")
 walrus_pep.select("id title year authors").present()
 print(walrus_pep.select("id title year authors").json_export())
 
 # search for PEPs referring to GvR or Guido or BDFL
-bdfl_peps = peps.search.abstract("gvr guido bdfl", as_table=True)("GvR PEPs")
+bdfl_peps = peps.search.abstract_terms("gvr guido bdfl", as_table=True)("GvR PEPs")
 bdfl_peps.orderby("id")
 bdfl_peps.select("id title year url authors").present()
+
 
 # define a custom JSON encoder for datetime.date field
 class JsonDateEncoder(json.JSONEncoder):

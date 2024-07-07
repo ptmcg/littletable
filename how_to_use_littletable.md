@@ -89,8 +89,8 @@ create a helpful name for the resulting data table.
 
 Once you have created the Table, you can then use `insert` or `insert_many` to
 populate the table, or use one of the `import` methods (such as `csv_import`,
-`tsv_import`, or `json_import`) to load the table from an external file or data
-string.
+`tsv_import`, or `json_import`) to load the table from a data string, external file,
+compressed file, Excel spreadsheet, or Internet URL.
 
 
 Inserting objects
@@ -402,6 +402,16 @@ employees.by.dept['Salex']  # no such department
 #    returns empty table
 ```
 
+You can also use the get() method, similar to Python's `dict.get()`:
+```python
+# using the unique index on "employee_id"
+employees.by.employee_id.get('00086') # returns the matching record
+employees.by.employee_id.get('invalid_id') # returns None
+
+# using the non-unique index on "dept"
+employees.by.dept['Sales'] # returns a Table of matching records
+employees.by.dept['Salex'] # returns None
+```
 
 Querying for exact matching attribute values
 --------------------------------------------
@@ -410,7 +420,9 @@ all records matching all the arguments:
 
 ```python
 employees.where(zipcode="12345", title="Manager")
-student.where(**{"class":"Algebra"})
+
+# Python keywords have to be passed in an unpacked dict.
+student.where(**{"class": "Algebra"})
 ```
 
 It is not necessary for the attributes to be indexed to use `Table.where()`.
@@ -630,6 +642,25 @@ Will display:
                        ketchup mustard pickle
                        cheese bacon
 
+```
+
+In some cases, the terms to search for are spread across multiple attributes.
+For these cases, create_search_index accepts an optional `using` argument,
+containing a list of string attributes to concatenate into a single searchable
+attribute:
+
+```python
+recipes.create_search_index("recipe_terms", using="ingredients title")
+matches = recipes.search.recipe_terms("casserole Hawaiian", as_table=True)
+matches.present(fields="title ingredients".split())
+```
+
+Will display:
+```
+  Title            Ingredients                            
+ ─────────────────────────────────────────────────────────
+  Tuna casserole   tuna noodles cream of mushroom soup
+  Hawaiian pizza   pizza dough pineapple ham tomato sauce
 ```
 
 Search indexes will become invalid if records are added or removed from the table 
