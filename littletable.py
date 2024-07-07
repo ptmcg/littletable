@@ -166,7 +166,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "3 Jul 2024 19:00 UTC"
+__version_time__ = "7 Jul 2024 18:51 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
