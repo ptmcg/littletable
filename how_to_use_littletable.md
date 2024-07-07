@@ -568,6 +568,17 @@ qa_data, production_data = tbl.splitby(env="prod", dept="assembly")
 ```
 
 
+Splitting a table into smaller batches
+--------------------------------------
+You can break a `Table` into smaller-sized tables (such as might be 
+needed for paginated reporting), using `Table.batched`, similar to 
+`itertools.batched` added in Python 3.13. Returns a generator that
+yields tables sliced into n-sized batches:
+
+      for mini_table in tbl.batched(10):
+          ... work with table containing only 10 entries ...
+
+
 Full-text search on text attributes
 -----------------------------------
 `littletable` can perform a rudimentary version of full-text search against

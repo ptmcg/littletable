@@ -3532,6 +3532,20 @@ class Table(Generic[TableContent]):
             group_tbl = self.copy_template().insert_many(group_objs)
             yield key, group_tbl
 
+    def batched(self, batch_size: int) -> Iterable[Table[TableContent]]:
+        """
+        Yields subtables of size `batch_size`, such as might be returned in
+        a paginated API. The final Table may be less than `batch_size` in size.
+        """
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than 0")
+
+        num_items = len(self)
+        offset = 0
+        while offset < num_items:
+            yield self[offset: offset + batch_size]
+            offset += batch_size
+
     def splitby(
             self,
             pred: Union[str, PredicateFunction] = None,

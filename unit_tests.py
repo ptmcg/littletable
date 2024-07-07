@@ -1366,6 +1366,40 @@ class TableListTests:
             with self.subTest("check computed stat attribute (missing)", row=row):
                 self.assertEqual(expected_row.missing, row.missing)
 
+    def test_batched(self):
+        self._test_init()
+
+        # create an index on "a"
+        self.t1.create_index("a")
+
+        batch_size = 2
+        batch_iter = self.t1.batched(batch_size)
+        abc_getter = lt.attrgetter("a", "b", "c")
+
+        # verify batches retain indexes and are the correct length
+        with self.subTest():
+            first_batch = next(batch_iter)
+            self.assertEqual(batch_size, len(first_batch))
+            self.assertIn("a", first_batch._indexes)
+            self.assertEqual(abc_getter(self.t1[0]), abc_getter(first_batch[0]))
+
+        with self.subTest():
+            second_batch = next(batch_iter)
+            self.assertIn("a", second_batch._indexes)
+            self.assertEqual(abc_getter(self.t1[batch_size]), abc_getter(second_batch[0]))
+
+        # test different batch sizes
+        for batch_size in range(1, len(self.t1)):
+            with self.subTest(batch_size=batch_size):
+                print(
+                    f"Table containing {len(self.t1)} items,"
+                    f" into batches of size {batch_size}"
+                )
+                # compute expected number of batches
+                expected_count = -(-len(self.t1) // batch_size)
+                num_batches = sum(1 for _ in self.t1.batched(batch_size))
+                self.assertEqual(expected_count, num_batches)
+
     def test_splitby(self):
         self._test_init()
         is_odd = lambda rec: rec.a % 2

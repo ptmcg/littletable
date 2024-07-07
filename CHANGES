@@ -10,6 +10,12 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
 
 Version 2.3.1 (in development)
 ------------------------------
+- Added `Table.batched`, similar to `itertools.batched` added in Python 3.13. Returns
+  a generator that yields tables sliced into n-sized batches:
+
+      for mini_table in tbl.batched(10):
+          ... work with table containing only 10 entries ...
+
 - Extended arguments support in `Table.splitby` to accept named arguments that define
   the predicate splitting function in terms of the specific value of one or more
   row attributes:
