@@ -25,7 +25,7 @@ import littletable as lt
 PYTHON_VERSION = sys.version_info[:2]
 
 SKIP_CSV_IMPORT_USING_URL_TESTS = os.environ.get("SKIP_CSV_IMPORT_USING_URL_TESTS", "0") == "1"
-SKIP_CSV_IMPORT_USING_URL_TESTS = True
+# SKIP_CSV_IMPORT_USING_URL_TESTS = True
 
 @contextlib.contextmanager
 def timestamp_start_end(label=None, file=None):
