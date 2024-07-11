@@ -166,7 +166,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "10 Jul 2024 22:49 UTC"
+__version_time__ = "11 Jul 2024 21:22 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -1755,7 +1755,7 @@ class Table(Generic[TableContent]):
                 defaults=dict.fromkeys(using_fields, "")
             )
             search_field_builder = lambda r, _getter=search_fields_getter: " ".join(map(str, _getter(r))).strip()
-            self.add_field(attrname, search_field_builder)
+            self.compute_field(attrname, search_field_builder)
 
         if attrname in self._search_indexes:
             if force or not self._search_indexes[attrname]["VALID"]:
@@ -3429,7 +3429,7 @@ class Table(Generic[TableContent]):
         )
         return ret
 
-    def add_field(
+    def compute_field(
         self, attrname: str, fn: Callable[[Any], Any], default: Optional[Any] = None
     ) -> Table:
         """
@@ -3474,6 +3474,8 @@ class Table(Generic[TableContent]):
 
         self._contents_changed(invalidate_search_indexes=False)
         return self
+
+    add_field = compute_field
 
     def groupby_with_summaries(self, keyexpr, **outexprs):
         """

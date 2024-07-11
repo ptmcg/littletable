@@ -288,12 +288,14 @@ class AbstractContentTypeFactory:
     Each subclass needs only to define the following class attriutes
     - data_object_type: (type) type for constructing test content records for Tables
     - storage_supports_add_field: (bool) flag indicating whether data_object_type permits adding attributes
-    - storage_is_mutable: (bool) flag indicating whether data_object_type records are mutable
+    - storage_supports_update_field: (bool) flag indicating whether data_object_type records are mutable
+    - storage_supports_omitted_field: (bool) flag indicating whether data_object_type records will accept
+      initialization omitting 1 or more fields
     """
     data_object_type: Optional[type] = None
     storage_supports_add_field = True
+    storage_supports_update_field = True
     storage_supports_omitted_field = True
-    storage_is_mutable = True
 
     @classmethod
     def make_data_object(cls, *args, **kwargs):
@@ -306,14 +308,14 @@ class AbstractContentTypeFactory:
 
 class UsingDataObjects(AbstractContentTypeFactory):
     data_object_type = lt.DataObject
-    storage_is_mutable = False
+    storage_supports_update_field = False
 
 
 class UsingNamedtuples(AbstractContentTypeFactory):
     data_object_type = DataTuple
     storage_supports_add_field = False
+    storage_supports_update_field = False
     storage_supports_omitted_field = False
-    storage_is_mutable = False
 
 
 class UsingSlottedObjects(AbstractContentTypeFactory):
@@ -361,8 +363,8 @@ if pydantic is not None:
     class UsingPydanticImmutableModel(AbstractContentTypeFactory):
         data_object_type = DataPydanticImmutableModel
         storage_supports_add_field = False
+        storage_supports_update_field = False
         storage_supports_omitted_field = False
-        storage_is_mutable = False
 
     class UsingPydanticORMModel(AbstractContentTypeFactory):
         data_object_type = DataPydanticORMModel
@@ -391,8 +393,8 @@ else:
 class UsingTypingNamedTuple(AbstractContentTypeFactory):
     data_object_type = TypingNamedTuple
     storage_supports_add_field = False
+    storage_supports_update_field = False
     storage_supports_omitted_field = False
-    storage_is_mutable = False
 
 class UsingTypingTypedDict(AbstractContentTypeFactory):
     data_object_type = TypingTypedDict
@@ -600,7 +602,9 @@ class TableCreateTests:
         self.assertEqual(3, len(sevens))
 
         # make names all title case
-        unicode_numbers.add_field("name", lambda rec: rec.name.title())
+        if self.storage_supports_update_field:
+            unicode_numbers.compute_field("name", lambda rec: rec.name.title())
+
         # use regex with re flag
         with self.assertWarns(DeprecationWarning):
             circled = unicode_numbers.where(name=lt.Table.re_match(r"circled", flags=re.I))
@@ -953,20 +957,20 @@ class TableCreateTests:
         table = make_test_table(self.make_data_object, test_size)
         table.create_index('c')
 
-        if not self.storage_is_mutable:
+        if not self.storage_supports_update_field:
             return
 
-        table.add_field('c', lambda rec: -1)
+        table.compute_field('c', lambda rec: -1)
         self.assertEqual(
             [rec.c for rec in table],
             list(table.all.c),
-            "all list reads index, which is not rebuilt by add_field",
+            "all list reads index, which is not rebuilt compute_field",
         )
 
         self.assertEqual(
             {-1},
             set(table.by.c.keys()),
-            "index keys are not rebuilt by add_field",
+            "index keys are not rebuilt by compute_field",
         )
 
     def test_using_accessors_with_field_name_that_is_invalid_python_identifier(self):
@@ -3343,6 +3347,11 @@ class InitialTest(unittest.TestCase):
 
 
 class StorageIndependentTests(unittest.TestCase):
+    """
+    All these tests work with utility methods outside of Tables, or with Tables containing
+    SimpleNamespace contents only, so they support all methods that add new fields or update
+    existing ones.
+    """
     @announce_test
     def test_normalize_str(self):
         for in_word, expected_word in [
@@ -3452,14 +3461,14 @@ class StorageIndependentTests(unittest.TestCase):
 
         # check multiple-attribute getting
         get_a_c = lt.attrgetter('a', 'c')
-        tbl.add_field("d", get_a_c)
+        tbl.compute_field("d", get_a_c)
         self.assertEqual([('x', 1), ('y', None), ('a', None)], list(tbl.all.d))
 
         get_a_c = lt.attrgetter('a', 'c', defaults={'c': -1})
-        tbl.add_field("e", get_a_c)
+        tbl.compute_field("e", get_a_c)
         self.assertEqual([('x', 1), ('y', None), ('a', -1)], list(tbl.all.e))
 
-        tbl.add_field("f", lambda rec: "/".join(map(str, get_a_c(rec))))
+        tbl.compute_field("f", lambda rec: "/".join(map(str, get_a_c(rec))))
         self.assertEqual(["x/1", "y/None", "a/-1"], list(tbl.all.f))
 
 

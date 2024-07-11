@@ -21,7 +21,7 @@ places = Table().csv_import(
 )
 
 # add computed field, elevation rounded down by 1000's
-places.add_field("elev2", lambda x: int(x.elev / 1000) * 1000, 0)
+places.compute_field("elev2", lambda x: int(x.elev / 1000) * 1000, 0)
 
 # create indexes
 places.create_index("state")

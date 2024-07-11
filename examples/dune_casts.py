@@ -83,9 +83,9 @@ Otheym,...,2021
 """
 
 dune_casts = lt.Table("dune_1984").csv_import(dune_casts_csv).create_index("character")
-dune_1984 = dune_casts.where(year="1984").add_field("actor (1984)", attrgetter("actor"))
-dune_2000 = dune_casts.where(year="2000").add_field("actor (2000)", attrgetter("actor"))
-dune_2021 = dune_casts.where(year="2021").add_field("actor (2021)", attrgetter("actor"))
+dune_1984 = dune_casts.where(year="1984").compute_field("actor (1984)", attrgetter("actor"))
+dune_2000 = dune_casts.where(year="2000").compute_field("actor (2000)", attrgetter("actor"))
+dune_2021 = dune_casts.where(year="2021").compute_field("actor (2021)", attrgetter("actor"))
 
 join = dune_1984.join_on("character") + dune_2000 + dune_2021
 dune_combined = join()("Dune Casts (combined)")

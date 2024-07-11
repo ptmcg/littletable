@@ -10,6 +10,11 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
 
 Version 2.3.2 (in development)
 ------------------------------
+- Renamed `Table.add_field` to `Table.compute_field`, to better reflect that it
+  can be used to compute a new field, or overwrite the current values for that
+  field for all the rows in the table, and is not just for adding new fields.
+
+  `Table.add_field` will be retained as a compatibility synonym.
 
 
 Version 2.3.1

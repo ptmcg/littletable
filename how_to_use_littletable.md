@@ -352,6 +352,38 @@ obj = t.pop(12)
 obj = t.pop()
 ```
 
+Adding new fields to existing rows
+----------------------------------
+If the underlying storage types for the rows in the `Table` permit the addition of
+new attributes and/or modification of existing attributes, you can do so using 
+`Table.compute_field`, passing in a callable that `compute_field` will use to 
+compute the value for this field for each record.
+
+You can see an example of this in `examples/explore_unicode.py`, which builds a table
+from the contents of the official Unicode CSV file:
+
+```python
+# import the Unicode definitions, including the name and hex character value for each code point
+unicode = lt.csv_import(unicode_csv_file, delimiter=';')
+
+# add a field containing the integer code point value, computed from the given code_value_hex field
+unicode.compute_field("code_value", lambda r: int(r.code_value_hex, 16))
+
+# add a field containing the actual Unicode character for each row
+unicode.compute_field("character", lambda r: chr(r.code_value))
+
+# add a boolean field indicating whether the character can be used as an identifier character
+unicode.compute_field("is_identifier", lambda r: r.character.isidentifier())
+```
+
+You can also overwrite existing fields using `compute_field`.
+
+`compute_field` also accepts a `default` argument, to be used if the given callable raises
+an exception for a particular row; if no default is specified, `None` is used.
+
+(`compute_field` was formerly named `add_field`, which is still maintained for compatibility.)
+
+
 Indexing attributes
 -------------------
 Use `create_index` to add an index to a `Table`. Indexes can be unique or

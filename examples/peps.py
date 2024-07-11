@@ -8,6 +8,7 @@
 # Copyright Paul McGuire, 2022
 #
 import json
+from operator import attrgetter
 from pathlib import Path
 import littletable as lt
 
@@ -30,7 +31,8 @@ peps.create_index("id", unique=True)
 print("PEP20:", peps.by.id[20].title)
 
 # add a numeric "year" field, and index it
-peps.add_field("year", lambda pep: pep.created.year)
+get_year = attrgetter("created.year")
+peps.compute_field("year", get_year)
 peps.create_index("year")
 
 # present PEPs created in 2016

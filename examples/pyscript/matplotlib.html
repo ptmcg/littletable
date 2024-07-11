@@ -89,7 +89,7 @@ Visit at: https://slides.com/blakerayfield/data-visualization-with-pyscript
 
         # add a computed field to summarize or fetch by year
         get_year = attrgetter("Date.year")
-        stock_data.add_field("Year", get_year)
+        stock_data.compute_field("Year", get_year)
 
         # filter on any years listed as URL query args
         filter_years = set(get_query_years())
