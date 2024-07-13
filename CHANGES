@@ -8,8 +8,8 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
   `re.compile(patt).match`
 
 
-Version 2.3.2 (in development)
-------------------------------
+Version 2.3.2
+-------------
 - Renamed `Table.add_field` to `Table.compute_field`, to better reflect that it
   can be used to compute a new field, or overwrite the current values for that
   field for all the rows in the table, and is not just for adding new fields.
