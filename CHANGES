@@ -7,6 +7,10 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
 - `Table.re_match(patt)` comparator is deprecated, replace with
   `re.compile(patt).match`
 
+Version 2.3.3
+-------------
+
+
 
 Version 2.3.2
 -------------
