@@ -489,40 +489,40 @@ class DataObject:
 class _ObjIndex:
     def __init__(self, attr: str):
         self.attr = attr
-        self.obs = defaultdict(list)
+        self.obs_lookup = defaultdict(list)
         self.is_unique = False
 
     def sort(self, key: Any, reverse: bool = False) -> None:
-        for seq in self.obs.values():
+        for seq in self.obs_lookup.values():
             seq.sort(key=key, reverse=reverse)
 
     def __setitem__(self, k, v) -> None:
-        self.obs[k].append(v)
+        self.obs_lookup[k].append(v)
 
     def __getitem__(self, k) -> Any:
-        return self.obs.get(k, [])
+        return self.obs_lookup.get(k, [])
 
     def __len__(self) -> int:
-        return len(self.obs)
+        return len(self.obs_lookup)
 
     def __iter__(self) -> Iterator[Any]:
-        return iter(self.obs.keys())
+        return iter(self.obs_lookup)
 
     def keys(self) -> list[Any]:
-        return sorted(filter(partial(operator.ne, None), self.obs.keys()))
+        return sorted(filter(partial(operator.ne, None), self.obs_lookup))
 
     def items(self) -> Iterable[tuple[Any, Any]]:
-        return self.obs.items()
+        return self.obs_lookup.items()
 
     def remove(self, obj) -> None:
         try:
             k = getattr(obj, self.attr)
-            self.obs[k].remove(obj)
+            self.obs_lookup[k].remove(obj)
         except (ValueError, AttributeError, KeyError):
             pass
 
     def __contains__(self, key: Any) -> bool:
-        return key in self.obs
+        return key in self.obs_lookup
 
     def copy_template(self):
         return self.__class__(self.attr)
@@ -534,7 +534,7 @@ class _ObjIndex:
             return default
 
     def _clear(self) -> None:
-        self.obs.clear()
+        self.obs_lookup.clear()
 
 
 Mapping.register(_ObjIndex)
@@ -543,7 +543,7 @@ Mapping.register(_ObjIndex)
 class _UniqueObjIndex(_ObjIndex):
     def __init__(self, attr, accept_none=False):
         super().__init__(attr)
-        self.obs = {}
+        self.obs_lookup = {}
         self.is_unique = True
         self.accept_none = accept_none
         self.none_values = []
@@ -553,8 +553,8 @@ class _UniqueObjIndex(_ObjIndex):
 
     def __setitem__(self, k, v):
         if k is not None:
-            if k not in self.obs:
-                self.obs[k] = v
+            if k not in self.obs_lookup:
+                self.obs_lookup[k] = v
             else:
                 raise KeyError(f"duplicate key value {k!r}")
         else:
@@ -565,25 +565,25 @@ class _UniqueObjIndex(_ObjIndex):
 
     def __getitem__(self, k):
         if k is not None:
-            return [self.obs.get(k)] if k in self.obs else []
+            return [self.obs_lookup.get(k)] if k in self.obs_lookup else []
         else:
             return list(self.none_values)
 
     def __contains__(self, k):
         if k is not None:
-            return k in self.obs
+            return k in self.obs_lookup
         else:
             return self.accept_none and self.none_values
 
     def keys(self):
-        return sorted(self.obs.keys()) + ([None, ] if self.none_values else [])
+        return sorted(self.obs_lookup) + ([None, ] if self.none_values else [])
 
     def items(self):
-        return ((k, [v]) for k, v in self.obs.items())
+        return ((k, [v]) for k, v in self.obs_lookup.items())
 
     def remove(self, obj):
         if (k := getattr(obj, self.attr)) is not None:
-            self.obs.pop(k, None)
+            self.obs_lookup.pop(k, None)
         else:
             try:
                 self.none_values.remove(obj)
@@ -985,8 +985,9 @@ class FixedWidthReader:
             spec: list[FixedWidthParseSpec],
         ) -> list[tuple[str, slice, Callable[[str], Any]]]:
             ret: list[tuple[str, slice, Callable[[str], Any]]] = []
+            trailing_defaults = (None, None)
             for cur, next_ in zip(spec, spec[1:] + [("", sys.maxsize, None, None)]):
-                label, col, endcol, fn = (cur + (None, None,))[:4]
+                label, col, endcol, fn, *_ = (*cur, *trailing_defaults)
                 if label is None:
                     continue
                 if endcol is None:
@@ -2206,14 +2207,14 @@ class Table(Generic[TableContent]):
         @return: self
         """
         if isinstance(key, (str, list, tuple)):
-            attr_orders: list[list[str]]
+            attr_orders: list[tuple[str, str]]
             if isinstance(key, str):
                 attrdefs = [s.strip() for s in key.split(",")]
-                attr_orders = [(a.split() + ["asc", ])[:2] for a in attrdefs]
+                attr_orders = [(*a.split(), "asc")[:2] for a in attrdefs]
             else:
                 # attr definitions were already resolved to a sequence by the caller
                 if isinstance(key[0], str):
-                    attr_orders = [(a.split() + ["asc", ])[:2] for a in key]
+                    attr_orders = [(*a.split(), "asc")[:2] for a in key]
                 else:
                     attr_orders = key
             attrs = [attr for attr, order in attr_orders]
@@ -2814,14 +2815,7 @@ class Table(Generic[TableContent]):
                         csvdata = filter(lambda csv_rec: csv_rec.get(k) == v, csvdata)
 
             if limit is not None:
-
-                def limiter(n, objiter):
-                    for i, obj in enumerate(objiter, start=1):
-                        if i > n:
-                            break
-                        yield obj
-
-                csvdata = limiter(limit, csvdata)
+                csvdata = itertools.islice(csvdata, limit)
 
             self.insert_many(row_class(**s) for s in csvdata)
 
