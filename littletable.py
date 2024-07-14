@@ -249,8 +249,9 @@ class attrgetter:  # noqa
     """
     __slots__ = ('_items', '_defaults', '_call')
 
-    def __init__(self, item: str, /, *items, defaults: dict[str, Any] = {}):
+    def __init__(self, item: str, /, *items, defaults: dict[str, Any] = None):
 
+        defaults = defaults or {}
         self._defaults = {**defaults}
 
         if not items:
@@ -268,7 +269,7 @@ class attrgetter:  # noqa
             self._items = items
             base_getter = operator.attrgetter(*items)
             item_default_values = tuple(
-                (k, defaults.get(k)) for k in items
+                (k, self._defaults.get(k)) for k in items
             )
 
             def func(obj):
@@ -489,7 +490,7 @@ class DataObject:
 class _ObjIndex:
     def __init__(self, attr: str):
         self.attr = attr
-        self.obs_lookup = defaultdict(list)
+        self.obs_lookup: defaultdict[str, list] = defaultdict(list)
         self.is_unique = False
 
     def sort(self, key: Any, reverse: bool = False) -> None:
@@ -687,7 +688,7 @@ class _TableAttributeValueLister:
         def __getattr__(self, attr):
             if attr == "unique":
                 self.__iter = filter(
-                    lambda x, seen=set(): x not in seen and not seen.add(x), self.__iter
+                    lambda x, seen=set(): x not in seen and not seen.add(x), self.__iter  # noqa
                 )
                 return self
             raise AttributeError(f"no such attribute {attr!r} defined")
@@ -984,17 +985,24 @@ class FixedWidthReader:
         def parse_spec(
             spec: list[FixedWidthParseSpec],
         ) -> list[tuple[str, slice, Callable[[str], Any]]]:
+            def normalize_parse_spec(ps: FixedWidthParseSpec) -> FixedWidthParseSpec:
+                return (*ps, None, None)[:4]  # noqa
+
+            # add a "rest of the line" spec to the parse spec to terminate
+            # the last column
+            rest_of_line_spec = ("", None)
+            spec.append(rest_of_line_spec)
+
             ret: list[tuple[str, slice, Callable[[str], Any]]] = []
-            trailing_defaults = (None, None)
-            for cur, next_ in zip(spec, spec[1:] + [("", sys.maxsize, None, None)]):
-                label, col, endcol, fn, *_ = (*cur, *trailing_defaults)
+            for cur, next_ in zip(spec, spec[1:]):
+                label, col, end_col, fn = normalize_parse_spec(cur)
                 if label is None:
                     continue
-                if endcol is None:
-                    endcol = next_[1]
+                if end_col is None:
+                    end_col = next_[1]
                 if fn is None:
                     fn = str.strip
-                ret.append((label.lower(), slice(col, endcol), fn))
+                ret.append((label.lower(), slice(col, end_col), fn))
             return ret
 
         self._slices = parse_spec(slice_spec)
@@ -1021,12 +1029,13 @@ def _make_comparator(cmp_fn: Callable[[Any, Any], bool]) -> Callable[[Any], Call
                     return cmp_fn(getattr(table_rec, attr), value)
                 except TypeError:
                     return False
+
+            _inner.__name__ = f"{cmp_fn.__name__}({attr}, {value!r})"
             return _inner
 
         _table_comparator_fn.fn = cmp_fn
         _table_comparator_fn.value = value
         _table_comparator_fn.is_comparator = True
-        _table_comparator_fn.__name__ = f"{cmp_fn.__name__}({value!r})"
         return _table_comparator_fn
 
     return comparator_with_value
@@ -2082,7 +2091,7 @@ class Table(Generic[TableContent]):
         """
         if invalidate_search_indexes:
             for idx in self._search_indexes.values():
-                idx["VALID"] = False
+                idx["VALID"] = False  # noqa
 
         self.modify_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
 
@@ -2137,7 +2146,7 @@ class Table(Generic[TableContent]):
                         def wherefn_k(obj):
                             try:
                                 return v(getattr(obj, k, None))
-                            except Exception:
+                            except Exception:  # noqa
                                 return False
                     newret = ret.where(wherefn_k)
                 else:
@@ -2210,11 +2219,11 @@ class Table(Generic[TableContent]):
             attr_orders: list[tuple[str, str]]
             if isinstance(key, str):
                 attrdefs = [s.strip() for s in key.split(",")]
-                attr_orders = [(*a.split(), "asc")[:2] for a in attrdefs]
+                attr_orders = [(*a.split(), "asc")[:2] for a in attrdefs]  # noqa
             else:
                 # attr definitions were already resolved to a sequence by the caller
                 if isinstance(key[0], str):
-                    attr_orders = [(*a.split(), "asc")[:2] for a in key]
+                    attr_orders = [(*a.split(), "asc")[:2] for a in key]  # noqa
                 else:
                     attr_orders = key
             attrs = [attr for attr, order in attr_orders]
@@ -2427,8 +2436,8 @@ class Table(Generic[TableContent]):
                     # assume attr_spec contains at least (table, col_name), fill in alias if missing
                     # to be same as col_name
                     if len(attr_spec) == 2:
-                        attr_spec = attr_spec + (attr_spec[-1],)
-                    full_attr_specs.append(attr_spec)
+                        attr_spec = (*attr_spec, attr_spec[1])
+                    full_attr_specs.append(attr_spec)  # noqa
                 else:
                     name = attr_spec
                     if name in this_attr_names:
@@ -2464,7 +2473,7 @@ class Table(Generic[TableContent]):
                 )
 
         # find matching rows
-        matchingrows: list[tuple[Table, Table]] = []
+        matching_rows: list[tuple[Table, Table]] = []
         key_map_values = list(
             zip(this_cols, other_cols, (self._indexes[key].keys() for key in this_cols))
         )
@@ -2476,7 +2485,7 @@ class Table(Generic[TableContent]):
             this_rows = self.where(**base_this_where_dict)
             other_rows = other.where(**base_other_where_dict)
 
-            matchingrows.append((this_rows, other_rows))
+            matching_rows.append((this_rows, other_rows))
 
         # remove attr_specs from other_attr_specs if alias is duplicate of any alias in this_attr_specs
         this_attr_specs_aliases = {alias for tbl, col, alias in this_attr_specs}
@@ -2486,18 +2495,18 @@ class Table(Generic[TableContent]):
             if alias not in this_attr_specs_aliases
         ]
 
-        joinrows: list[Any] = []
-        for thisrows, otherrows in matchingrows:
-            for trow, orow in itertools.product(thisrows, otherrows):
+        join_rows: list[Any] = []
+        for this_rows, other_rows in matching_rows:
+            for trow, orow in itertools.product(this_rows, other_rows):
                 retobj = default_row_class()
                 for _, attr_name, alias in this_attr_specs:
                     setattr(retobj, alias, getattr(trow, attr_name, None))
                 for _, attr_name, alias in other_attr_specs:
                     setattr(retobj, alias, getattr(orow, attr_name, None))
-                joinrows.append(retobj)
+                join_rows.append(retobj)
 
         ret: Table[TableContent] = Table(retname)
-        ret.insert_many(joinrows)
+        ret.insert_many(join_rows)
 
         # add indexes as defined in source tables
         for tbl, attr_name, alias in this_attr_specs + other_attr_specs:
@@ -2628,7 +2637,7 @@ class Table(Generic[TableContent]):
                 )
 
         # find matching rows
-        matchingrows: list[tuple[Table, Table]] = []
+        matching_rows: list[tuple[Table, Table]] = []
         if join_type == Table.RIGHT_OUTER_JOIN:
             key_map_values = list(
                 zip(
@@ -2678,7 +2687,7 @@ class Table(Generic[TableContent]):
                     other_outer_dict.update(dict(zip(other_cols, join_values)))
                     other_rows.insert(default_row_class(**other_outer_dict))
 
-            matchingrows.append((this_rows, other_rows))
+            matching_rows.append((this_rows, other_rows))
 
         # remove attr_specs from other_attr_specs if alias is duplicate of any alias in this_attr_specs
         this_attr_specs_aliases = {alias for tbl, col, alias in this_attr_specs}
@@ -2688,18 +2697,18 @@ class Table(Generic[TableContent]):
             if alias not in this_attr_specs_aliases
         ]
 
-        joinrows: list[Any] = []
-        for thisrows, otherrows in matchingrows:
-            for trow, orow in itertools.product(thisrows, otherrows):
+        join_rows: list[Any] = []
+        for this_rows, other_rows in matching_rows:
+            for trow, orow in itertools.product(this_rows, other_rows):
                 retobj = default_row_class()
                 for _, attr_name, alias in this_attr_specs:
                     setattr(retobj, alias, getattr(trow, attr_name, None))
                 for _, attr_name, alias in other_attr_specs:
                     setattr(retobj, alias, getattr(orow, attr_name, None))
-                joinrows.append(retobj)
+                join_rows.append(retobj)
 
         ret: Table = Table(retname)
-        ret.insert_many(joinrows)
+        ret.insert_many(join_rows)
 
         # add indexes as defined in source tables
         for tbl, attr_name, alias in this_attr_specs + other_attr_specs:
@@ -2772,11 +2781,11 @@ class Table(Generic[TableContent]):
                     else:
                         transformers.append((k, lambda __: v, default))
 
-                def transformer(csv_rec, xformers=transformers):
+                def transformer(csv_rec, xformers=transformers):  # noqa
                     for xform_k, xform_v, xform_default in xformers:
                         try:
                             csv_rec[xform_k] = xform_v(csv_rec[xform_k])
-                        except Exception:
+                        except Exception:  # noqa
                             csv_rec[xform_k] = xform_default
                     return csv_rec
 
@@ -2789,7 +2798,7 @@ class Table(Generic[TableContent]):
                             # comparators work against attrs, but csvdata is still just a series of
                             # dicts, so must convert each to a temporary row_class instance to perform the
                             # comparator predicate method
-                            fn = v.fn
+                            fn = getattr(v, "fn")
                             no_object = object()
                             value = getattr(v, "value", no_object)
                             upper = getattr(v, "upper", no_object)
@@ -3217,7 +3226,7 @@ class Table(Generic[TableContent]):
                         try:
                             yield json.loads(current, cls=json_decoder)
                             current = ""
-                        except Exception:
+                        except Exception:  # noqa
                             pass
                 else:
                     # merge entire source into one JSON parseable object
@@ -3452,7 +3461,7 @@ class Table(Generic[TableContent]):
             for rec_ in self:
                 try:
                     val = fn(rec_)
-                except Exception:
+                except Exception:  # noqa
                     val = default
                 if isinstance(rec_, DataObject):
                     rec_.__dict__[attrname] = val
@@ -3793,7 +3802,7 @@ class Table(Generic[TableContent]):
         def safe_fn(fn, seq):
             try:
                 return fn(seq)
-            except Exception:
+            except Exception:  # noqa
                 return None
 
         def rounding(fn, x):
@@ -4247,7 +4256,7 @@ class _PivotTable(Table):
     def values(self) -> Iterable[Any]:
         return [self._subtable_dict[k] for k in self.keys()]
 
-    def pivot_key(self) -> list[str]:
+    def pivot_key(self) -> list[tuple[str, str]]:
         """
         Return the set of attribute-value pairs that define the contents of this
         table within the original source table.
@@ -4435,7 +4444,7 @@ class _PivotTableSummary:
         self._fn = count_fn
         self._label = col_label
 
-    def as_html(self, *args: Any, **kwargs: Any):
+    def as_html(self, **kwargs):
         formats = kwargs.get("formats", {})
         if len(self._pivot_attrs) == 1:
             col = self._pivot_attrs[0]
@@ -4487,7 +4496,7 @@ class _PivotTableSummary:
                 sub_v = ssub_v_accum  # count_fn(sub)
                 row.append(sub_v)
                 ret += row_to_tr(row)
-            row = ["Total"]
+            row: list[str | int] = ["Total"]
             row.extend(v for k, v in sorted(keytally.items()))
             row.append(sum(keytally.values()))
             ret += row_to_tr(row)
@@ -4633,25 +4642,25 @@ if __name__ == "__main__":
     # load miniDB
     stations = Table().csv_import(rawdata, transforms={"frequency": int})
 
-    # stations.create_index("city")
+    # create unique index by station call letters
     stations.create_index("stn", unique=True)
 
     # perform some queries and deletes
-    for queryargs in [
+    queries: list[dict] = [
         {"city": "ABERDEEN"},
         {"city": "ABERDEEN", "stn": "KGIM"},
         {"state": "WA"},
         {"frequency": Table.gt(1000)},
-    ]:
-        print(f"Query radio stations: {queryargs}")
-        result = stations.where(**queryargs)
+    ]
+    for query_args in queries:
+        print(f"Query radio stations: {query_args}")
+        result = stations.where(**query_args)
         print(len(result))
         for rec in result:
             print(rec)
         print()
 
-    # print stations.delete(city="Phoenix")
-    # print stations.delete(city="Boston")
+    print(stations.delete(city="ABERDEEN"))
     print(list(stations.where()))
     print()
 
