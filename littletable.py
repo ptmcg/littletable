@@ -166,7 +166,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "13 Jul 2024 22:28 UTC"
+__version_time__ = "16 Jul 2024 07:35 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -836,6 +836,7 @@ class ImportSourceType(Enum):
     gzip = 5
     lzma = 6
     iterable = 7
+    tar_gzip = 8
 
 
 class _MultiIterator(Iterator):
@@ -905,26 +906,57 @@ class _MultiIterator(Iterator):
                 self._iterobj = _decoder(self._closeobj)
                 self.type = ImportSourceType.url
             else:
-                if seqobj.endswith(".gz"):
+                seqobj_path = Path(seqobj)
+                if seqobj_path.suffixes[-2:] == [".tar", ".gz"]:
+                    import tarfile
+
+                    self._closeobj = tf = tarfile.open(seqobj, "r:gz")
+                    inner_name = seqobj.removesuffix(".tar.gz")
+                    try:
+                        iterobj = tf.extractfile(inner_name)
+                    except KeyError:
+                        members = tf.getmembers()
+                        if len(members) == 1:
+                            iterobj = tf.extractfile(members[0])
+                        else:
+                            raise ValueError(
+                                f"compressed tar archive contains multiple files, none matching {inner_name}"
+                            )
+                    self._iterobj = _decoder(iterobj)
+                    self.type = ImportSourceType.tar_gzip
+                elif seqobj_path.suffix == ".gz":
                     import gzip
 
                     self._closeobj = gzip.GzipFile(filename=seqobj)
                     self._iterobj = _decoder(self._closeobj)
                     self.type = ImportSourceType.gzip
-                elif seqobj.endswith((".xz", ".lzma")):
+                elif seqobj_path.suffix in (".xz", ".lzma"):
                     import lzma
 
                     self._iterobj = lzma.open(seqobj, "rt", encoding=encoding)
                     self.type = ImportSourceType.lzma
-                elif seqobj.endswith(".zip"):
+                elif seqobj_path.suffix == ".zip":
                     import zipfile
 
                     # assume file name inside zip is the same as the zip file without the trailing ".zip"
                     inner_name = Path(seqobj).stem
-                    self._closeobj = zipfile.ZipFile(seqobj).open(inner_name)
+                    zipobj = zipfile.ZipFile(seqobj)
+                    try:
+                        self._closeobj = zipobj.open(inner_name)
+                    except KeyError:
+                        # if there is only one file in this zip file, use that
+                        zip_contents = zipobj.infolist()
+                        if len(zip_contents) == 1:
+                            self._closeobj = zipobj.open(zip_contents[0].filename)
+                        else:
+                            raise ValueError(
+                                f"zip archive contains multiple files, none matching {inner_name}"
+                            )
+
                     self._iterobj = _decoder(self._closeobj)
                     self.type = ImportSourceType.zip
-                elif seqobj.endswith(".xlsx") or seqobj.endswith("xlsm"):
+
+                elif seqobj_path.suffix in (".xlsx", ".xlsm", ".xlst"):
                     self._iterobj = open(seqobj, 'rb')
                     if self.type is None:
                         self.type = ImportSourceType.file
@@ -2834,6 +2866,7 @@ class Table(Generic[TableContent]):
                                            ImportSourceType.url,
                                            ImportSourceType.zip,
                                            ImportSourceType.gzip,
+                                           ImportSourceType.tar_gzip,
                                            ImportSourceType.lzma,
                                            ):
                 # if url, strip off query args if any

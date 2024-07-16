@@ -830,7 +830,7 @@ class TableCreateTests:
             'lat': float,
             'long': float,
         }
-        us_ppl = lt.Table().csv_import("examples/us_ppl.csv.zip",
+        us_ppl = lt.Table().csv_import("examples/us_ppl.zip",
                                        transforms=transforms,
                                        ).select("id name elev lat long pop")
         print(us_ppl.info())
@@ -2392,7 +2392,9 @@ class TableImportExportTests:
 
         compressed_files = [
             "abc.csv.zip",
+            "abc.zip",
             "abc.csv.gz",
+            "abc.csv.tar.gz",
             "abc.csv.xz",
         ]
         for name in compressed_files:
@@ -2441,7 +2443,10 @@ class TableImportExportTests:
             ("abc.tsv", lt.ImportSourceType.file),
             ("abc.xlsx", lt.ImportSourceType.file),
             ("abc.csv.zip", lt.ImportSourceType.zip),
+            ("abc.zip", lt.ImportSourceType.zip),
             ("abc.csv.gz", lt.ImportSourceType.gzip),
+            ("abc.csv.tar.gz", lt.ImportSourceType.tar_gzip),
+            ("abc.tar.gz", lt.ImportSourceType.tar_gzip),
             ("abc.csv.xz", lt.ImportSourceType.lzma),
             ("a,b,c\n1,2,3", lt.ImportSourceType.string),
         ]
@@ -2450,7 +2455,16 @@ class TableImportExportTests:
                 import_name = "test/" + fname
             else:
                 import_name = fname
-            if import_name.endswith(".csv"):
+            if import_name.endswith(
+                    (
+                        ".csv",
+                        ".csv.zip",
+                        ".zip",
+                        ".csv.gz",
+                        ".csv.tar.gz",
+                        ".csv.xz"
+                    ),
+            ):
                 tbl = lt.Table().csv_import(import_name)
             elif import_name.endswith(".xlsx"):
                 tbl = lt.Table().excel_import(import_name)
@@ -2465,6 +2479,7 @@ class TableImportExportTests:
             else:
                 with self.subTest():
                     self.assertEqual(None, tbl.import_source)
+
             with self.subTest():
                 self.assertEqual(expected_type, tbl.import_source_type)
 

@@ -10,7 +10,11 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
 
 Version 2.3.3 (in development)
 ------------------------------
+- Importing from `.tar.gz` archives added.
 
+- Importing from `.zip`, `.gz`, and `.tar.gz` archives is more tolerant of the
+  archive file name not exactly matching the compressed contents file name,
+  as long as the archive contains only one file.
 
 
 Version 2.3.2

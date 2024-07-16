@@ -20,7 +20,7 @@ def main():
         'long': float,
     }
     us_ppl = lt.Table().csv_import(
-        "./us_ppl.csv.zip",
+        "./us_ppl.zip",
         transforms=transforms
     ).select("id name state elev lat long pop")
 
