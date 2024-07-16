@@ -4666,15 +4666,15 @@ if __name__ == "__main__":
 
     amfm: Table = Table()
     amfm.create_index("stn", unique=True)
-    amfm.insert(dict(stn="KKAA", band="AM"))
-    amfm.insert(dict(stn="KPHX", band="FM"))
-    amfm.insert(dict(stn="KPHA", band="FM"))
-    amfm.insert(dict(stn="KDFW", band="FM"))
-    print(amfm.by.stn["KKAA"])
-    print(amfm.by.stn["KKAA"].band)
+    amfm.insert({'stn': "KFNX", 'band': "AM"})
+    amfm.insert({'stn': "KPHX", 'band': "FM"})
+    amfm.insert({'stn': "KPHA", 'band': "FM"})
+    amfm.insert({'stn': "KDFW", 'band': "FM"})
+    print(amfm.by.stn["KFNX"])
+    print(amfm.by.stn["KFNX"].band)
 
     try:
-        amfm.insert(dict(stn="KPHA", band="AM"))
+        amfm.insert({'stn': "KPHA", 'band': "AM"})
     except KeyError:
         print("duplicate key not allowed")
 

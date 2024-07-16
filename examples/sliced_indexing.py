@@ -14,12 +14,13 @@ def main():
     # read data from US place names CSV file
     transforms = {
         'pop': int,
-        'elev': lambda s: int(float(s)*3.28084),
+        # convert from meters to feet
+        'elev': lambda s: int(float(s) * 3.28084),
         'lat': float,
         'long': float,
     }
     us_ppl = lt.Table().csv_import(
-        "./us_ppl.csv",
+        "./us_ppl.csv.zip",
         transforms=transforms
     ).select("id name state elev lat long pop")
 

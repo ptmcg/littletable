@@ -830,7 +830,7 @@ class TableCreateTests:
             'lat': float,
             'long': float,
         }
-        us_ppl = lt.Table().csv_import("examples/us_ppl.csv",
+        us_ppl = lt.Table().csv_import("examples/us_ppl.csv.zip",
                                        transforms=transforms,
                                        ).select("id name elev lat long pop")
         print(us_ppl.info())
