@@ -5,6 +5,7 @@ How to Use littletable
   * [Creating a table](#creating-a-table)
   * [Inserting objects](#inserting-objects)
   * [Importing data from CSV files](#importing-data-from-csv-files)
+  * [Transforming data while importing](#transforming-data-while-importing)
   * [Import/export data to Excel files](#importexport-to-excel-files-xlsx)
   * [Importing from remote sources using HTTP](#importing-from-remote-sources-using-http)
   * [Tabular output](#tabular-output)
@@ -15,6 +16,7 @@ How to Use littletable
   * [Querying for exact matching attribute values](#querying-for-exact-matching-attribute-values)
   * [Querying for attribute value ranges](#querying-for-attribute-value-ranges)
   * [Range querying on index attributes using slice notation](#range-querying-on-indexed-attributes-using-slice-notation)
+  * [Grouping a table](#returning-grouped-tables-from-a-table)
   * [Splitting a table using a criteria function](#splitting-a-table-using-a-criteria-function)
   * [Full-text search on text attributes](#full-text-search-on-text-attributes)
   * [Simple statistics on Tables of numeric values](#simple-statistics-on-tables-of-numeric-values)
@@ -178,20 +180,81 @@ Files containing JSON-formatted records can be similarly imported using
 `Table.json_import()`, and tab-separated files can be imported using
 `Table.tsv_import()`. 
 
-`littletable` can also read CSV, TSV, etc. content directly from a simple .zip,
-.gz, or .xz archive, assuming that the file name of the compressed file is the 
-same as the original file with ".zip" or ".gz" or ".xz" added.
+`littletable` can also read CSV, TSV, etc. content directly from a simple `.zip`,
+`.gz`, `.tar.gz`, or `.xz` archive. If the archive contains multiple files, it
+will try to read the contained file that matches the name of the archive, after 
+dropping the compression extension string - otherwise it will raise a `ValueError`.
 
 Calling `csv_import` on the same `Table` multiple times with different CSV files
 accumulates all the data into a single table.
 
-Note: if you find you cannot import .xz or .lzma files, getting the Python error
+Note: if you find you cannot import `.xz` or `.lzma` files, getting the Python error
 `ModuleNotFoundError :_lzma`, you can remedy this by rebuilding Python after 
 installing the `lzma-dev` library. On Ubuntu for example, this is done using:
 
     $ sudo apt-get install liblzma-dev
 
 Then rebuild and reinstall Python.
+
+
+Transforming data while importing
+---------------------------------
+By default, all data imported from CSV (and related untyped data formats) is loaded
+as Python strings (`str` type). To convert data of other types, add the `transforms` argument, 
+defining conversion functions to use on specific fields of the imported data. Conversion
+functions must take a single `str` argument, and return the converted value or raise an
+exception.
+
+Given input data of this form:
+
+```
+label,a,b,c,date_created
+A,1,2,3,2020/01/01
+B,4,5,6,2020/01/02
+C,7,8,9,2020/01/03
+```
+
+You can convert the numeric and date fields during the import using:
+
+```python
+table = lt.csv_import(
+            data, 
+            transforms={
+                "a": int,
+                "b": int,
+                "c": int,
+                "date_created": lambda s: datetime.datetime.strptime(s, "%Y/%m/%d"),
+            }
+        )
+```
+
+This can be a lot of work when an input file contains many numeric fields to be converted.
+To simplify this case, you can use a "*" wildcard value to define a conversion function
+for all fields that do not have other defined transforms. For the above case, you can write:
+
+```python
+table = lt.csv_import(
+            data, 
+            transforms={
+                "*": int,
+                "date_created": lambda s: datetime.datetime.strptime(s, "%Y/%m/%d"),
+            }
+        )
+```
+
+By default, fields whose values raise an exception during version remain unchanged (such as
+all the "label" values in the above example). You can specify an error default value to be
+used instead by passing a `(function, default_value)` tuple as the transform value.
+
+Aside from the Python builtin functions `int` and `float`, the `littletable.Table` class
+includes some useful transform staticmethods:
+- `convert_numeric`
+- `parse_date`
+- `parse_datetime`
+- `parse_timedelta`
+
+See the help text for these methods for more details.
+
 
 Import/export to Excel files (.xlsx)
 ------------------------------------
@@ -480,26 +543,25 @@ employees.where(lambda emp: emp.salary > 50000)
 write. The following table lists the comparators, plus examples of their
 usage:
 
-|Comparator|Example|Comparison performed|
-|---|:---|:---|
-| `lt`           |  `attr=Table.lt(100)`           |  `attr < 100` |
-| `le`           |  `attr=Table.le(100)`           |  `attr <= 100` |
-| `gt`           |  `attr=Table.gt(100)`           |  `attr > 100` |
-| `ge`           |  `attr=Table.ge(100)`           |  `attr >= 100` |
-| `eq`           |  `attr=Table.eq(100)`           |  `attr == 100` |
-| `ne`           |  `attr=Table.ne(100)`           |  `attr != 100` |
-| `is_none`      |  `attr=Table.is_none())`        |  `attr is None` |
-| `is_not_none`  |  `attr=Table.is_not_none())`    |  `attr is not None` |
-| `is_null`      |  `attr=Table.is_null())`        |  `attr is None, "", or omitted` |
-| `is_not_null`  |  `attr=Table.is_not_null())`    |  `attr is not None or ""` |
-| `startswith`   |  `attr=Table.startswith("ABC")` |  `attr.startswith("ABC")` |
-| `endswith`     |  `attr=Table.endswith("XYZ")`   |  `attr.endswith("XYZ")` |
-| `re_match`     |  `attr=Table.re_match(r".*%.*")` | `re.match(r".*%.*", attr)` |
-| `between`      |  `attr=Table.between(100, 200)`  | `100 < attr < 200` |
-| `within`       |  `attr=Table.within(100, 200)`   | `100 <= attr <= 200` |
-| `in_range`     |  `attr=Table.in_range(100, 200)` | `100 <= attr < 200` |
-| `is_in`        |  `attr=Table.is_in((1, 2, 3))`  |  `attr in (1,2,3)` |
-| `not_in`       |  `attr=Table.not_in((1, 2, 3))` |  `attr not in (1,2,3)` |
+| Comparator    | Example                         | Comparison performed           |
+|---------------|:--------------------------------|:-------------------------------|
+| `lt`          | `attr=Table.lt(100)`            | `attr < 100`                   |
+| `le`          | `attr=Table.le(100)`            | `attr <= 100`                  |
+| `gt`          | `attr=Table.gt(100)`            | `attr > 100`                   |
+| `ge`          | `attr=Table.ge(100)`            | `attr >= 100`                  |
+| `eq`          | `attr=Table.eq(100)`            | `attr == 100`                  |
+| `ne`          | `attr=Table.ne(100)`            | `attr != 100`                  |
+| `is_none`     | `attr=Table.is_none())`         | `attr is None`                 |
+| `is_not_none` | `attr=Table.is_not_none())`     | `attr is not None`             |
+| `is_null`     | `attr=Table.is_null())`         | `attr is None, "", or omitted` |
+| `is_not_null` | `attr=Table.is_not_null())`     | `attr is not None or ""`       |
+| `startswith`  | `attr=Table.startswith("ABC")`  | `attr.startswith("ABC")`       |
+| `endswith`    | `attr=Table.endswith("XYZ")`    | `attr.endswith("XYZ")`         |
+| `between`     | `attr=Table.between(100, 200)`  | `100 < attr < 200`             |
+| `within`      | `attr=Table.within(100, 200)`   | `100 <= attr <= 200`           |
+| `in_range`    | `attr=Table.in_range(100, 200)` | `100 <= attr < 200`            |
+| `is_in`       | `attr=Table.is_in((1, 2, 3))`   | `attr in (1,2,3)`              |
+| `not_in`      | `attr=Table.not_in((1, 2, 3))`  | `attr not in (1,2,3)`          |
 
 More examples of comparators in actual Python code:
 
@@ -546,6 +608,13 @@ tbl.where(lambda rec: is_odd(rec.a))
 
 # new simplified form
 tbl.where(a=is_odd)
+
+# a comparator using regex
+import re
+# products whose name starts with "cotton" or "linen"
+tbl.where(product_name=re.compile(r"(cotton|linen)\b", re.I).match)
+# products whose name contains the word "cotton" or "linen"
+tbl.where(product_name=re.compile(r"\b(cotton|linen)\b", re.I).search)
 ```
 
 Range querying on indexed attributes using slice notation
@@ -610,6 +679,29 @@ qa_data, production_assembly_data = tbl.splitby(
 # can be written as
 qa_data, production_data = tbl.splitby(env="prod", dept="assembly")
 ```
+
+An optional `errors` argument allows you to define what action
+to take if an exception occurs while evaluating the predicate function.
+Valid values for `errors` are:
+
+- True : return exceptions as True
+- False: return exceptions as False
+- 'discard': do not return table rows that raise exceptions
+- 'return': return a third table containing rows that raise exceptions
+- 'raise': raise the exception
+
+`errors` can also be given as a dict mapping Exception types to one of
+these 4 values.
+
+The default value for `errors` (if omitted, or if an exception is raised
+that is not listed in an `errors` dict), is to discard the row.
+
+
+Returning grouped tables from a table
+-------------------------------------
+`Table.groupby` is very similar to `itertools.groupby`, yielding a `(key, Table)` tuple for
+each grouped list of rows. Includes an optional `sort` argument to sort the table before grouping,
+using the same key attributes or function used for grouping.
 
 
 Splitting a table into smaller batches
@@ -954,8 +1046,8 @@ not optimized for vector operations on its "columns". As a single module
 Python file, its installation and distribution can be very simple, so 
 well suited to small data projects. Its design philosophy is to make simple 
 tasks (such as CSV import and tabular display) simple, make some difficult 
-tasks (such as pivot and join) possible, but leave the really difficult 
-tasks to other packages, such as `pandas`.
+tasks (such as pivot, join, and full text search) possible, but leave the 
+really difficult tasks to other packages, such as `pandas`.
 
 `littletable` is useful even with tables of up to 1 or 2 million rows (especially 
 with defined indexes); `pandas` can handle much larger datasets, and so is 
@@ -973,7 +1065,7 @@ Consider `littletable` if:
   DataFrames
 - your dataset is no more than 1-2 million rows
 - your data needs are simple CSV import/export, filtering, sorting,
-  join/pivot, presentation
+  join/pivot, text search, and presentation
 
 
 littletable and SQLite

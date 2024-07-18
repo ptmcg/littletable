@@ -166,7 +166,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "16 Jul 2024 07:35 UTC"
+__version_time__ = "18 Jul 2024 21:52 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -698,17 +698,7 @@ class _TableAttributeValueLister:
         self.__default = default
 
     def __getattr__(self, attr):
-        if attr not in self.__table._indexes:
-            vals = (getattr(row, attr, self.__default) for row in self.__table)
-        else:
-            table_index = self.__table._indexes[attr]
-            if table_index.is_unique:
-                vals = table_index.keys()
-            else:
-                vals = itertools.chain.from_iterable(
-                    itertools.repeat(k, len(table_index[k]))
-                    for k in table_index.keys()
-                )
+        vals = (getattr(row, attr, self.__default) for row in self.__table)
         return _TableAttributeValueLister.UniquableIterator(vals)
 
     def __call__(self, attr):
@@ -1318,7 +1308,9 @@ class Table(Generic[TableContent]):
         return _converter
 
     @staticmethod
-    def parse_date(time_format: str, empty: Any = '', on_error: Optional[Any] = None) -> Callable[[str], datetime.date]:
+    def parse_date(
+            time_format: str, empty: Any = '', on_error: Optional[Any] = None
+    ) -> Callable[[str], datetime.date]:
         """Convenience method to convert string data to a datetime.date instance,
            given a parse string (following strptime format).
 
@@ -1335,10 +1327,12 @@ class Table(Generic[TableContent]):
         return _converter
 
     @staticmethod
-    def parse_timedelta(time_format: str,
-                        reference_time: datetime.datetime = datetime.datetime.strptime("0:00:00", "%H:%M:%S"),
-                        empty: Any = '',
-                        on_error: Optional[Any] = None) -> Callable[[str], datetime.timedelta]:
+    def parse_timedelta(
+            time_format: str,
+            reference_time: datetime.datetime = datetime.datetime.strptime("0:00:00", "%H:%M:%S"),
+            empty: Any = '',
+            on_error: Optional[Any] = None
+    ) -> Callable[[str], datetime.timedelta]:
         """Convenience method to convert string data to a datetime.timedelta instance,
            given a parse string (following strptime format), and optionally a
            reference datetime.datetime.
@@ -2804,6 +2798,8 @@ class Table(Generic[TableContent]):
             if transforms:
                 transformers: list[tuple[str, Callable[[Any], Any], Any]] = []
                 for k, v in transforms.items():
+                    if k == "*":
+                        continue
                     if isinstance(v, tuple):
                         v, default = v
                     else:
@@ -2821,7 +2817,30 @@ class Table(Generic[TableContent]):
                             csv_rec[xform_k] = xform_default
                     return csv_rec
 
+                no_default_given = object()
+                non_star_transforms = transforms.keys() - {"*"}
+                def catch_all_transformer(csv_rec, xform_fn, xform_default):
+                    for csv_k, csv_v in csv_rec.items():
+                        if csv_k in non_star_transforms:
+                            continue
+                        try:
+                            csv_rec[csv_k] = xform_fn(csv_v)
+                        except Exception:  # noqa
+                            if xform_default is not no_default_given:
+                                csv_rec[csv_k] = xform_default
+                    return csv_rec
+
                 csvdata = (transformer(d) for d in csvdata)
+
+                if (wild_card := transforms.get("*")) is not None:
+                    if isinstance(wild_card, tuple):
+                        wild_card_fn, wild_card_default = wild_card
+                    else:
+                        wild_card_fn, wild_card_default = wild_card, no_default_given
+                    csvdata = (
+                        catch_all_transformer(d, wild_card_fn, wild_card_default)
+                        for d in csvdata
+                    )
 
             if filters:
                 for k, v in filters.items():
@@ -3466,7 +3485,7 @@ class Table(Generic[TableContent]):
         return ret
 
     def compute_field(
-        self, attrname: str, fn: Callable[[Any], Any], default: Optional[Any] = None
+        self, attrname: str, fn: Union[Callable[[Any], Any], str], default: Optional[Any] = None
     ) -> Table:
         """
         Computes a new attribute for each object in table, or replaces an
@@ -3481,6 +3500,10 @@ class Table(Generic[TableContent]):
         @type fn: function(obj) returns value
         @param default: value to use if an exception is raised while trying
         to evaluate fn
+
+        fn can also be passed as just a string, referencing an existing field
+        that might be difficult to reference (if it has embedded spaces or
+        punctuation).
         """
         if attrname in self._indexes:
             idx = self._indexes[attrname]
@@ -3489,6 +3512,9 @@ class Table(Generic[TableContent]):
         else:
             # there is no index for this attr
             idx_setitem = None
+
+        if isinstance(fn, str):
+            fn = lambda r, attrname=fn: getattr(r, attrname, None)
 
         try:
             for rec_ in self:

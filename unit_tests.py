@@ -5,6 +5,7 @@
 #
 import ast
 import contextlib
+import string
 import typing
 from collections import namedtuple
 import copy
@@ -951,6 +952,23 @@ class TableCreateTests:
 
             table.create_index('d')
             self.assertEqual(len(range(0, 27+1)), len(table.by.d.keys()))
+
+    def test_add_new_field_duplicating_existing_field(self):
+        test_size = 3
+        table = make_test_table(self.make_data_object, test_size)
+
+        # not all storage classes support adding new fields
+        if self.storage_supports_add_field:
+            table.add_field('d', lambda rec: rec.a+rec.b+rec.c)
+
+            table.create_index('d')
+            self.assertEqual(len(range(0, 6+1)), len(table.by.d.keys()))
+
+            table.compute_field('cc', 'c')
+            self.assertEqual(list(table.all.c), list(table.all.cc))
+
+            table.compute_field('dd', 'd')
+            self.assertEqual(list(table.all.c), list(table.all.cc))
 
     def test_add_field_over_existing_indexed_field(self):
         test_size = 2
@@ -2370,6 +2388,50 @@ class TableImportExportTests:
         print(type(csvtable2[0]).__name__, csvtable2[0])
         with self.subTest():
             self.assertEqual(type(t1[0]), type(csvtable2[0]))
+
+    def test_csv_import_with_wildcard_transform(self):
+        import random
+
+        # take normal a, b, c csv_data and add a "name" column of random strings
+        data_lines = csv_data.splitlines()
+        data_lines[0] += ",name"
+        for i, line in enumerate(data_lines[:1], start=1):
+            data_lines[i] += f",{''.join(random.choice(string.ascii_uppercase) for _ in range(4))}"
+        data = "\n".join(data_lines)
+
+        incsv = io.StringIO(data)
+        csvtable = lt.Table().csv_import(incsv, transforms={"*": int})
+        with self.subTest():
+            self.assertEqual(csvtable[0].a, 0)
+            self.assertEqual(csvtable[0].b, 0)
+            self.assertEqual(csvtable[0].c, 0)
+            self.assertIsInstance(csvtable[0].name, str)
+
+        incsv = io.StringIO(data)
+        csvtable = lt.Table().csv_import(incsv, transforms={"*": float, "a": str})
+        with self.subTest():
+            self.assertIsInstance(csvtable[0].a, str)
+            self.assertIsInstance(csvtable[0].b, float)
+            self.assertIsInstance(csvtable[0].c, float)
+            self.assertIsInstance(csvtable[0].name, str)
+
+        # add a "name" that would successfully transform to int
+        data += "\n100,100,100,12345"
+
+        incsv = io.StringIO(data)
+        csvtable = lt.Table().csv_import(incsv, transforms={"*": int, "a": str})
+        with self.subTest():
+            self.assertEqual(csvtable[-1].name, 12345)
+
+        incsv = io.StringIO(data)
+        csvtable = lt.Table().csv_import(incsv, transforms={"*": (int, ...), "a": str})
+        with self.subTest():
+            self.assertEqual(csvtable[0].name, ...)
+
+        incsv = io.StringIO(data)
+        csvtable = lt.Table().csv_import(incsv, transforms={"*": int, "name": str})
+        with self.subTest():
+            self.assertEqual(csvtable[-1].name, "12345")
 
     def test_csv_compressed_import(self):
 

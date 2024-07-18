@@ -10,11 +10,44 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
 
 Version 2.3.3 (in development)
 ------------------------------
+- Fixed bug when using `all` on an indexed field (values would be reported in key
+  order, not in the order they would be found in the table).
+
 - Importing from `.tar.gz` archives added.
 
 - Importing from `.zip`, `.gz`, and `.tar.gz` archives is more tolerant of the
   archive file name not exactly matching the compressed contents file name,
   as long as the archive contains only one file.
+
+- Added support for wild card transforms in `csv_import`, using "*" as the transform
+  key. Import data files that have many numeric columns will be able to define a
+  wild card transform, rather than having to list all the numeric columns.
+
+  Instead of:
+
+      data = """\
+      label,a,b,c
+      A,1,2,3
+      B,4,5,6
+      """
+      table = littletable.csv_import(data, transforms={"a": int, "b": int, "c": int})
+
+  you can write:
+
+      table = littletable.csv_import(data, transforms={"*": int})
+
+  "*" will try to convert all fields that are not otherwise listed with transforms,
+  and if an exception occurs (as would happen when trying to do `int()` on a `label`
+  value), leaves the field's value as-is.
+
+  More information on this feature in `how_to_use_littletable.md`.
+
+- Extended `Table.compute_field` to accept just a str argument, naming an existing
+  field. Use this to add a field name that is an easily referenced Python identifier
+  with the same values as an existing field name, that might have embedded spaces,
+  punctuation characters, etc.
+
+      table.compute_field("caloric_value", "Caloric Value")
 
 
 Version 2.3.2
