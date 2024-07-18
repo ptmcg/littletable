@@ -108,8 +108,8 @@ Version 2.3.0
       'return': return a third table containing rows that raise exceptions
       'raise': raise the exception
 
-  `errors` can also be given as a dict mapping Exception types to one of
-  these 4 values.
+  `errors` can also be given as a dict mapping specific Exception types to one of
+  these 5 values.
 
   The default value for `errors` (if omitted, or if an exception is raised
   that is not listed in an `errors` dict), is to discard the row.
