@@ -1,12 +1,22 @@
-import subprocess
+#
+# zen_of_python_pep20.py
+#
+# read the Zen of Python into a littletable.Table
+#
+from contextlib import redirect_stdout
+import io
 import littletable as lt
 
-proc = subprocess.run(['python', '-c', 'import this'], capture_output=True)
-import_this_stdout = proc.stdout.decode().splitlines()[2:]
+# get the Zen of Python content
+import_this_stdout = io.StringIO()
+with redirect_stdout(import_this_stdout):
+    import this
+import_this_lines = import_this_stdout.getvalue().splitlines()[2:]
 
+# load into a Table and present
 pep20 = lt.Table().insert_many(
     {'id': num, 'zen': zen}
-    for num, zen in enumerate(import_this_stdout, start=1)
+    for num, zen in enumerate(import_this_lines, start=1)
 )("The Zen of Python")
 pep20.present()
 
