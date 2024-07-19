@@ -19,7 +19,7 @@ How to Use littletable
   * [Grouping a table](#returning-grouped-tables-from-a-table)
   * [Splitting a table using a criteria function](#splitting-a-table-using-a-criteria-function)
   * [Full-text search on text attributes](#full-text-search-on-text-attributes)
-  * [Simple statistics on Tables of numeric values](#simple-statistics-on-tables-of-numeric-values)
+  * [Basic statistics on Tables of numeric values](#basic-statistics-on-tables-of-numeric-values)
   * [Importing data from fixed-width text files](#importing-data-from-fixed-width-text-files)
   * [Joining tables](#joining-tables)
   * [Pivoting a table](#pivoting-a-table)
@@ -792,9 +792,9 @@ after the index has been created. If they are not rebuilt, subsequent searches
 will raise the `SearchIndexInconsistentError` exception.
 
 
-Simple statistics on Tables of numeric values
+Basic statistics on Tables of numeric values
 ---------------------------------------------
-`Table.stats()` will perform simple mean, variance, and standard deviation
+`Table.stats()` will perform basic mean, variance, and standard deviation
 calculations by attribute on records in a table. The results are returned
 in a new `Table` that can be keyed by attribute (with "mean", "variance", etc.
 attributes), or by statistic (keyed by "mean", etc., with attributes matching
