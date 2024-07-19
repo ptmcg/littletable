@@ -1041,9 +1041,9 @@ However, the `pandas` package is rather heavyweight, and for simple table
 operations (such as reading and accessing values in a CSV file), it may be
 overpowered or overcomplicated to install and learn.
 
-`littletable` is lightweight in contrast, and, as a pure Python module, is 
+`littletable` is lightweight in comparison, and, as a pure Python module, is 
 not optimized for vector operations on its "columns". As a single module
-Python file, its installation and distribution can be very simple, so 
+Python file, its installation and distribution can be very easy, so 
 well suited to small data projects. Its design philosophy is to make simple 
 tasks (such as CSV import and tabular display) simple, make some difficult 
 tasks (such as pivot, join, and full text search) possible, but leave the 
@@ -1121,6 +1121,10 @@ Some simple littletable recipes
   
   # or get just the unique values
   list(customers.all.first_name.unique)
+  
+  # get a tally of all the first names
+  from collections import Counter
+  tally = Counter(customers.all.first_name)
   ```
 
 
