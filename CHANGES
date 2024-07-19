@@ -8,8 +8,8 @@ NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
   `re.compile(patt).match`
 
 
-Version 2.3.3 (in development)
-------------------------------
+Version 2.3.3
+-------------
 - Fixed bug when using `all` on an indexed field (values would be reported in key
   order, not in the order they would be found in the table).
 
@@ -48,6 +48,8 @@ Version 2.3.3 (in development)
   punctuation characters, etc.
 
       table.compute_field("caloric_value", "Caloric Value")
+
+- Added `food_data.py` example, working with CSV files downloaded from Kaggle.
 
 
 Version 2.3.2
