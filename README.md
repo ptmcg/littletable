@@ -22,17 +22,17 @@ of user objects. `littletable` Tables will accept Python `dict`s or any user-def
 `littletable` infers the Table's "columns" from those objects' `__dict__`, `__slots__`, or `_fields` mappings to access
 object attributes. 
 
-If populated with Python `dict`s, they get stored as `SimpleNamespace`s or `littletable.DictObject`s.
+If populated with Python `dict`s, they get stored as `SimpleNamespace`s.
 
 In addition to basic ORM-style insert/remove/query/delete access to the contents of a `Table`, `littletable` offers:
 * simple indexing for improved retrieval performance, and optional enforcing key uniqueness 
 * access to objects using indexed attributes
-* direct import/export to CSV and Excel .xlsx files
+* direct import/export to CSV, TSV, JSON, and Excel .xlsx files
 * clean tabular output for data presentation
 * simplified joins using `"+"` operator syntax between annotated `Table`s 
 * the result of any query or join is a new first-class `littletable` `Table` 
 * simple full-text search against multi-word text attributes
-* access like a standard Python list to the records in a Table, including indexing/slicing, `iter`, `zip`, `len`, `groupby`, etc.
+* access like a standard Python list to the records in a `Table`, including indexing/slicing, `iter`, `zip`, `len`, `groupby`, etc.
 * access like a standard Python `dict` to attributes with a unique index, or like a standard Python `defaultdict(list)` to attributes with a non-unique index
 
 `littletable` `Table`s do not require an upfront schema definition, but simply work off of the attributes in 
@@ -41,13 +41,16 @@ the stored values, and those referenced in any query parameters.
 
 Importing data from CSV files
 -----------------------------
-You can easily import a CSV file into a Table using Table.csv_import():
+You can easily import a CSV file into a `Table` using `Table.csv_import()`:
 
 ```python
-t = Table().csv_import("my_data.csv")
+import littletable as lt
+t = lt.Table().csv_import("my_data.csv")
+# or
+t = lt.csv_import("my_data.csv")
 ```
 
-In place of a local file name, you can also specify  an HTTP url:
+In place of a local file name, you can also specify an HTTP url:
 
 ```python
 url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/iris.csv"
@@ -71,7 +74,7 @@ catalog.csv_import(catalog_data, transforms={'unitprice': int})
 
 Data can also be directly imported from compressed .zip, .gz, and .xz files.
 
-Files containing JSON-formatted records can be similarly imported using `Table.json_import()`.
+Files containing JSON-formatted records can be similarly imported using `json_import()`.
 
 
 Tabular output
@@ -109,7 +112,7 @@ Extended "getting started" notes at [how_to_use_littletable.md](https://github.c
 
 Sample Demo
 -----------
-Here is a simple littletable data storage/retrieval example:
+Here is a simple `littletable` data storage/retrieval example:
 
 ```python
 from littletable import Table
@@ -146,7 +149,7 @@ custid,sku
 
 # print a particular customer name
 # (unique indexes will return a single item; non-unique
-# indexes will return a list of all matching items)
+# indexes will return a new Table of all matching items)
 print(customers.by.id["0030"].name)
 
 # see all customer names
