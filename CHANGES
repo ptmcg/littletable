@@ -1,11 +1,12 @@
 Change History
 ==============
 
-NOTE: Deprecated features will be removed in the 3.0 release of `littletable`:
-- `DataObject` class, replace with `typing.SimpleNamespace`, `dict`, `namedtuple`, or
-  other user-defined class
-- `Table.re_match(patt)` comparator is deprecated, replace with
-  `re.compile(patt).match`
+Version 3.0.0
+-------------
+- Removed deprecated features:
+  - `DataObject` class removed, replace with `typing.SimpleNamespace`, `dict`, `typing.NamedTuple`,
+   `collections.namedtuple`, or other user-defined class
+  - `Table.re_match(patt)` comparator removed, replace with `re.compile(patt).match`
 
 
 Version 2.3.3

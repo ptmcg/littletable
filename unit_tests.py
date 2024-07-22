@@ -169,49 +169,6 @@ class TypingTypedDict(typing.TypedDict):
     c: int
 
 
-class TestDataObjects(unittest.TestCase):
-    def test_set_attributes(self):
-        ob = lt.DataObject()
-        ob.z = 200
-        ob.a = 100
-        with self.subTest("test DataObject attribute setting"):
-            self.assertEqual([('a', 100), ('z', 200)], sorted(ob.__dict__.items()))
-
-        # test semi-immutability (can't overwrite existing attributes)
-        with self.subTest("test DataObject write-once (semi-immutability)"):
-            with self.assertRaises(AttributeError):
-                ob.a = 101
-
-        # equality tests
-        with self.subTest("test DataObject equality"):
-            ob2 = lt.DataObject(**{'a': 100, 'z': 200})
-            self.assertEqual(ob2, ob)
-
-        with self.subTest("test DataObject inequality"):
-            ob2.b = 'blah'
-            self.assertNotEqual(ob, ob2)
-
-        with self.subTest("test DataObject equality after updates"):
-            del ob2.b
-            self.assertEqual(ob2, ob)
-
-        with self.subTest("test DataObject KeyError"):
-            del ob2.a
-            del ob2.z
-
-            with self.assertRaises(KeyError):
-                ob2['a']
-            ob2['a'] = 10
-            ob2['a']
-
-        with self.subTest("test DataObject KeyError (2)"):
-            with self.assertRaises(KeyError):
-                ob2['a'] = 10
-
-        with self.subTest("test DataObject repr"):
-            self.assertEqual("{'a': 10}", repr(ob2))
-
-
 class TestTableTypes(unittest.TestCase):
     def test_types(self):
 
@@ -260,7 +217,6 @@ def make_test_classes(cls):
 
     Only valid for classes using simple record rows with fields 'a', 'b' and 'c'.
     """
-    make_test_class(cls, UsingDataObjects)
     make_test_class(cls, UsingNamedtuples)
     make_test_class(cls, UsingTypingNamedTuple)
     make_test_class(cls, UsingSlottedObjects)
@@ -305,11 +261,6 @@ class AbstractContentTypeFactory:
             return cls.data_object_type(a=a, b=b, c=c)
         else:
             return cls.data_object_type(**kwargs)
-
-
-class UsingDataObjects(AbstractContentTypeFactory):
-    data_object_type = lt.DataObject
-    storage_supports_update_field = False
 
 
 class UsingNamedtuples(AbstractContentTypeFactory):
@@ -596,10 +547,7 @@ class TableCreateTests:
         supers = unicode_numbers.where(name=lt.Table.startswith("SUPERSCRIPT"))
         self.assertEqual(10, len(supers))
 
-        with self.assertWarns(DeprecationWarning):
-            sevens = unicode_numbers.where(name=lt.Table.re_match(r".*SEVEN$"))
-
-        sevens = unicode_numbers.where(name=re.compile(r".*SEVEN$").match)
+        sevens = unicode_numbers.where(name=re.compile(r".*\bSEVEN$").search)
         self.assertEqual(3, len(sevens))
 
         # make names all title case
@@ -607,8 +555,6 @@ class TableCreateTests:
             unicode_numbers.compute_field("name", lambda rec: rec.name.title())
 
         # use regex with re flag
-        with self.assertWarns(DeprecationWarning):
-            circled = unicode_numbers.where(name=lt.Table.re_match(r"circled", flags=re.I))
         circled = unicode_numbers.where(name=re.compile(r"circled", flags=re.I).match)
         self.assertEqual(10, len(circled))
 
@@ -1248,7 +1194,7 @@ class TableListTests:
 
     def test_delete_slices(self):
         compare_list = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz")
-        t1 = lt.Table().insert_many(lt.DataObject(A=c) for c in compare_list)
+        t1 = lt.Table().insert_many(dict(A=c) for c in compare_list)
 
         def mini_test(slc_tuple):
             if isinstance(slc_tuple, tuple):
@@ -1306,11 +1252,12 @@ class TableListTests:
         for fieldname in field_names:
             stat_rec = t1_stats.by.name[fieldname]
             with self.subTest("check computed stat", fieldname=fieldname):
-                self.assertEqual(lt.DataObject(name=fieldname,
-                                               count=self.test_size ** num_fields,
-                                               min=0,
-                                               max=self.test_size - 1,
-                                               mean=(self.test_size - 1) / 2),
+                self.assertEqual(SimpleNamespace(name=fieldname,
+                                      count=self.test_size ** num_fields,
+                                      min=0,
+                                      max=self.test_size - 1,
+                                      mean=(self.test_size - 1) / 2
+                                      ),
                                  stat_rec,
                                  f"invalid stat for {fieldname}")
 
@@ -1625,7 +1572,7 @@ class TableJoinTests:
 
         t2 = lt.Table()
         t2.create_index('a')
-        t2.insert(lt.DataObject(a=1, d=100))
+        t2.insert(dict(a=1, d=100))
 
         joined = (t1.join_on('a') + t2.join_on('a'))()
         with self.subTest():
@@ -2686,7 +2633,7 @@ class TableImportExportTests:
         #     is_not_null - attribute value is defined, and is not None or ""
         #     startswith - attribute value starts with a given string
         #     endswith - attribute value ends with a given string
-        #     re_match - attribute value matches a regular expression
+        #     re.compile(expr).match - attribute value matches regex
 
         print()
         input_data = textwrap.dedent("""\
@@ -2787,12 +2734,7 @@ class TableImportExportTests:
         with self.subTest():
             self.assertEqual("A1 B1 C1".split(), list(x.all.name))
 
-        print(r"name re_match(r'[AB]\d')")
-        with self.assertWarns(DeprecationWarning):
-            x = lt.Table().csv_import(input_data,
-                                      transforms=dict.fromkeys("abc", int),
-                                      filters={"name": lt.Table.re_match(r"[AB]\d")})
-
+        print(r"name re.compile(r'[AB]\d').match")
         x = lt.Table().csv_import(input_data,
                                   transforms=dict.fromkeys("abc", int),
                                   filters={"name": re.compile(r"[AB]\d").match})
@@ -2918,7 +2860,7 @@ class TableImportExportTests:
                 json_dict = json.loads(line)
                 t1_dataobj = make_dataobject_from_ob(ob)
                 with self.subTest(ob=ob, line=line):
-                    self.assertEqual(t1_dataobj, lt.DataObject(**json_dict))
+                    self.assertEqual(t1_dataobj, SimpleNamespace(**json_dict))
 
     def test_json_export_nonstreaming(self):
         from itertools import permutations
@@ -2935,7 +2877,7 @@ class TableImportExportTests:
             for ob, json_dict in zip(t1, observed_json):
                 t1_dataobj = make_dataobject_from_ob(ob)
                 with self.subTest(ob=ob, json_dict=json_dict):
-                    self.assertEqual(t1_dataobj, lt.DataObject(**json_dict))
+                    self.assertEqual(t1_dataobj, SimpleNamespace(**json_dict))
 
     def test_json_import(self):
         data = json_data
@@ -3065,39 +3007,41 @@ class TableImportExportTests:
         data = fixed_width_data
         data_file = io.StringIO(data)
         fw_spec = [('a', 0, None, int), ('b', 2, None, int), ('c', 4, None, int), ]
-        tt = lt.Table().insert_many(lt.DataObject(**rec) for rec in lt.FixedWidthReader(fw_spec, data_file))
+        tt = lt.Table().insert_many(
+            self.make_data_object(**rec) for rec in lt.FixedWidthReader(fw_spec, data_file)
+        )
 
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
         with self.subTest():
-            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
+            self.assertTrue(all(rec1 == rec2 for rec1, rec2 in zip(t1, tt)))
         with self.subTest():
             self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
 
     def test_fixed_width_string_import(self):
         data = fixed_width_data
         fw_spec = [('a', 0, None, int), ('b', 2, None, int), ('c', 4, None, int), ]
-        tt = lt.Table().insert_many(lt.DataObject(**rec) for rec in lt.FixedWidthReader(fw_spec, data))
+        tt = lt.Table().insert_many(self.make_data_object(**rec) for rec in lt.FixedWidthReader(fw_spec, data))
 
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
         with self.subTest():
-            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
+            self.assertTrue(all(rec1 == rec2 for rec1, rec2 in zip(t1, tt)))
         with self.subTest():
             self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
 
     def test_fixed_width_string_list_import(self):
         data = fixed_width_data
         fw_spec = [('a', 0, None, int), ('b', 2, None, int), ('c', 4, None, int),]
-        tt = lt.Table().insert_many(lt.DataObject(**rec) for rec in lt.FixedWidthReader(fw_spec, data.splitlines()))
+        tt = lt.Table().insert_many(self.make_data_object(**rec) for rec in lt.FixedWidthReader(fw_spec, data.splitlines()))
 
         test_size = 3
         t1 = make_test_table(self.make_data_object, test_size)
 
         with self.subTest():
-            self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, tt)))
+            self.assertTrue(all(rec1 == rec2 for rec1, rec2 in zip(t1, tt)))
         with self.subTest():
             self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(tt))
 
@@ -3358,9 +3302,6 @@ class TableSearchTests(unittest.TestCase):
                 ),
                 f"as_table populated some original records with {score_attr!r}"
             )
-
-class TableSearchTests_DataObjects(TableSearchTests, UsingDataObjects):
-    pass
 
 class TableSearchTests_Namedtuples(TableSearchTests, UsingNamedtuples):
     pass

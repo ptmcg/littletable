@@ -382,11 +382,6 @@ bob = {"name": "Bob", "age": 19}
 t.insert(bob)
 ```
 
-_(`DataObjects` are a legacy type from Python 2.6 - Python 3, before the availability of
-`types.SimpleNamespace`. The `DataObject` class will be deprecated
-in a future release.)_
-
-
 Removing objects
 ----------------
 Objects can be removed individually or by passing a list (or `Table`) of
@@ -584,8 +579,8 @@ x_names = employees.where(name=Table.startswith("X"))
 
 # get log records that match a regex (any word starts with 
 # "warn" in the log description)
-# (re_match will accept re flags argument)
-warnings = log.where(description = Table.re_match(r".*\bwarn", flags=re.I)
+import re
+warnings = log.where(description = re.compile(r"\bwarn", flags=re.I).search)
 ```
 
 Comparators can also be used as filter functions for import methods.
@@ -889,8 +884,7 @@ dicts to a `Table.insert_many`:
 ```python
 characters = lt.Table()
 reader = lt.FixedWidthReader(columns, "cartoon_characters.txt")
-characters.insert_many(lt.DataObject(**rec)
-                       for rec in reader)
+characters.insert_many(reader)
 ```
 
 For each column, define:

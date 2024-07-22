@@ -159,14 +159,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(2, 3, 3, "final", 0)
+__version_info__ = version_info(3, 0, 0, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "19 Jul 2024 15:30 UTC"
+__version_time__ = "22 Jul 2024 10:58 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -325,7 +325,6 @@ PredicateFunction = Callable[[Any], bool]
 
 __all__ = [
     "AuthenticationWarning",
-    "DataObject",
     "FixedWidthReader",
     "Table",
     "csv_import",
@@ -430,61 +429,6 @@ def _to_dict(obj: Any) -> dict[str, Any]:
 
 def _to_json(obj, enc_cls: Type[json.JSONEncoder], **kwargs: Any) -> str:
     return json.dumps(_to_dict(obj), cls=enc_cls, **kwargs)
-
-
-class DataObject:
-    """
-    A generic semi-mutable object for storing data values in a table. Attributes
-    can be set by passing in named arguments in the constructor, or by setting them
-    as C{object.attribute = value}. New attributes can be added any time, but updates
-    are ignored.  Table joins are returned as a Table of DataObjects.
-    """
-
-    def __init__(self, **kwargs: Any):
-        warnings.warn(
-            "littletable.DataObject class is deprecated, use types.Simplenamespace or Python dict",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if kwargs:
-            self.__dict__.update(kwargs)
-
-    def __repr__(self):
-        return (
-            "{"
-            f"""{', '.join(f"{k!r}: {v!r}" for k, v in sorted(self.__dict__.items()))}"""
-            "}"
-        )
-
-    def __setattr__(self, attr, val):
-        # make all attributes write-once
-        if attr not in self.__dict__:
-            super().__setattr__(attr, val)
-        else:
-            raise AttributeError("can't set existing attribute")
-
-    def __hasattr__(self, key):
-        return key in self.__dict__
-
-    def __getitem__(self, k):
-        if hasattr(self, k):
-            return getattr(self, k)
-        else:
-            raise KeyError("object has no such attribute " + k)
-
-    __iter__ = None
-
-    def __setitem__(self, k, v):
-        if k not in self.__dict__:
-            self.__dict__[k] = v
-        else:
-            raise KeyError("attribute already exists")
-
-    def __eq__(self, other):
-        return self.__dict__ == other.__dict__
-
-    def __ne__(self, other):
-        return not (self == other)
 
 
 class _ObjIndex:
@@ -1126,28 +1070,6 @@ def _make_comparator2(
     return comparator_with_value
 
 
-def _make_comparator_regex(*reg_expr_args, **reg_expr_flags) -> Callable[[str], Callable[[Any], bool]]:
-    warnings.warn(
-        DeprecationWarning("Table.re_match(patt) comparator is deprecated,"
-                           " replace with re.compile(patt).match"),
-        stacklevel=2,
-    )
-    regex = re.compile(*reg_expr_args, **reg_expr_flags)
-    cmp_fn = regex.match
-
-    def _table_comparator_fn(attr: str) -> Callable[[Any], bool]:
-        def _inner(table_rec):
-            try:
-                return cmp_fn(str(getattr(table_rec, attr, "")))
-            except TypeError:
-                return False
-        return _inner
-
-    _table_comparator_fn.fn = cmp_fn
-    _table_comparator_fn.is_comparator = True
-    return _table_comparator_fn
-
-
 def _determine_suppressed_attrs(
         group_attrs: list[str], prev: tuple[Any, ...], curr: tuple[Any, ...],
         _compare=lambda attr_prev_curr: attr_prev_curr[1] == attr_prev_curr[2]
@@ -1196,7 +1118,6 @@ class Table(Generic[TableContent]):
     not_in = staticmethod(_make_comparator(lambda x, seq: x not in seq))
     startswith = staticmethod(_make_comparator(lambda x, s: x is not None and str(x).startswith(s)))
     endswith = staticmethod(_make_comparator(lambda x, s: x is not None and str(x).endswith(s)))
-    re_match = staticmethod(_make_comparator_regex)
     between = staticmethod(_make_comparator2(lambda lower, upper, x: x is not None and lower < x < upper))
     within = staticmethod(
         _make_comparator2(lambda lower, upper, x: x is not None and lower <= x <= upper)
@@ -3522,10 +3443,7 @@ class Table(Generic[TableContent]):
                     val = fn(rec_)
                 except Exception:  # noqa
                     val = default
-                if isinstance(rec_, DataObject):
-                    rec_.__dict__[attrname] = val
-                else:
-                    setattr(rec_, attrname, val)
+                setattr(rec_, attrname, val)
                 # update index for this attribute, if there is one
                 if idx_setitem is not None:
                     idx_setitem(val, rec_)
