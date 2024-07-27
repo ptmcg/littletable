@@ -128,6 +128,7 @@ import datetime
 import functools
 import io
 import itertools
+import ssl
 import textwrap
 import warnings
 from enum import Enum
@@ -213,9 +214,6 @@ class AuthenticationWarning(Warning):
 
 
 def _emit_warning_with_user_frame(warning: Warning) -> None:
-    import sys
-    import warnings
-
     try:
         cur = sys._getframe()
     except AttributeError:
@@ -838,11 +836,19 @@ class _MultiIterator(Iterator):
                         **auth_header,
                     }
 
-                # extract any SSL-related args
-                urlopen_args = {
+                # extract any SSL-related args, and create SSLContext if ca* args
+                # were provided
+                ctx = url_args.pop("context", None)
+                ctx_locn_args = {
                     k: url_args.pop(k, None)
-                    for k in "cafile capath context".split()
+                    for k in "cafile capath cadata".split()
                 }
+                if ctx is None:
+                    if any(ctx_locn_args.values()):
+                        ctx = ssl.SSLContext()
+                        ctx.load_verify_locations(**ctx_locn_args)
+
+                urlopen_args["context"] = ctx
 
                 # extract timeout arg
                 urlopen_args["timeout"] = url_args.pop("timeout", DEFAULT_HTTP_TIMEOUT)

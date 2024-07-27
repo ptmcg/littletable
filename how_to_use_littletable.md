@@ -310,16 +310,17 @@ Importing from remote sources using HTTP
 When importing from an HTTP or HTTPS source, you can optionally specify the following
 named arguments:
 
-| Argument | Type           | Description                                                                                         |
-|----------|----------------|-----------------------------------------------------------------------------------------------------|
-| headers  | dict           | Headers to be passed as part of the HTTP request                                                    |
-| data     | bytes          | Data to pass as the body of the request (will use the HTTP POST method in place of the default GET) |
-| username | str            | Username to pass using Basic Authentication; will generate `Authorization` header                   |
-| password | str            | Optional password for Basic Authentication, default = ""                                            |
-| cafile   | str            | Optional SSL certificate file, default = None                                                       |
-| capath   | str            | Optional directory of SSL certificate files, default = None                                         | 
-| context  | ssl.SSLContext | Optional SSLContext instance, default = None                                                        |
-| timeout  | int            | Optional timeout in seconds, default = littletable.DEFAULT_HTTP_TIMEOUT (initialized to 60)         |
+| Argument | Type           | Description                                                                                                       |
+|----------|----------------|-------------------------------------------------------------------------------------------------------------------|
+| headers  | dict           | Headers to be passed as part of the HTTP request                                                                  |
+| data     | bytes          | Data to pass as the body of the request (will use the HTTP POST method in place of the default GET)               |
+| username | str            | Username to pass using Basic Authentication; will generate `Authorization` header                                 |
+| password | str            | Password for Basic Authentication, default = ""                                                                   |
+| cafile   | str            | SSL certificate file, default = None                                                                              |
+| capath   | str            | Directory of SSL certificate files, default = None                                                                | 
+| cadata   | str or bytes   | Either an ASCII string of one or more PEM-encoded certificates or a bytes-like object of DER-encoded certificates |
+| context  | ssl.SSLContext | SSLContext instance, default = None                                                                               |
+| timeout  | int            | Timeout in seconds, default = littletable.DEFAULT_HTTP_TIMEOUT (initialized to 60)                                |
 
 _(Note: when passing username and password credentials, HTTPS URLs are strongly encouraged, to prevent
 exposure of credentials in unencrypted requests. `littletable` will emit a warning when importing with authentication
