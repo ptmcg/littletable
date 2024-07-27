@@ -39,7 +39,7 @@ normal Python list access with:
 - querying for matching objects by one or more attributes
 - data pivoting on 1 or more attributes
 - full-text search on indexed attributes
-- easy CSV import/export
+- easy CSV import/export (and TSV, JSON, and Excel)
 
 `littletable` supports storage of:
 - user-defined objects

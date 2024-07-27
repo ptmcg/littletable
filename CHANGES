@@ -5,7 +5,7 @@ Version 3.0.0
 -------------
 - Removed deprecated features:
   - `DataObject` class removed, replace with `typing.SimpleNamespace`, `dict`, `typing.NamedTuple`,
-   `collections.namedtuple`, or other user-defined class
+    `collections.namedtuple`, or other user-defined class
   - `Table.re_match(patt)` comparator removed, replace with `re.compile(patt).match`
 
 - Added `median` to statistics returned from `Table.stats()`.
@@ -37,10 +37,10 @@ Version 2.3.3
   Instead of:
 
       data = """\
-      label,a,b,c
-      A,1,2,3
-      B,4,5,6
-      """
+          label,a,b,c
+          A,1,2,3
+          B,4,5,6
+          """
       table = littletable.csv_import(data, transforms={"a": int, "b": int, "c": int})
 
   you can write:
