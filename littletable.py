@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "27 Jul 2024 10:31 UTC"
+__version_time__ = "27 Jul 2024 18:48 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -854,7 +854,10 @@ class _MultiIterator(Iterator):
                 urlopen_args["timeout"] = url_args.pop("timeout", DEFAULT_HTTP_TIMEOUT)
 
                 data_request = urllib.request.Request(url=seqobj, **url_args)
-                self._closeobj = urllib.request.urlopen(data_request, **urlopen_args)
+                # bandit audit: urlopen must validate url scheme is not "file:" or other
+                # unexpected scheme - scheme is verified above to recognize only "https"
+                # or "http"
+                self._closeobj = urllib.request.urlopen(data_request, **urlopen_args)  # nosec: B310
                 self._iterobj = _decoder(self._closeobj)
                 self.type = ImportSourceType.url
             else:
@@ -2884,9 +2887,9 @@ class Table(Generic[TableContent]):
         """
         non_reader_args = (
             "encoding csv_source transforms row_class limit headers data username password cafile"
-            " capath context".split()
+            " capath cadata context".split()
         )
-        url_arg_names = "headers data username password cafile capath context".split()
+        url_arg_names = "headers data username password cafile capath cadata context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
@@ -2917,7 +2920,7 @@ class Table(Generic[TableContent]):
             "encoding xsv_source transforms row_class limit filters headers data username password"
             " cafile capath context".split()
         )
-        url_arg_names = "headers data username password cafile capath context".split()
+        url_arg_names = "headers data username password cafile capath cadata context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
@@ -3003,7 +3006,7 @@ class Table(Generic[TableContent]):
                 for row in rows_iter:
                     yield {key: cell.value for key, cell in zip(header, row)}
 
-        url_arg_names = "headers data username password cafile capath context".split()
+        url_arg_names = "headers data username password cafile capath cadata context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
         return self._import(
@@ -3217,7 +3220,7 @@ class Table(Generic[TableContent]):
                         try:
                             yield json.loads(current, cls=json_decoder)
                             current = ""
-                        except Exception:  # noqa
+                        except json.JSONDecodeError:
                             pass
                 else:
                     # merge entire source into one JSON parseable object
@@ -3238,7 +3241,7 @@ class Table(Generic[TableContent]):
         if row_class is None:
             row_class = default_row_class
 
-        url_arg_names = "headers data username password cafile capath context".split()
+        url_arg_names = "headers data username password cafile capath cadata context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
         return self._import(
@@ -3364,16 +3367,11 @@ class Table(Generic[TableContent]):
         """
         if openpyxl is None:
             raise Exception("openpyxl module not installed")
-        if kwargs.pop('lxml', True) is False:
-            lxml = None
         else:
-            try:
-                import lxml
-            except ImportError:
-                lxml = None
+            using_optimized_xml = openpyxl.LXML or openpyxl.DEFUSEDXML
 
         # lxml enables write_only mode (which is faster)
-        if lxml is not None:
+        if using_optimized_xml:
             wb = openpyxl.Workbook(write_only=True)
             ws = wb.create_sheet()
         else:

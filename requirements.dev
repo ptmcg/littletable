@@ -8,3 +8,5 @@ pydantic
 pytest
 pyparsing
 tox
+bandit
+defusedxml

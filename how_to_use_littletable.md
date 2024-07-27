@@ -305,6 +305,12 @@ j 0 <class 'int'> None
 k None <class 'NoneType'> None
 ```
 
+`littletable` uses `openpyxl` package to read and write Excel files. When writing
+using `littletable.Table.excel_export`, `openpyxl` is optimized when an XML
+serialization package such as `defusedxml` or `lxml` is installed. `defusedxml` is
+preferred, as it guards against some known XML data attacks.
+
+
 Importing from remote sources using HTTP
 ----------------------------------------
 When importing from an HTTP or HTTPS source, you can optionally specify the following
