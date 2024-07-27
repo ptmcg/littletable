@@ -166,7 +166,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "22 Jul 2024 10:58 UTC"
+__version_time__ = "27 Jul 2024 09:07 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -3747,6 +3747,7 @@ class Table(Generic[TableContent]):
         Return a summary Table of statistics for numeric data in a Table.
         For each field in the source table, returns:
         - mean
+        - median
         - min
         - max
         - variance
@@ -3794,6 +3795,7 @@ class Table(Generic[TableContent]):
 
         stat_fn_map = (
             ("mean", partial(rounding, partial(safe_fn, getattr(statistics, "fmean", statistics.mean)))),
+            ("median", partial(rounding, partial(safe_fn, statistics.median))),
             ("min", partial(safe_fn, min)),
             ("max", partial(safe_fn, max)),
             ("variance", partial(rounding, partial(safe_fn, statistics.variance))),

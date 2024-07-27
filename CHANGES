@@ -8,6 +8,8 @@ Version 3.0.0
    `collections.namedtuple`, or other user-defined class
   - `Table.re_match(patt)` comparator removed, replace with `re.compile(patt).match`
 
+- Added `median` to statistics returned from `Table.stats()`.
+
 
 Version 2.3.3
 -------------
