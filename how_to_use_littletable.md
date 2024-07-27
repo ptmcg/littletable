@@ -310,12 +310,16 @@ Importing from remote sources using HTTP
 When importing from an HTTP or HTTPS source, you can optionally specify the following
 named arguments:
 
-| Argument | Type  | Description                                                                                         |
-|----------|-------|-----------------------------------------------------------------------------------------------------|
-| headers  | dict  | Headers to be passed as part of the HTTP request                                                    |
-| data     | bytes | Data to pass as the body of the request (will use the HTTP POST method in place of the default GET) |
-| username | str   | Username to pass using Basic Authentication; will generate `Authorization` header                   |
-| password | str   | Optional password for Basic Authentication, default = ""                                            |
+| Argument | Type           | Description                                                                                         |
+|----------|----------------|-----------------------------------------------------------------------------------------------------|
+| headers  | dict           | Headers to be passed as part of the HTTP request                                                    |
+| data     | bytes          | Data to pass as the body of the request (will use the HTTP POST method in place of the default GET) |
+| username | str            | Username to pass using Basic Authentication; will generate `Authorization` header                   |
+| password | str            | Optional password for Basic Authentication, default = ""                                            |
+| cafile   | str            | Optional SSL certificate file, default = None                                                       |
+| capath   | str            | Optional directory of SSL certificate files, default = None                                         | 
+| context  | ssl.SSLContext | Optional SSLContext instance, default = None                                                        |
+| timeout  | int            | Optional timeout in seconds, default = littletable.DEFAULT_HTTP_TIMEOUT (initialized to 60)         |
 
 _(Note: when passing username and password credentials, HTTPS URLs are strongly encouraged, to prevent
 exposure of credentials in unencrypted requests. `littletable` will emit a warning when importing with authentication
@@ -815,7 +819,7 @@ Prints:
 
 ```
   Name    Mean   Median   Min   Max   Variance   Std Dev   Count   Missing 
- ─────────────────────────────────────────────────────────────────
+ ─────────────────────────────────────────────────────────────────────────
    a     106.0      108   100   110         28     5.292       3         0
    b     150.3      130   101   220     3850.0     62.05       3         0
    c     103.3      102    99   109      26.33     5.132       3         0

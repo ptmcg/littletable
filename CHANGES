@@ -10,6 +10,9 @@ Version 3.0.0
 
 - Added `median` to statistics returned from `Table.stats()`.
 
+- Added support for `timeout` argument when importing from a URL. The default value is defined
+  in the module constant `littletable.DEFAULT_HTTP_TIMEOUT` = 60, but this value can be modified.
+
 - Added exception types to `__all__`.
 
 

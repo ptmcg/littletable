@@ -323,6 +323,8 @@ except ImportError:
 
 PredicateFunction = Callable[[Any], bool]
 
+DEFAULT_HTTP_TIMEOUT = 60
+
 __all__ = [
     "SearchIndexInconsistentError",
     "NoSuchIndexError",
@@ -337,6 +339,7 @@ __all__ = [
     "json_import",
     "excel_import",
     "attrgetter",
+    "DEFAULT_HTTP_TIMEOUT",
 ]
 
 # define default stopwords for full_text_search
@@ -835,11 +838,14 @@ class _MultiIterator(Iterator):
                         **auth_header,
                     }
 
-                    # extract any SSL-related args
-                    urlopen_args = {
-                        k: url_args.pop(k, None)
-                        for k in "cafile capath context".split()
-                    }
+                # extract any SSL-related args
+                urlopen_args = {
+                    k: url_args.pop(k, None)
+                    for k in "cafile capath context".split()
+                }
+
+                # extract timeout arg
+                urlopen_args["timeout"] = url_args.pop("timeout", DEFAULT_HTTP_TIMEOUT)
 
                 data_request = urllib.request.Request(url=seqobj, **url_args)
                 self._closeobj = urllib.request.urlopen(data_request, **urlopen_args)
