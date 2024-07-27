@@ -324,13 +324,19 @@ except ImportError:
 PredicateFunction = Callable[[Any], bool]
 
 __all__ = [
+    "SearchIndexInconsistentError",
+    "NoSuchIndexError",
+    "UnableToExtractAttributeNamesError",
+    "ReadonlyIndexAccessError",
     "AuthenticationWarning",
+    "PredicateFunction",
     "FixedWidthReader",
     "Table",
     "csv_import",
     "tsv_import",
     "json_import",
     "excel_import",
+    "attrgetter",
 ]
 
 # define default stopwords for full_text_search

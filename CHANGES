@@ -10,6 +10,8 @@ Version 3.0.0
 
 - Added `median` to statistics returned from `Table.stats()`.
 
+- Added exception types to `__all__`.
+
 
 Version 2.3.3
 -------------
@@ -66,7 +68,7 @@ Version 2.3.2
 
 Version 2.3.1
 -------------
-- Added `Table.batched`, similar to `itertools.batched` added in Python 3.13. Returns
+- Added `Table.batched`, similar to `itertools.batched` added in Python 3.12. Returns
   a generator that yields tables sliced into n-sized batches:
 
       for mini_table in tbl.batched(10):
