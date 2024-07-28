@@ -43,7 +43,7 @@ the stored values, and those referenced in any query parameters.
 Optional dependencies
 ---------------------
 The base `littletable` code has no dependencies outside of the Python stdlib. However, some operations
-require additional imports:
+require additional package installs:
 
 | operation                   | additional install required                                        |
 |-----------------------------|--------------------------------------------------------------------|

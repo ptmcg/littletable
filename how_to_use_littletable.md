@@ -23,6 +23,7 @@ How to Use littletable
   * [Importing data from fixed-width text files](#importing-data-from-fixed-width-text-files)
   * [Joining tables](#joining-tables)
   * [Pivoting a table](#pivoting-a-table)
+  * [Optional dependencies](#optional-dependencies)
   * [littletable and pandas](#littletable-and-pandas)
   * [littletable and SQLite](#littletable-and-sqlite)
   * [Some simple littletable recipes](#some-simple-littletable-recipes)
@@ -1039,7 +1040,7 @@ be reported at the far right column and at the bottom of each column.
 Optional dependencies
 ---------------------
 The base `littletable` code has no dependencies outside of the Python stdlib. However, some operations
-require additional imports:
+require additional package installs:
 
 | operation                   | additional install required                                        |
 |-----------------------------|--------------------------------------------------------------------|
