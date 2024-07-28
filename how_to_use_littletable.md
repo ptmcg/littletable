@@ -1036,6 +1036,18 @@ secondary attribute keys as headers across the columns.  Subtotals will
 be reported at the far right column and at the bottom of each column.
 
 
+Optional dependencies
+---------------------
+The base `littletable` code has no dependencies outside of the Python stdlib. However, some operations
+require additional imports:
+
+| operation                   | additional install required                                        |
+|-----------------------------|--------------------------------------------------------------------|
+| `Table.present`             | `rich`                                                             |
+| `Table.excel_import/export` | `openpyxl` (plus `defusedxml` or `lxml`, `defusedxml` recommended) |
+| `Table.as_dataframe`        | `pandas`                                                           |
+
+
 littletable and pandas
 ----------------------
 The `pandas` package is a mature and powerful data analysis module for Python,

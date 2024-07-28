@@ -2,6 +2,7 @@
 [![Build Status](https://travis-ci.org/ptmcg/littletable.svg?branch=master)](https://travis-ci.org/ptmcg/littletable) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/ptmcg/littletable/master)
 
 - [Introduction](#introduction)
+- [Optional dependencies](#optional-dependencies)
 - [Importing data from CSV files](#importing-data-from-csv-files)
 - [Tabular output](#tabular-output)
 - [For More Info](#for-more-info)
@@ -37,6 +38,18 @@ In addition to basic ORM-style insert/remove/query/delete access to the contents
 
 `littletable` `Table`s do not require an upfront schema definition, but simply work off of the attributes in 
 the stored values, and those referenced in any query parameters.
+
+
+Optional dependencies
+---------------------
+The base `littletable` code has no dependencies outside of the Python stdlib. However, some operations
+require additional imports:
+
+| operation                   | additional install required                                        |
+|-----------------------------|--------------------------------------------------------------------|
+| `Table.present`             | `rich`                                                             |
+| `Table.excel_import/export` | `openpyxl` (plus `defusedxml` or `lxml`, `defusedxml` recommended) |
+| `Table.as_dataframe`        | `pandas`                                                           |
 
 
 Importing data from CSV files
