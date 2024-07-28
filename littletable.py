@@ -307,18 +307,6 @@ default_row_class = SimpleNamespace
 _numeric_type: tuple[type, ...] = (int, float)
 right_justify_types: tuple[type, ...] = (int, float, datetime.timedelta)
 
-try:
-    import numpy
-except ImportError:
-    numpy = None
-else:
-    _numeric_type += (numpy.number,)
-
-try:
-    import openpyxl
-except ImportError:
-    openpyxl = None
-
 PredicateFunction = Callable[[Any], bool]
 
 DEFAULT_HTTP_TIMEOUT = 60
@@ -2988,6 +2976,11 @@ class Table(Generic[TableContent]):
         limit: Optional[int] = None,
         **kwargs: Any,
     ) -> Table:
+        try:
+            import openpyxl
+        except ImportError:
+            openpyxl = None
+
         if openpyxl is None:
             raise Exception("openpyxl module not installed")
 
@@ -3365,6 +3358,11 @@ class Table(Generic[TableContent]):
         @param kwargs: additional keyword args
         @type kwargs: named arguments (optional)
         """
+        try:
+            import openpyxl
+        except ImportError:
+            openpyxl = None
+
         if openpyxl is None:
             raise Exception("openpyxl module not installed")
         else:
@@ -3777,6 +3775,15 @@ class Table(Generic[TableContent]):
                  statistic and the value of that statistic for each field (conceptually
                  a transpose of the by_field=True results)
         """
+        global _numeric_type
+        try:
+            import numpy
+        except ImportError:
+            numpy = None
+        else:
+            if numpy.number not in _numeric_type:
+                _numeric_type = _numeric_type + (numpy.number,)
+
         ret: Table = Table()
 
         # if table is empty, return empty stats
