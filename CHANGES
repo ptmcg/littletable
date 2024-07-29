@@ -3,6 +3,7 @@ Change History
 
 Version 3.0.1 (in development)
 ------------------------------
+- Fixed bug when using `None` as a key into a unique index.
 
 
 Version 3.0.0

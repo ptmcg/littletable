@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "28 Jul 2024 13:22 UTC"
+__version_time__ = "29 Jul 2024 17:21 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -593,18 +593,12 @@ Mapping.register(_ObjIndexWrapper)
 
 class _UniqueObjIndexWrapper(_ObjIndexWrapper):
     def __getitem__(self, k):
-        if k is not None:
-            if isinstance(k, slice):
-                return super().__getitem__(k)
-            try:
-                return self._index[k][0]
-            except IndexError:
-                raise KeyError(f"no such value {k!r} in index {self._index.attr!r}")
-        else:
-            ret = self._table_template.copy_template()
-            if k in self._index:
-                ret.insert_many(self._index[k])
-            return ret
+        if isinstance(k, slice):
+            return super().__getitem__(k)
+        try:
+            return self._index[k][0]
+        except IndexError:
+            raise KeyError(f"no such value {k!r} in index {self._index.attr!r}")
 
 
 class _ReadonlyObjIndexWrapper(_ObjIndexWrapper):

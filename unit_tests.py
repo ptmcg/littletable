@@ -676,12 +676,39 @@ class TableCreateTests:
         single_item = table.by.a.get(1)
         self.assertIsInstance(single_item, rec_type)
         non_existent_single_item = table.by.a.get(100)
-        self.assertEqual(None, non_existent_single_item)
+        self.assertIs(None, non_existent_single_item)
 
         multi_item = table.by.b.get(2)
         self.assertIsInstance(multi_item, lt.Table)
         non_existent_multi_item = table.by.b.get(200)
-        self.assertEqual(None, non_existent_multi_item)
+        self.assertIs(None, non_existent_multi_item)
+
+        none_item = table.by.a.get(None)
+        self.assertIs(None, none_item)
+
+    def test_index_getitem(self):
+        table = lt.Table()
+        table.insert(self.make_data_object(**{"a": 1, "b": 2, "c": 3}))
+        table.insert(self.make_data_object(**{"a": 4, "b": 5, "c": 6}))
+        table.create_index("a", unique=True, accept_none=True)
+        table.create_index("b")
+
+        rec_type = type(table[0])
+
+        single_item = table.by.a[1]
+        self.assertIsInstance(single_item, rec_type)
+        with self.assertRaises(KeyError):
+            non_existent_single_item = table.by.a[100]
+
+        multi_item = table.by.b[2]
+        self.assertIsInstance(multi_item, lt.Table)
+        non_existent_multi_item = table.by.b[200]
+        self.assertIsInstance(non_existent_multi_item, lt.Table)
+        self.assertEqual(0, len(non_existent_multi_item))
+
+        table.insert({"a": None, "b": 9, "c": 10})
+        none_item = table.by.a[None]
+        self.assertEqual((None, 9, 10), attrgetter("a", "b", "c")(none_item))
 
     def test_parse_datetime_transform(self):
         import datetime
