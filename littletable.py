@@ -3964,6 +3964,7 @@ class Table(Generic[TableContent]):
             fields: Optional[Iterable[str]] = None,
             file: Optional[TextIO] = None,
             groupby: Optional[str] = None,
+            width: Optional[int] = None,
             **kwargs: Any
     ) -> None:
         """
@@ -3987,12 +3988,12 @@ class Table(Generic[TableContent]):
         except ImportError:
             raise Exception("rich module not installed")
 
-        console = Console(file=file)
-        table_kwargs = {"header_style": "bold yellow"}
-        table_kwargs.update(kwargs)
-        table = self._rich_table(fields, empty="", groupby=groupby, **table_kwargs)
-        print()
-        console.print(table)
+        with Console(file=file, width=width) as console:
+            table_kwargs = {"header_style": "bold yellow"}
+            table_kwargs.update(kwargs)
+            table = self._rich_table(fields, empty="", groupby=groupby, **table_kwargs)
+            print()
+            console.print(table)
 
     def as_html(
             self,

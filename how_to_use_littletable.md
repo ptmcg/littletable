@@ -340,40 +340,47 @@ the `rich` module, `as_html()` in Jupyter Notebook, or the `tabulate` module:
 
 - Using `table.present()` (implemented using `rich`; `present()` accepts `rich` Table 
   keyword args):
-```python
-table(title_str).present(fields=["col1", "col2", "col3"])
-```
+
+  ```python
+  table(title_str).present(fields=["col1", "col2", "col3"])
+  ```
 
   or
 
-```python
-# use select() to limit the columns to be shown
-table.select("col1 col2 col3")(title_str).present(caption="caption text")
-```
+  ```python
+  # use select() to limit the columns to be shown
+  table.select("col1 col2 col3")(title_str).present(caption="caption text")
+  ```
+
+  `table.present()` also accepts a `width` argument, to override any terminal default width setting:
+
+  ```python
+  table(title_str).present(width=400)
+  ```
 
 - Using `Jupyter Notebook`:
 
-```python
-from IPython.display import HTML, display
-display(HTML(table.as_html(table_properties={"border": 1, "cellpadding": 5})))
-```
+  ```python
+  from IPython.display import HTML, display
+  display(HTML(table.as_html(table_properties={"border": 1, "cellpadding": 5})))
+  ```
 
 - Using `tabulate`:
-```python
-# use map(vars, table) to get each table record as a dict, then pass to tabulate with
-# headers="keys" to auto-define headers
-print(tabulate(map(vars, table), headers="keys"))
-```
+  ```python
+  # use map(vars, table) to get each table record as a dict, then pass to tabulate with
+  # headers="keys" to auto-define headers
+  print(tabulate(map(vars, table), headers="keys"))
+  ```
 
 - Output as Markdown
 
-```python
-print(table.as_markdown())
-```
+  ```python
+  print(table.as_markdown())
+  ```
 
 You can display groups in your tables by specifying a particular field on which to group.
-Pass the groupby argument to present(), as_html() or as_markdown() with the name of the
-field, and consecutive duplicate values for that field will be suppressed.
+Pass the `groupby` argument to `present()`, `as_html()` or `as_markdown()` with the name of the
+field or fields, and consecutive duplicate values for that field will be suppressed.
 
 
 types.SimpleNamespace

@@ -5,6 +5,11 @@ Version 3.0.1 (in development)
 ------------------------------
 - Fixed bug when using `None` as a key into a unique index.
 
+- Fixed output width when calling `Table.present()`. Previously, this would limit the
+  width of the output to the current console default width (often set to 80), even if
+  sending the output to a file. The width can now be overridden by passing an integer
+  `width` argument to `Table.present()`.
+
 
 Version 3.0.0
 -------------

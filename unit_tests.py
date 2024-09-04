@@ -2149,6 +2149,34 @@ class TableOutputTests:
         with self.subTest():
             self.assertEqual(expected, out_markdown)
 
+    def test_set_present_output_width(self):
+        table = lt.Table()
+        table.insert(
+            {
+                "a": "word1 " * 50,
+                "b": "word2 " * 50,
+            }
+        )
+
+        for capture_width, expected_line_count in [
+            # set output width of 1024 - no wrapping
+            (1024, 5),
+            # reduced table width - requires wrapping, so more lines
+            (100, 11),
+        ]:
+            with contextlib.redirect_stdout(io.StringIO()) as capture:
+                if capture_width is not None:
+                    table.present(width=capture_width, pad_edge=False)
+                else:
+                    table.present()
+
+            with self.subTest():
+                output = capture.getvalue().strip()
+                for line in output.splitlines():
+                    print(">", line[:110])
+                self.assertEqual(len(output.splitlines()), expected_line_count)
+
+
 # sample import data sets
 csv_data = """\
 a,b,c
