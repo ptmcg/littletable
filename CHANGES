@@ -1,8 +1,8 @@
 Change History
 ==============
 
-Version 3.0.1 (in development)
-------------------------------
+Version 3.0.1
+-------------
 - Fixed bug when using `None` as a key into a unique index.
 
 - Fixed output width when calling `Table.present()`. Previously, this would limit the
