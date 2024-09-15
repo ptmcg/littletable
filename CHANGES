@@ -10,6 +10,9 @@ Version 3.0.1
   sending the output to a file. The width can now be overridden by passing an integer
   `width` argument to `Table.present()`.
 
+- Updated `how_to_use_littletable.md` with notes on adding a `User-Agent` header when
+  importing data from HTTP/HTTPS urls.
+
 
 Version 3.0.0
 -------------

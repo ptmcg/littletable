@@ -333,6 +333,20 @@ _(Note: when passing username and password credentials, HTTPS URLs are strongly 
 exposure of credentials in unencrypted requests. `littletable` will emit a warning when importing with authentication
 using an HTTP URL.)_
 
+Some sites will use the "User-Agent" HTTP header to filter out unrestricted automated access to their site. You can add this header to your
+import statement using code as in the following:
+
+    user_agent_string = (
+        "Mozilla/5.0"
+        " (Windows NT 10.0; Win64; x64)"
+        " AppleWebKit/537.36"
+        " (KHTML, like Gecko)"
+        " Chrome/128.0.0.0"
+        " Safari/537.36"
+        " Edg/128.0.0.0"
+    )
+    table = littletable.csv_import(url, headers={"User-Agent": user_agent_string})
+
 Tabular output
 --------------
 To produce a nice tabular output for a table, you can use the embedded support for
