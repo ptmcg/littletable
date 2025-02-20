@@ -3155,6 +3155,7 @@ class Table(Generic[TableContent]):
         streaming: bool = False,
         path: str = "",
         json_decoder: Optional[json.JSONDecoder] = None,
+        limit: Optional[int] = None,
         **kwargs: Any,
     ) -> Table:
         """
@@ -3180,6 +3181,8 @@ class Table(Generic[TableContent]):
         @type path: str
         @param json_decoder: subclass of json.JSONDecoder to pass through to json.loads (default=None)
         @type json_decoder: json.JSONDecoder
+        @param limit: maximum number of records to import
+        @type limit: int (optional)
         """
         class PathNotFoundError(KeyError):
             def __init__(self, key, nf_path):
@@ -3238,6 +3241,7 @@ class Table(Generic[TableContent]):
             reader=_JsonFileReader,
             row_class=row_class,
             url_args=url_args,
+            limit=limit,
         )
 
     def json_export(

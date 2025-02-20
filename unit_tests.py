@@ -2959,6 +2959,16 @@ class TableImportExportTests:
         with self.subTest():
             self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
 
+    def test_json_string_import_with_limit(self):
+        data = json_data
+        jsontable = lt.Table().json_import(data, streaming=True, limit=10)
+
+        test_size = 3
+        t1 = make_test_table(self.make_data_object, test_size)
+
+        with self.subTest():
+            self.assertEqual(10, len(jsontable))
+
     def test_json_string_list_import(self):
         data = json_data
         jsontable = lt.Table().json_import(data.splitlines(), streaming=True, transforms={'a': int, 'b': int, 'c': int})
