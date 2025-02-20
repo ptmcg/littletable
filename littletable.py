@@ -160,14 +160,14 @@ except ImportError:
     box = None
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
-__version_info__ = version_info(3, 0, 1, "final", 0)
+__version_info__ = version_info(3, 0, 2, "final", 0)
 __version__ = (
     "{}.{}.{}".format(*__version_info__[:3])
     + (f"{__version_info__.release_level[0]}{__version_info__.serial}", "")[
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "08 Sep 2024 05:33 UTC"
+__version_time__ = "20 Feb 2025 14:41 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 

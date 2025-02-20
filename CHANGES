@@ -1,10 +1,13 @@
 Change History
 ==============
 
-Version 3.0.1
--------------
+Version 3.0.2 (in development)
+------------------------------
 - Added `limit` parameter to `Table.json_import()` to limit the number of records imported.
 
+
+Version 3.0.1
+-------------
 - Fixed bug when using `None` as a key into a unique index.
 
 - Fixed output width when calling `Table.present()`. Previously, this would limit the
