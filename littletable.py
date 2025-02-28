@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "20 Feb 2025 14:41 UTC"
+__version_time__ = "28 Feb 2025 07:59 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -3234,6 +3234,13 @@ class Table(Generic[TableContent]):
         url_arg_names = "headers data username password cafile capath cadata context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
+        if isinstance(source, str):
+            if source.endswith(".jsonl"):
+                streaming = True
+        elif isinstance(source, Path):
+            if source.suffix == ".jsonl":
+                streaming = True
+
         return self._import(
             source,
             encoding,
@@ -3290,8 +3297,10 @@ class Table(Generic[TableContent]):
             dest = io.StringIO()
             return_dest_value = True
         if isinstance(dest, Path):
-            dest = str(Path)
+            dest = str(dest)
         if isinstance(dest, str):
+            if dest.endswith(".jsonl"):
+                streaming = True
             dest = open(dest, "w", encoding=encoding)
             close_on_exit = True
         try:

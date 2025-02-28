@@ -5,6 +5,9 @@ Version 3.0.2 (in development)
 ------------------------------
 - Added `limit` parameter to `Table.json_import()` to limit the number of records imported.
 
+- `Table.json_import()` and `Table.json_export()` default to `streaming=True` when called with
+  a file name or `Path` with ".jsonl" extension.
+
 
 Version 3.0.1
 -------------

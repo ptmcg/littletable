@@ -2934,6 +2934,29 @@ class TableImportExportTests:
                 with self.subTest(ob=ob, json_dict=json_dict):
                     self.assertEqual(t1_dataobj, SimpleNamespace(**json_dict))
 
+    def test_jsonl_export(self):
+        import tempfile
+        from pathlib import Path
+
+        for as_path in [True, False]:
+            dest = tempfile.NamedTemporaryFile("w+t", suffix=".jsonl", delete=False)
+            dest_name = dest.name
+            dest.close()
+
+            t1 = lt.Table().json_import("test/star_trek_tos_eps.jsonl")
+            if as_path:
+                t1.json_export(Path(dest_name))
+            else:
+                t1.json_export(dest_name)
+
+            original = Path("test/star_trek_tos_eps.jsonl").read_text()
+            exported = Path(dest_name).read_text()
+
+            with self.subTest():
+                self.assertEqual(original, exported)
+
+            Path(dest_name).unlink()
+
     def test_json_import(self):
         data = json_data
         injson = io.StringIO(data)
@@ -2958,6 +2981,19 @@ class TableImportExportTests:
             self.assertTrue(all(make_dataobject_from_ob(rec1) == rec2 for rec1, rec2 in zip(t1, jsontable)))
         with self.subTest():
             self.assertEqual(len([d for d in data.splitlines() if d.strip()]), len(jsontable))
+
+    def test_jsonl_import(self):
+        # check that files ending with .jsonl are imported using streaming
+        jsontable = lt.Table().json_import("test/star_trek_tos_eps.jsonl")
+        with self.subTest():
+            self.assertEqual(3, len(jsontable))
+        with self.subTest():
+            self.assertEqual(
+                [
+                    "The Man Trap",
+                    "Charlie X",
+                    "Where No Man Has Gone Before",
+                ], list(jsontable.all.title))
 
     def test_json_string_import_with_limit(self):
         data = json_data
