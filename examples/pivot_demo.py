@@ -9,14 +9,14 @@
 #
 # Copyright (c) 2011, 2024  Paul T. McGuire
 #
-from littletable import Table
+import littletable as lt
 from pathlib import Path
 
 
 this_dir = Path(__file__).parent
 
 # import from csv, convert elevation from meters to feet
-places = Table().csv_import(
+places: lt.Table = lt.csv_import(
     this_dir / "us_ppl.zip",
     transforms={
         "elev": lambda s: int(s) * 33 / 10,
@@ -73,3 +73,6 @@ piv.dump_counts(
         sum(r.pop * r.elev for r in recs) / sum(r.pop for r in recs)
     )
 )
+
+low_liers = places.where(elev=lt.Table.le(20))
+print(f"\nPopulation at or below 20 feet sea level: {sum(low_liers.all.pop):,}")
