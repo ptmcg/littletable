@@ -3885,7 +3885,7 @@ class Table(Generic[TableContent]):
 
     def _rich_table(
             self,
-            fields: Optional[Iterable[Union[str, dict]]] = None,
+            fields: Optional[Iterable[Union[str, tuple[str, dict]]]] = None,
             empty: Any = "",
             groupby: Optional[str] = None,
             **kwargs
@@ -3921,7 +3921,7 @@ class Table(Generic[TableContent]):
                     except TypeError:
                         pass
             else:
-                # use field settings form caller
+                # use field settings from caller
                 name, field_spec = field_spec
 
             attr_names.append(name)
@@ -3955,7 +3955,7 @@ class Table(Generic[TableContent]):
 
         # add row data from self to rich Table
         if not grouping:
-            for row in self.formatted_table(*fields):
+            for row in self.formatted_table(*attr_names):
                 rt.add_row(*[getattr(row, attr_name, empty) for attr_name in attr_names])
         else:
             prev = ("",) * len(group_attrs)
@@ -3974,7 +3974,7 @@ class Table(Generic[TableContent]):
 
     def present(
             self,
-            fields: Optional[Iterable[str]] = None,
+            fields: Optional[Iterable[str | tuple[str, dict]]] = None,
             file: Optional[TextIO] = None,
             groupby: Optional[str] = None,
             width: Optional[int] = None,

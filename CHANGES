@@ -8,6 +8,11 @@ Version 3.0.2 (in development)
 - `Table.json_import()` and `Table.json_export()` default to `streaming=True` when called with
   a file name or `Path` with ".jsonl" extension.
 
+- Fixed bug when passing a ``(name, field_spec)`` tuple to `Table.present()``.
+
+- Modified `dune_casts.py` to illustrate the use of `(name, field_spec)` fields for the
+  `Table.present()` method call.
+
 - A new example, `area_codes.py`, shows how to import raw JSON from a Github repository,
   and gives a little history on US area codes.
 
