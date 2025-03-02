@@ -73,12 +73,12 @@ Dr. Yueh,Chen Chang,2021
 Dr. Liet-Kynes,Sharon Duncan-Brewster,2021
 Jamis,Babs Olusanmokun,2021
 Harah,Gloria Obianyo,2021
-Padishah Emperor Shaddam IV,...,2021
-Shadout Mapes,...,2021
-Princess Irulan,...,2021
-Reverend Mother Ramallo,...,2021
-Feyd-Rautha Harkonnen,...,2021
-Alia Atreides,...,2021
+Padishah Emperor Shaddam IV,Christopher Walken,2021
+Shadout Mapes,Golda Rosheuvel,2021
+Princess Irulan,Florence Pugh,2021
+Reverend Mother Ramallo,Giusi Merli,2021
+Feyd-Rautha Harkonnen,Austin Butler,2021
+Alia Atreides,Anya Taylor-Joy,2021
 Otheym,...,2021
 """
 
@@ -92,3 +92,11 @@ dune_combined = join()("Dune Casts (combined)")
 dune_combined.present(
     fields=["character", "actor (1984)", "actor (2000)", "actor (2021)"]
 )
+
+dune_combined.compute_field("actor_1984", "actor (1984)")
+dune_combined.compute_field("actor_2000", "actor (2000)")
+dune_combined.compute_field("actor_2021", "actor (2021)")
+
+print()
+print(dune_combined.select("character actor_1984 actor_2000 actor_2021").json_export())
+print(len(dune_combined))
