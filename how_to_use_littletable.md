@@ -185,6 +185,8 @@ Files containing JSON-formatted records can be similarly imported using
 `.gz`, `.tar.gz`, or `.xz` archive. If the archive contains multiple files, it
 will try to read the contained file that matches the name of the archive, after 
 dropping the compression extension string - otherwise it will raise a `ValueError`.
+(For `.zip` files, an optional `zippath` argument can be used to select a specific
+CSV, TSV, or JSON file by its path into the zip archive.)
 
 Calling `csv_import` on the same `Table` multiple times with different CSV files
 accumulates all the data into a single table.

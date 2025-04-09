@@ -8,14 +8,19 @@
 # The database is licensed under Creative Commons Attribution 3.0 License.
 # More info at https://timezonedb.com/download
 #
-
 from datetime import datetime, timedelta
 from pathlib import Path
+import sys
 
 import littletable as lt
 
-# if file is not present, download from https://timezonedb.com/files/TimeZoneDB.csv.zip
+
 tzdb_zip_file = Path(__file__).parent / "TimeZoneDB.csv.zip"
+
+if not tzdb_zip_file.exists():
+    print("File not found: Download TimeZoneDB.csv.zip from https://timezonedb.com/files/TimeZoneDB.csv.zip")
+    sys.exit()
+
 
 # read in all country codes and display the first 20
 country_codes = lt.csv_import(

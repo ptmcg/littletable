@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "09 Apr 2025 08:18 UTC"
+__version_time__ = "09 Apr 2025 09:18 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -3198,7 +3198,7 @@ class Table(Generic[TableContent]):
         @param row_class: class to construct for each imported row when populating table (default=SimpleNamespace)
         @type row_class: type
         @param streaming: boolean flag to indicate whether inbound JSON will be a stream of multiple objects
-            or a single list object (default=False)
+            or a single list object (default=False, unless file name ends with '.jsonl')
         @type streaming: bool
         @param path: (only valid if streaming=False) a '.'-delimited path into the inbound JSON, in case
             the objects to import are not in a top-level JSON list
@@ -3249,6 +3249,13 @@ class Table(Generic[TableContent]):
 
                     yield from obs
 
+        if isinstance(source, str):
+            if source.endswith(".jsonl"):
+                streaming = True
+        elif isinstance(source, Path):
+            if source.suffix == ".jsonl":
+                streaming = True
+
         if path and streaming:
             raise ValueError("cannot specify path and streaming=True")
 
@@ -3258,12 +3265,9 @@ class Table(Generic[TableContent]):
         url_arg_names = "headers data username password cafile capath cadata context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
 
-        if isinstance(source, str):
-            if source.endswith(".jsonl"):
-                streaming = True
-        elif isinstance(source, Path):
-            if source.suffix == ".jsonl":
-                streaming = True
+        misc_args = {
+            k: v for k, v in kwargs.items() if k in ["zippath",]
+        }
 
         return self._import(
             source,
@@ -3273,6 +3277,7 @@ class Table(Generic[TableContent]):
             row_class=row_class,
             url_args=url_args,
             limit=limit,
+            misc_args=misc_args,
         )
 
     def json_export(
