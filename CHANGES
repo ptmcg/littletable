@@ -5,6 +5,7 @@ Version 3.0.2 (in development)
 ------------------------------
 - Added `zippath` parameter to `Table.csv_import` and `Table.tsv_import`, to designate a
   specific file inside a source zip archive containing the CSV or TSV data to import.
+  Added example `time_zone_db.py` showing how to access CSV files within a zip archive.
 
 - Added `limit` parameter to `Table.json_import()` to limit the number of records imported.
 
