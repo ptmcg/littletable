@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "28 Feb 2025 07:59 UTC"
+__version_time__ = "09 Apr 2025 08:18 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -780,6 +780,7 @@ class _MultiIterator(Iterator):
             seqobj: _ImportExportDataContainer,
             encoding: str = "utf-8",
             url_args: Optional[dict] = None,
+            misc_args: Optional[dict] = None,
     ):
         def _decoder(seq: Iterable[bytes]) -> Iterable[str]:
             for line in seq:
@@ -875,12 +876,24 @@ class _MultiIterator(Iterator):
                 elif seqobj_path.suffix == ".zip":
                     import zipfile
 
-                    # assume file name inside zip is the same as the zip file without the trailing ".zip"
-                    inner_name = Path(seqobj).stem
+                    # if zippath is not given, assume file name inside zip is the same as
+                    # the zip file without the trailing ".zip"
+                    zippath = (misc_args or {}).get("zippath", "")
+                    if zippath:
+                        inner_name = zippath
+                    else:
+                        inner_name = seqobj_path.stem
+
                     zipobj = zipfile.ZipFile(seqobj)
                     try:
                         self._closeobj = zipobj.open(inner_name)
                     except KeyError:
+                        # if zippath was given but not found, error out
+                        if zippath:
+                            raise ValueError(
+                                f"no such file {inner_name} in zip archive {seqobj_path}"
+                            )
+
                         # if there is only one file in this zip file, use that
                         zip_contents = zipobj.infolist()
                         if len(zip_contents) == 1:
@@ -2711,12 +2724,13 @@ class Table(Generic[TableContent]):
         row_class: Optional[type] = None,
         limit: Optional[int] = None,
         url_args: Optional[dict] = None,
+        misc_args: Optional[dict] = None,
     ) -> Table:
 
         if row_class is None:
             row_class = default_row_class
 
-        with contextlib.closing(_MultiIterator(source, encoding, url_args)) as _srciter:
+        with contextlib.closing(_MultiIterator(source, encoding, url_args, misc_args)) as _srciter:
             csvdata = reader(_srciter)
 
             if transforms:
@@ -2816,7 +2830,9 @@ class Table(Generic[TableContent]):
                 if self.import_source_type is ImportSourceType.url:
                     source = str(source).partition("?")[0]
                 self.import_source = str(source)
-                self(str(source))
+                if misc_args and (zippath := misc_args.get("zippath")):
+                    self.import_source += "/" + zippath
+                self(self.import_source)
 
         self.import_time = datetime.datetime.now().astimezone(datetime.timezone.utc)
         self._contents_changed()
@@ -2869,7 +2885,7 @@ class Table(Generic[TableContent]):
         """
         non_reader_args = (
             "encoding csv_source transforms row_class limit headers data username password cafile"
-            " capath cadata context".split()
+            " capath cadata context zippath".split()
         )
         url_arg_names = "headers data username password cafile capath cadata context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
@@ -2877,6 +2893,9 @@ class Table(Generic[TableContent]):
             k: v for k, v in kwargs.items() if k not in non_reader_args
         }
         reader_args["fieldnames"] = fieldnames.split() if isinstance(fieldnames, str) else fieldnames
+        misc_args = {
+            k: v for k, v in kwargs.items() if k in ["zippath",]
+        }
         return self._import(
             csv_source,
             encoding=encoding,
@@ -2886,6 +2905,7 @@ class Table(Generic[TableContent]):
             row_class=row_class,
             limit=limit,
             url_args=url_args,
+            misc_args=misc_args,
         )
 
     def _xsv_import(
@@ -2900,12 +2920,15 @@ class Table(Generic[TableContent]):
     ) -> Table:
         non_reader_args = (
             "encoding xsv_source transforms row_class limit filters headers data username password"
-            " cafile capath context".split()
+            " cafile capath context zippath".split()
         )
         url_arg_names = "headers data username password cafile capath cadata context".split()
         url_args = {k: kwargs.pop(k) for k in url_arg_names if k in kwargs}
         reader_args = {
             k: v for k, v in kwargs.items() if k not in non_reader_args
+        }
+        misc_args = {
+            k: v for k, v in kwargs.items() if k in ["zippath",]
         }
         return self._import(
             xsv_source,
@@ -2916,6 +2939,7 @@ class Table(Generic[TableContent]):
             row_class=row_class,
             limit=limit,
             url_args=url_args,
+            misc_args=misc_args,
         )
 
     def tsv_import(
