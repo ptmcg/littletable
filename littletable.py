@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "11 Apr 2025 06:26 UTC"
+__version_time__ = "18 Apr 2025 05:45 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -422,7 +422,7 @@ def _to_dict(obj: Any) -> dict[str, Any]:
     )
 
 
-def _to_json(obj, enc_cls: Type[json.JSONEncoder], **kwargs: Any) -> str:
+def _to_json(obj, enc_cls: Type[json.JSONEncoder] | None, **kwargs: Any) -> str:
     return json.dumps(_to_dict(obj), cls=enc_cls, **kwargs)
 
 
@@ -3337,14 +3337,19 @@ class Table(Generic[TableContent]):
                 fieldnames = fieldnames.split()
 
             if streaming:
+                minimal_ws_seps = (",", ":")
                 if fieldnames is None:
                     for o in self.obs:
-                        dest.write(_to_json(o, json_encoder) + "\n")
+                        dest.write(
+                            _to_json(o, json_encoder, separators=minimal_ws_seps, indent=None) + "\n"
+                        )
                 else:
                     for o in self.obs:
                         dest.write(
-                            json.dumps({f: getattr(o, f, None) for f in fieldnames},
-                                       cls=json_encoder) + "\n"
+                            json.dumps(
+                                {f: getattr(o, f, None) for f in fieldnames},
+                                cls=json_encoder, separators=minimal_ws_seps, indent=None
+                            ) + "\n"
                         )
             else:
                 dest.write("[\n")
