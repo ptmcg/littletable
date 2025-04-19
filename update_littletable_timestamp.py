@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from pyparsing import quoted_string
 
-nw = datetime.utcnow()
+nw = datetime.now(tz=UTC)
 now_string = '"%s"' % (nw.strftime("%d %b %Y %X")[:-3] + " UTC")
 print(now_string)
 
