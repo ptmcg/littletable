@@ -6,6 +6,9 @@ Version 3.0.3 (under development)
 - Add optional arguments to compress JSON streamed output (as when writing JSONL files)
   to minimize whitespace.
 
+- Make `Table` index accessors iterable, yielding all keys in the underlying
+  index, similar to dicts.
+
 
 Version 3.0.2
 -------------

@@ -710,6 +710,16 @@ class TableCreateTests:
         none_item = table.by.a[None]
         self.assertEqual((None, 9, 10), attrgetter("a", "b", "c")(none_item))
 
+    def test_index_iteration(self):
+        table = lt.Table()
+        table.insert(self.make_data_object(**{"a": 1, "b": 2, "c": 3}))
+        table.insert(self.make_data_object(**{"a": 4, "b": 5, "c": 6}))
+        table.create_index("a", unique=True, accept_none=True)
+        table.create_index("b")
+
+        self.assertEqual([1, 4], list(table.by.a))
+        self.assertEqual([2, 5], list(table.by.b))
+
     def test_parse_datetime_transform(self):
         import datetime
 

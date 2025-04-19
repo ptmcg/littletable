@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "18 Apr 2025 05:45 UTC"
+__version_time__ = "19 Apr 2025 17:37 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -576,7 +576,8 @@ class _ObjIndexWrapper:
             ret.insert_many(self._index[k])
         return ret
 
-    __iter__ = None
+    def __iter__(self):
+        return iter(self._index)
 
     def __contains__(self, k):
         return k in self._index
