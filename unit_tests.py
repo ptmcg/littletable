@@ -3355,20 +3355,21 @@ class TableSearchTests(unittest.TestCase):
 
     @announce_test
     def test_search_with_min_score(self):
-        for query, expected in [
-            ("", []),
-            ("tuna", []),
-            ("tuna +cheese", [6,]),
-            ("pineapple +bacon lettuce beef -sauerkraut tomato", [9, 13]),
-            ("pizza dough -pineapple", []),
-            ("pizza dough --pineapple", []),
-            ("bread bacon", []),
-            ("bread ++bacon", [9,]),
-            ("bread ++anchovies", []),
-            ("bread ++bacon ++anchovies", []),
-            ("bread bacon --anchovies", []),
+        for query, min_score, expected in [
+            ("", 0, []),
+            ("tuna", 1000, []),
+            ("tuna +cheese", 1100, [6,]),
+            ("pineapple +bacon lettuce beef -sauerkraut tomato", 1000, [9, 13]),
+            ("pizza dough -pineapple", 1000, []),
+            ("pizza dough --pineapple", 1000, []),
+            ("bread bacon", 1000, []),
+            ("bread ++bacon", 1100, [9,]),
+            ("bread ++anchovies", 1000, []),
+            ("bread ++bacon ++anchovies", 1000, []),
+            ("bread bacon --anchovies", 1000, []),
         ]:
-            matches = self.recipes.search.ingredients(query, as_table=False, min_score=1000)
+            matches = self.recipes.search.ingredients(query, as_table=False, min_score=min_score)
+            print(matches)
             match_ids = [recipe.id for recipe, _ in matches]
             print(repr(query), '->', [(recipe.id, score) for recipe, score in matches])
             with self.subTest(query=query):
@@ -3377,20 +3378,21 @@ class TableSearchTests(unittest.TestCase):
 
     @announce_test
     def test_search_with_as_table(self):
-        for query, expected in [
-            ("", []),
-            ("tuna", []),
-            ("tuna +cheese", [6,]),
-            ("pineapple +bacon lettuce beef -sauerkraut tomato", [9, 13]),
-            ("pizza dough -pineapple", []),
-            ("pizza dough --pineapple", []),
-            ("bread bacon", []),
-            ("bread ++bacon", [9,]),
-            ("bread ++anchovies", []),
-            ("bread ++bacon ++anchovies", []),
-            ("bread bacon --anchovies", []),
+        for query, min_score, expected in [
+            ("", 1000, []),
+            ("tuna", 1000, []),
+            ("tuna +cheese", 1100, [6,]),
+            ("pineapple +bacon lettuce beef -sauerkraut tomato", 1000, [9, 13]),
+            ("pizza dough -pineapple", 1000, []),
+            ("pizza dough --pineapple", 1000, []),
+            ("bread bacon", 1000, []),
+            ("bread ++bacon", 1100, [9,]),
+            ("bread ++anchovies", 1000, []),
+            ("bread ++bacon ++anchovies", 1000, []),
+            ("bread bacon --anchovies", 1000, []),
         ]:
-            matches = self.recipes.search.ingredients(query, min_score=1000, as_table=True)
+            matches = self.recipes.search.ingredients(query, min_score=min_score, as_table=True)
+            print(matches)
             match_ids = [recipe.id for recipe in matches]
             print(repr(query), '->', [(recipe.id, recipe.ingredients_search_score) for recipe in matches])
             with self.subTest(query=query):

@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "19 Apr 2025 17:37 UTC"
+__version_time__ = "06 May 2025 19:25 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -1859,17 +1859,25 @@ class Table(Generic[TableContent]):
                     tally[obj] += score
 
         # compose return structure, depending on whether the actual matched words in each entry should be included
+        match_tuples = (
+            (rec_idx, score)
+            for (rec_idx, score) in tally.most_common(limit)
+            if score >= min_score
+        )
+
         if include_words:
             ret = [
-                (self[rec_idx], score,
-                 sorted({}.fromkeys(self._normalize_split(getattr(self[rec_idx], attrname, ""))).keys() - stopwords))
-                for rec_idx, score in tally.most_common(limit)
-                if score > min_score]
+                (
+                    self[rec_idx],
+                    score,
+                    sorted(set(self._normalize_split(getattr(self[rec_idx], attrname, ""))) - stopwords)
+                )
+                for rec_idx, score in match_tuples
+            ]
         else:
             ret = [
                 (self[rec_idx], score)
-                for rec_idx, score in tally.most_common(limit)
-                if score > min_score
+                for rec_idx, score in match_tuples
             ]
 
         if as_table:
