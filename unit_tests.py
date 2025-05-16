@@ -1938,6 +1938,30 @@ class TableTransformTests:
             ],
             list(itertools.product(range(test_size), repeat=2))
         )
+        
+        # group by 2 attributes as a tuple, with sorting
+        ab_groups = list(t1.groupby(("a", "b"), sort=True))
+        self.assertEqual(test_size * test_size, len(ab_groups))
+        self.assertTrue(all(len(abgrp[1]) == test_size for abgrp in ab_groups))
+        self.assertEqual(
+            [
+                (ob.a, ob.b)
+                for ob in t1.unique(lt.attrgetter("a", "b"))
+            ],
+            list(itertools.product(range(test_size), repeat=2))
+        )
+
+        # group by 2 attributes as a generator, with sorting
+        ab_groups = list(t1.groupby((c for c in "ab"), sort=True))
+        self.assertEqual(test_size * test_size, len(ab_groups))
+        self.assertTrue(all(len(abgrp[1]) == test_size for abgrp in ab_groups))
+        self.assertEqual(
+            [
+                (ob.a, ob.b)
+                for ob in t1.unique(lt.attrgetter("a", "b"))
+            ],
+            list(itertools.product(range(test_size), repeat=2))
+        )
 
         # group by a callable function
         t1.sort("a,b")

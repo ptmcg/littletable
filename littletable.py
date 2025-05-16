@@ -149,7 +149,7 @@ from types import SimpleNamespace
 import urllib.request
 from typing import (
     Callable, Any, TextIO, Union, Optional, Iterable, Iterator,
-    Generic, TypeVar, Type, cast, Tuple, List,
+    Generic, TypeVar, Type, cast, Tuple,
 )
 
 try:
@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "06 May 2025 19:25 UTC"
+__version_time__ = "16 May 2025 06:54 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -3559,7 +3559,7 @@ class Table(Generic[TableContent]):
 
     def groupby(
             self,
-            keyexpr: Union[str, List[str], Callable[[TableContent], Any]],
+            keyexpr: Union[str, Iterable[str], Callable[[TableContent], Any]],
             sort: bool = False
     ) -> Iterable[Tuple[Any, Table[TableContent]]]:
         """
@@ -3571,17 +3571,18 @@ class Table(Generic[TableContent]):
         grouping
         @type sort: bool, default=False
         """
-        if isinstance(keyexpr, list):
-            keyfn = attrgetter(keyexpr[0], *keyexpr[1:])
+        if isinstance(keyexpr, str):
+            keyfn = lambda o: getattr(o, keyexpr, None)
+
+        elif isinstance(keyexpr, Iterable):
+            first_keyexpr, *remaining_keyexprs = keyexpr
+            keyfn = attrgetter(first_keyexpr, *remaining_keyexprs)
 
         elif isinstance(keyexpr, Callable):
             keyfn = keyexpr
 
-        elif isinstance(keyexpr, str):
-            keyfn = lambda o: getattr(o, keyexpr, None)
-
         else:
-            raise TypeError("keyexpr must be string, list of strings, or callable")
+            raise TypeError("keyexpr must be string, iterable of strings, or callable")
 
         if sort:
             self.sort(keyfn)
@@ -3757,7 +3758,7 @@ class Table(Generic[TableContent]):
         to represent uniqueness.
         """
         if isinstance(key, str):
-            key = cast(Callable[[TableContent], Any], lambda r, attr=key: getattr(r, attr, None))
+            key = cast(Callable[[TableContent], Any], lambda r, _attr=key: getattr(r, _attr, None))
         ret = self.copy_template()
         seen = set()
         for ob in self:
