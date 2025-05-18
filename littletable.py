@@ -96,7 +96,7 @@ Here is a simple C{littletable} data storage/retrieval example::
 
     # print a particular customer name 
     # (unique indexes will return a single item; non-unique
-    # indexes will return a list of all matching items)
+    # indexes will return a table of all matching items)
     print(customers.by.id["0030"].name)
 
     # print all items sold by the pound
@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "16 May 2025 06:54 UTC"
+__version_time__ = "18 May 2025 23:20 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -4177,24 +4177,34 @@ class Table(Generic[TableContent]):
             if group_attrs:
                 grouping = True
 
-        center_vals = (True, False, 'Y', 'N', 'X', 'YES', 'NO', 'y', 'n', 'x', 'yes', 'no', 0, 1, None)
+        center_vals = {
+            'Y', 'N', 'X', 'YES', 'NO',
+            'y', 'n', 'x', 'yes', 'no',
+            # only center potentially bool-type values
+            '0', '1', True, False,
+            None, ''
+        }
+        empty_vals = {None, ''}
         field_align_map = {}
         for f in fields:
-            align = "---"
             align_center = True
             align_right = True
-            for v in getattr(self.all, f):
-                if align_center and v in center_vals:
-                    continue
-                align_center = False
-                if not (v is None or isinstance(v, right_justify_types)):
+            v_values = iter(getattr(self.all, f))
+            for v in v_values:
+                if v not in center_vals:
+                    align_center = False
+                if not(v in empty_vals or isinstance(v, right_justify_types)):
                     align_right = False
-                if not align_right and not align_center:
+                if not align_right:
                     break
-            if align_center:
-                align = ":---:"
-            elif align_right:
+
+            align_center = align_center and all(v in center_vals for v in v_values)
+
+            align = "---"
+            if align_right:
                 align = "---:"
+            elif align_center:
+                align = ":---:"
             field_align_map[f] = align
 
         def row_to_tr(r: TableContent, suppress: Iterable[str] = ()) -> str:

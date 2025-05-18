@@ -2108,16 +2108,16 @@ class TableOutputTests:
     def test_markdown(self):
         table = lt.Table().csv_import(textwrap.dedent("""\
             a,b
-            10,100
-            20,200
+            1,100
+            2,200
             """))
         out_markdown = table.as_markdown()
         print(out_markdown)
         expected = textwrap.dedent("""\
             | a | b |
             |---|---|
-            | 10 | 100 |
-            | 20 | 200 |
+            | 1 | 100 |
+            | 2 | 200 |
             """)
         with self.subTest():
             self.assertEqual(expected, out_markdown)
@@ -2179,6 +2179,44 @@ class TableOutputTests:
             | 15 | 200 | orange |
             |  | 250 |  |
             | 20 | 250 |  |
+            """)
+        with self.subTest():
+            self.assertEqual(expected, out_markdown)
+
+    def test_markdown_column_alignment(self):
+        # test center vs right alignment
+        table = lt.Table().csv_import(textwrap.dedent("""\
+            a,b,c,default
+            0,100,1,10
+            Y,20,0,orange
+            1,150,0,20
+            """,),
+            transforms={'b': int, 'c': int}
+        )
+        out_markdown = table.as_markdown()
+        print(out_markdown)
+        expected = textwrap.dedent("""\
+            | a | b | c | default |
+            |:---:|---:|---:|---|
+            | 0 | 100 | 1 | 10 |
+            | Y | 20 | 0 | orange |
+            | 1 | 150 | 0 | 20 |
+            """)
+        with self.subTest():
+            self.assertEqual(expected, out_markdown)
+
+        table = lt.Table().csv_import(textwrap.dedent("""\
+            a,b
+            1,100
+            2,200
+            """), transforms={"*": int})
+        out_markdown = table.as_markdown()
+        print(out_markdown)
+        expected = textwrap.dedent("""\
+            | a | b |
+            |---:|---:|
+            | 1 | 100 |
+            | 2 | 200 |
             """)
         with self.subTest():
             self.assertEqual(expected, out_markdown)
