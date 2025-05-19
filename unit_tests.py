@@ -636,8 +636,8 @@ class TableCreateTests:
 
     def test_unique_index_creation(self):
         table = lt.Table()
-        table.insert({"a": 1, "b": 2, "c": 3})
-        table.insert({"a": 4, "b": 5, "c": 6})
+        table.insert({"a": 1, "b": 2, "c": 3, "d": [1, ], "e": ()})
+        table.insert({"a": 4, "b": 5, "c": 6, "d": [2, ], "e": (1,)})
         table.create_index("a", unique=True)
         table.create_index("b")
 
@@ -646,6 +646,17 @@ class TableCreateTests:
 
         self.assertNotIsInstance(table.by.b, lt._UniqueObjIndexWrapper)
         self.assertIsInstance(table.by.b, lt._ObjIndexWrapper)
+
+        # test hashable and non-hashable values
+        table.create_index("e")
+        table.drop_index("e")
+        table.create_index("e", unique=True)
+
+        with self.assertRaises(TypeError):
+            table.create_index("d")
+
+        with self.assertRaises(TypeError):
+            table.create_index("d", unique=True)
 
     def test_chained_indexing(self):
         chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

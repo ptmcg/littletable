@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "19 May 2025 06:08 UTC"
+__version_time__ = "19 May 2025 06:43 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -1553,7 +1553,7 @@ class Table(Generic[TableContent]):
                     raise KeyError("None is not an allowed key")
             return self
 
-        except KeyError:
+        except (KeyError, TypeError):
             self.drop_index(attr)
             raise
 
