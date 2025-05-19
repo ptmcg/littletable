@@ -167,7 +167,7 @@ __version__ = (
         __version_info__.release_level == "final"
     ]
 )
-__version_time__ = "18 May 2025 23:20 UTC"
+__version_time__ = "19 May 2025 06:08 UTC"
 __author__ = "Paul McGuire <ptmcg@austin.rr.com>"
 
 
@@ -4190,15 +4190,24 @@ class Table(Generic[TableContent]):
             align_center = True
             align_right = True
             v_values = iter(getattr(self.all, f))
-            for v in v_values:
-                if v not in center_vals:
-                    align_center = False
-                if not(v in empty_vals or isinstance(v, right_justify_types)):
-                    align_right = False
-                if not align_right:
-                    break
+            try:
+                for v in v_values:
+                    if v not in center_vals:
+                        align_center = False
+                    if not(v in empty_vals or isinstance(v, right_justify_types)):
+                        align_right = False
+                    if not align_right:
+                        break
 
-            align_center = align_center and all(v in center_vals for v in v_values)
+                # found a value that is not right-alignable, just check remainder
+                # of values for center-alignability
+                align_center = align_center and all(v in center_vals for v in v_values)
+
+            except TypeError:
+                # found a non-hashable value, probably a list or dict
+                # there are neither center nor right alignable
+                align_center = False
+                align_right = False
 
             align = "---"
             if align_right:

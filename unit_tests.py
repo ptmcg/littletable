@@ -2184,42 +2184,34 @@ class TableOutputTests:
             self.assertEqual(expected, out_markdown)
 
     def test_markdown_column_alignment(self):
+        def assert_column_alignments_equal(tbl: lt.Table, expected: str) -> None:
+            md = tbl.as_markdown()
+            md_alignments = md.splitlines()[1]
+            with self.subTest(expected=expected):
+                self.assertEqual(expected, md_alignments)
+
         # test center vs right alignment
         table = lt.Table().csv_import(textwrap.dedent("""\
             a,b,c,default
             0,100,1,10
             Y,20,0,orange
             1,150,0,20
+            ,,,
             """,),
             transforms={'b': int, 'c': int}
         )
-        out_markdown = table.as_markdown()
-        print(out_markdown)
-        expected = textwrap.dedent("""\
-            | a | b | c | default |
-            |:---:|---:|---:|---|
-            | 0 | 100 | 1 | 10 |
-            | Y | 20 | 0 | orange |
-            | 1 | 150 | 0 | 20 |
-            """)
-        with self.subTest():
-            self.assertEqual(expected, out_markdown)
+        assert_column_alignments_equal(table, "|:---:|---:|---:|---|")
 
         table = lt.Table().csv_import(textwrap.dedent("""\
-            a,b
-            1,100
-            2,200
+            a,b,c
+            1,1,1
+            2,20,0
             """), transforms={"*": int})
-        out_markdown = table.as_markdown()
-        print(out_markdown)
-        expected = textwrap.dedent("""\
-            | a | b |
-            |---:|---:|
-            | 1 | 100 |
-            | 2 | 200 |
-            """)
-        with self.subTest():
-            self.assertEqual(expected, out_markdown)
+        assert_column_alignments_equal(table, "|---:|---:|---:|")
+
+        table = lt.Table().json_import("test/star_trek_tos_eps.jsonl")
+        assert_column_alignments_equal(table, "|---|---|---|---|")
+
 
     def test_set_present_output_width(self):
         table = lt.Table()
