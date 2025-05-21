@@ -11,7 +11,7 @@ Version 3.0.3 (under development)
 
 - Search results filter `min_score` using ">=" instead of ">".
 
-- Better detection and handling of column center and left alignment when outputting a table
+- Better detection and handling of column center and right alignment when outputting a table
   using `as_markdown`.
 
 
