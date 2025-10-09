@@ -76,6 +76,13 @@ else:
         b: Optional[Union[int, str]]
         c: Optional[Union[int, str]]
 
+    class DataPydanticSlottedModel(pydantic.BaseModel):
+        model_config = {"slots": True, "extra": "forbid"}
+
+        a: Optional[Union[int, str]]
+        b: Optional[Union[int, str]]
+        c: Optional[Union[int, str]]
+
     class DataPydanticORMModel(pydantic.BaseModel):
         model_config = {"from_attributes": True}
 
@@ -230,6 +237,7 @@ def make_test_classes(cls):
     if pydantic is not None:
         make_test_class(cls, UsingPydanticModel)
         make_test_class(cls, UsingPydanticImmutableModel)
+        make_test_class(cls, UsingPydanticSlottedModel)
         make_test_class(cls, UsingPydanticORMModel)
     if attr is not None:
         make_test_class(cls, UsingAttrClass)
@@ -314,6 +322,12 @@ if pydantic is not None:
 
     class UsingPydanticImmutableModel(AbstractContentTypeFactory):
         data_object_type = DataPydanticImmutableModel
+        storage_supports_add_field = False
+        storage_supports_update_field = False
+        storage_supports_omitted_field = False
+
+    class UsingPydanticSlottedModel(AbstractContentTypeFactory):
+        data_object_type = DataPydanticSlottedModel
         storage_supports_add_field = False
         storage_supports_update_field = False
         storage_supports_omitted_field = False
@@ -3509,6 +3523,9 @@ if pydantic is not None:
         pass
 
     class TableSearchTests_PydanticImmutableModels(TableSearchTests, UsingPydanticImmutableModel):
+        pass
+
+    class TableSearchTests_PydanticSlottedModels(TableSearchTests, UsingPydanticSlottedModel):
         pass
 
     class TableSearchTests_PydanticORMModels(TableSearchTests, UsingPydanticORMModel):
