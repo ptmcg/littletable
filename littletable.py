@@ -2824,7 +2824,11 @@ class Table(Generic[TableContent]):
             if limit is not None:
                 csvdata = itertools.islice(csvdata, limit)
 
-            self.insert_many(row_class(**s) for s in csvdata)
+            try:
+                self.insert_many(row_class(**s) for s in csvdata)
+            except TypeError as te:
+                if str(te) == "keywords must be strings":
+                    raise Exception("insufficient/invalid column names in header") from te
 
             self.import_source_type = _srciter.type
             if self.import_source_type in (ImportSourceType.path,

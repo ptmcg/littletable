@@ -3684,6 +3684,15 @@ class StorageIndependentTests(unittest.TestCase):
         tbl.compute_field("f", lambda rec: "/".join(map(str, get_a_c(rec))))
         self.assertEqual(["x/1", "y/None", "a/-1"], list(tbl.all.f))
 
+    def test_invalid_csv_header(self):
+        with self.assertRaises(Exception):
+            tbl = lt.csv_import(textwrap.dedent("""\
+                a,b,c
+                x,xx,1,
+                y,yy,
+                """), transforms={'c': int}
+                                )
+
 
 if __name__ == '__main__':
     unittest.main()
