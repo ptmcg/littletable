@@ -3,6 +3,8 @@ Change History
 
 Version 3.0.3 (under development)
 ---------------------------------
+- Added support for Python 3.14.
+
 - Add optional arguments to compress JSON streamed output (as when writing JSONL files)
   to minimize whitespace.
 
