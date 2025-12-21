@@ -3693,6 +3693,19 @@ class StorageIndependentTests(unittest.TestCase):
                 """), transforms={'c': int}
                                 )
 
+    @announce_test
+    def test_namedtuple_construction(self):
+        tbl = lt.csv_import(textwrap.dedent("""\
+            a,b,c
+            x,xx,1
+            y,yy,
+            """), transforms={'c': int}
+        )
+        TestType = tbl.namedtuple_from_fields("TestType")
+        print(TestType._fields)
+        assert TestType.__name__ == "TestType"
+        assert TestType._fields == ("a", "b", "c")
+
 
 if __name__ == '__main__':
     unittest.main()

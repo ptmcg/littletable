@@ -5,6 +5,15 @@ Version 3.0.3 (under development)
 ---------------------------------
 - Added support for Python 3.14.
 
+- Added `Table.namedtuple_from_fields()` to make it easier to define a custom `row_class`
+  argument for one of the Table `import()` methods.
+
+        sample_table = lt.csv_import("large_data_set.csv", limit=1)
+        SampleRecord = sample_table.namedtuple_from_fields("SampleRecord")
+
+        # more efficient to load data with a defined row_class
+        full_table = lt.csv_import("large_data_set.csv", row_class=SampleRecord)
+
 - Better error message when importing a CSV file with too few names in the header line.
 
 - Add optional arguments to compress JSON streamed output (as when writing JSONL files)

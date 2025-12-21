@@ -1474,6 +1474,21 @@ class Table(Generic[TableContent]):
             _object_attrnames(self.obs[0]) if self.obs else self._indexes.keys()
         )
 
+    def namedtuple_from_fields(self, classname: str) -> type:
+        """
+        Return a namedtuple class using the Table's defined attributes.
+
+        Useful for defining a namedtuple class when importing a large data set.
+        Example::
+
+            sample_table = lt.csv_import("large_data_set.csv", limit=1)
+            SampleRecord = sample_table.namedtuple_from_fields("SampleRecord")
+
+            # more efficient to load data with a defined row_class
+            full_table = lt.csv_import("large_data_set.csv", row_class=SampleRecord)
+        """
+        return namedtuple(classname, self._attr_names())
+
     def copy_template(self, name: Optional[str] = None) -> Table[TableContent]:
         """
         Create empty copy of the current table, with copies of all
