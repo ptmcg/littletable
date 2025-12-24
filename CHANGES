@@ -27,6 +27,8 @@ Version 3.0.3 (under development)
 - Better detection and handling of column center and right alignment when outputting a table
   using `as_markdown`.
 
+- Some improved type annotations.
+
 
 Version 3.0.2
 -------------

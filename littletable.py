@@ -149,7 +149,7 @@ from types import SimpleNamespace
 import urllib.request
 from typing import (
     Callable, Any, TextIO, Union, Optional, Iterable, Iterator,
-    Generic, TypeVar, Type, cast, Tuple,
+    Generic, TypeVar, Type, cast, Tuple, overload
 )
 
 try:
@@ -1387,7 +1387,15 @@ class Table(Generic[TableContent]):
         """Create an iterator over the objects in the Table."""
         return iter(self.obs)
 
-    def __getitem__(self, i: Any) -> Union[Table, TableContent]:
+    @overload
+    def __getitem__(self, i: slice) -> Table[TableContent]:
+        ...
+
+    @overload
+    def __getitem__(self, i: int) -> TableContent:
+        ...
+
+    def __getitem__(self, i):
         """Provides direct indexed/sliced access to the Table's underlying list of objects."""
         if isinstance(i, slice):
             ret = self.copy_template()
@@ -4278,11 +4286,11 @@ Sequence.register(Table)
 
 
 # module-level convenience functions for Table.*_import() instance methods
-def _make_module_level_import_fn(name: str) -> Callable:
+def _make_module_level_import_fn(name: str) -> Callable[[Any, ...], Table[TableContent]]:
     table_method = getattr(Table, name)
 
     @functools.wraps(table_method)
-    def import_fn(*args, **kwargs):
+    def import_fn(*args, **kwargs) -> Table[TableContent]:
         ret = Table()
         return table_method(ret, *args, **kwargs)
 
