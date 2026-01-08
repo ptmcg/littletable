@@ -15,6 +15,9 @@ authors = [
 maintainers = [
   { name = "Paul McGuire", email = "ptmcg@austin.rr.com" }
 ]
+dependencies = [
+    "rich>=1.0.0",
+]
 urls = {Homepage = "https://github.com/ptmcg/littletable/", Download = "https://pypi.org/project/littletable/"}
 classifiers = [
   "Development Status :: 5 - Production/Stable",

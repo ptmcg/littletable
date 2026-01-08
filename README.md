@@ -42,12 +42,11 @@ the stored values, and those referenced in any query parameters.
 
 Optional dependencies
 ---------------------
-The base `littletable` code has no dependencies outside of the Python stdlib. However, some operations
-require additional package installs:
+The base `littletable` install depends on the `rich` package to provide rich tabular output for data presentation.
+Some `littletable` features require additional package installs:
 
 | operation                   | additional install required                                        |
 |-----------------------------|--------------------------------------------------------------------|
-| `Table.present`             | `rich`                                                             |
 | `Table.excel_import/export` | `openpyxl` (plus `defusedxml` or `lxml`, `defusedxml` recommended) |
 | `Table.as_dataframe`        | `pandas`                                                           |
 

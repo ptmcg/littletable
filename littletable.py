@@ -152,12 +152,7 @@ from typing import (
     Generic, TypeVar, Type, cast, Tuple, overload
 )
 
-try:
-    import rich
-    from rich import box
-except ImportError:
-    rich = None
-    box = None
+from rich import box
 
 version_info = namedtuple("version_info", "major minor micro release_level serial")
 __version_info__ = version_info(3, 0, 3, "final", 0)
@@ -3961,9 +3956,6 @@ class Table(Generic[TableContent]):
             groupby: Optional[str] = None,
             **kwargs
     ):
-        if rich is None:
-            raise Exception("rich module not installed")
-
         from rich.table import Table as RichTable
 
         if fields is None:
@@ -4067,10 +4059,7 @@ class Table(Generic[TableContent]):
 
         Note: the `rich` Python module must be installed to use this method.
         """
-        try:
-            from rich.console import Console
-        except ImportError:
-            raise Exception("rich module not installed")
+        from rich.console import Console
 
         with Console(file=file, width=width) as console:
             table_kwargs = {"header_style": "bold yellow"}
